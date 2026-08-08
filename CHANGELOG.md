@@ -8,6 +8,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Phase 2 ops hardening:
+  - Direction-aware coverage: bearing-binned opposite-direction detection
+    (`coverage/DirectionModel`), side-of-road estimate from heading (shared in PLI
+    `<geom side=>`), dashed "half-treated" rendering for one-way-only corridors.
+  - Priority cycle times (P1/P2/P3 overrides) and supervisor special zones
+    (bridge/ramp/hill/school, circle or polygon, cycle multipliers) shared over
+    `b-i-x-ideaplow-zone`; per-segment cycle resolution (`coverage/CycleResolver`)
+    picks the strictest applicable cycle for freshness coloring.
+  - Material selector (Salt / Sand / Brine / Pre-wet) carried per coverage segment
+    (SegmentCodec v2, backward-compatible) and in PLI; driver width presets
+    (standard / wing / tow) with live effective-width switching, configured in setup.
+  - GPS quality gating (`coverage/GpsGate`): teleport-jump rejection and stationary
+    jitter suppression; grid spatial index (`coverage/SegmentIndex`) and
+    max-segment-count pruning for performance with large coverage stores.
+  - Forgot-to-toggle sanity engine (`ops/ToggleSanity`): not-treating nudge,
+    overspeed-with-blade confirm, treating-in-facility confirm — prompts only,
+    surfaced as dialog + TTS, never auto-flips equipment.
+  - Supervisor tasking (`ops/TaskManager` + `b-i-x-ideaplow-task`): long-press a
+    fleet truck to task it, nearest-truck suggestion, driver ACK/DECLINE buttons,
+    escalation timer re-alerts the supervisor; GeoChat send is an SDK-fixup stub.
+  - Hazard photo attachment field (camera capture is an SDK-fixup stub) and
+    road-condition quick reports (bare/wet/slush/snow-covered/ice) as labeled
+    stock markers with typed IdeaPlow detail.
+  - TTS voice alerts (task received, route overdue, distress nearby, sanity
+    prompts) with settings toggle; black/amber night palette for the driver panel.
+  - Post-storm export: records-grade GeoJSON + CSV (segments, alerts, conditions,
+    reloads, shifts) via pure-Kotlin exporters; live supervisor metrics
+    (`report/MetricsCalculator`): lane-miles treated/hour, % within cycle,
+    reload counts per truck.
+  - Optional GraphHopper road-snap (`coverage/RoadSnapper`): minimal pure-Kotlin
+    read-only reader for GH 1.0 `nodes`/`edges`/`geometry` files with a tower-node
+    grid index; setting default off, fail-open to raw GPS; verified against the
+    Virginia pack.
+  - Coretests expanded to cover all new framework-free logic.
+
 - Phase 1 MVP storm tool:
   - Vehicle capability model (Plow / Salt only / Supervisor / Observer) with
     first-run setup flow and capability-gated Driver / Supervisor / Observer panels.

@@ -5,10 +5,10 @@ ordinary PLI events (so non-IdeaPlow ATAK users still see markers); IdeaPlow sem
 are carried in a custom detail namespace `<__ideaplow>` inside the CoT `<detail>`
 element.
 
-Status: **implemented** (Phase 1). Codecs live in `cot/codec/` (framework-free,
-unit-tested) and are bridged to ATAK `CotDetail` objects by `cot/CotDetailAdapter` —
-details are always built through the CotEvent/CotDetail API, never string XML
-templating.
+Status: **implemented** (Phase 1 + Phase 2). Codecs live in `cot/codec/`
+(framework-free, unit-tested) and are bridged to ATAK `CotDetail` objects by
+`cot/CotDetailAdapter` — details are always built through the CotEvent/CotDetail API,
+never string XML templating.
 
 ## Event types
 
@@ -20,6 +20,9 @@ templating.
 | Distress alert | `b-a-o-tbl` (911-alert convention) | `<alert>` |
 | Distress clear | `b-a-o-can` | `<alert state="cleared">` |
 | Hazard drop | per-hazard marker type (see below) | `<hazard>` |
+| Special zone (Phase 2) | `b-i-x-ideaplow-zone` | `<zone>` |
+| Supervisor task (Phase 2) | `b-i-x-ideaplow-task` | `<task>` |
+| Road condition (Phase 2) | `b-m-p-s-m` (stock map point) | `<condition>` |
 
 The `b-i-x-ideaplow-*` types are non-marker "bits" types: stock ATAK clients ignore
 them instead of rendering bogus markers, while every IdeaPlow client converges on the
@@ -65,7 +68,8 @@ segments from units known to be `supervisor`/`observer` — their positions neve
 |-----------|------|----------------|
 | `blade` | enum | `up`, `down`, `none` (unit has no blade) |
 | `salt` | enum | `on`, `off`, `none` |
-| `material` | enum | `salt`, `sand`, `brine`, `prewet` |
+| `material` | enum | `salt`, `sand`, `brine`, `prewet` (driver-selected material) |
+| `preset` | enum | `standard`, `wing`, `tow` — active width preset (Phase 2) |
 | `mode` | enum | `treating`, `deadhead`, `loading`, `refueling`, `on_break`, `out_of_service`, `off_duty` |
 
 `mode="treating"` is derived from the configurable treat rule (blade down only /
@@ -77,19 +81,19 @@ are sticky until the driver taps DRIVING.
 
 | Attribute | Type | Values / notes |
 |-----------|------|----------------|
-| `plowWidthM` | float | Effective treated width in meters (blade/wing/tow preset) |
+| `plowWidthM` | float | Effective treated width in meters (follows the active preset) |
 | `heading` | float | Degrees true, 0–360; omitted when unknown |
-
-Side-of-road estimation (`side` attribute) is Phase 2.
+| `side` | enum | `right`, `left` — side of the corridor being painted, estimated from heading; emitted only while TREATING (Phase 2) |
 
 ### `<ops>` — operational context
 
 | Attribute | Type | Values / notes |
 |-----------|------|----------------|
 | `stormId` | string | Active storm session ID; scopes coverage freshness |
-| `routeId` | string | Assigned route/beat (Phase 2 tasking) |
+| `routeId` | string | Assigned route/beat |
+| `reloads` | int | Reloads logged this storm from salt-dome geofence entries (Phase 2); feeds supervisor live metrics |
 
-Element omitted entirely when no storm session and no route assignment.
+Element omitted entirely when no storm session, no route assignment, and no reloads.
 
 ### `<operator>` — who is behind the wheel (shift login)
 
@@ -113,8 +117,8 @@ event, max 60 points per segment on the wire — re-simplified harder when neede
     <__ideaplow>
       <coverage stormId="2026-01-15-1736951234" count="2">
         <segment id="IDEAPLOW-T-1042-1736951234000" uid="IDEAPLOW-T-1042"
-                 callsign="Plow-12" op="op-77" material="plow+salt" widthM="3.0"
-                 start="1736951234000"
+                 callsign="Plow-12" op="op-77" material="plow+salt" mat="salt"
+                 widthM="3.0" start="1736951234000"
                  points="36.1627001,-86.7816002,0,87.2;36.1630000,-86.7810000,3000,;..."/>
       </coverage>
     </__ideaplow>
@@ -124,7 +128,10 @@ event, max 60 points per segment on the wire — re-simplified harder when neede
 
 - `points` format: `lat,lon,dtMs,heading;...` — `dtMs` is the offset from `start`
   (keeps payloads compact); `heading` is empty when unknown.
-- `material`: `plow`, `salt`, `plow+salt`, `none`.
+- `material`: `plow`, `salt`, `plow+salt`, `none` (treatment mode).
+- `mat` (Phase 2): the specific dispensed material (`salt`, `sand`, `brine`,
+  `prewet`) when the spreader was on; omitted otherwise. Older clients ignore it,
+  and v2 receivers default it to absent when decoding v1 segments.
 - Segments are recorded only while the treat rule holds; point streams are thinned
   on ingest (min 5 m spacing) and simplified on close (Douglas-Peucker, 2 m
   tolerance), so wire payloads stay small on TAK bandwidth.
@@ -177,9 +184,89 @@ plus the IdeaPlow detail for the specific kind:
 ```xml
 <__ideaplow>
   <hazard kind="tree_wires" reporterUid="IDEAPLOW-T-1042" reporterCallsign="Plow-12"
-          stormId="2026-01-15-1736951234" time="1736951234000"/>
+          stormId="2026-01-15-1736951234" time="1736951234000"
+          photo="hazard-1736951234000.jpg"/>
 </__ideaplow>
 ```
+
+`photo` (Phase 2) is optional: the filename of an attached photo following ATAK's
+attachment convention (camera-intent capture is an SDK-fixup stub pending plugin
+ActivityResult plumbing; the schema and receive path are wired end-to-end).
+
+## Special zones (Phase 2)
+
+Supervisor-defined bridge/ramp/hill/school zones with tighter cycle multipliers,
+shared like facility geofences so freshness coloring converges fleet-wide. Removal
+is a re-send of the same zone with `removed="true"`:
+
+```xml
+<event uid="ideaplow-zone-zone-1736951234000" type="b-i-x-ideaplow-zone" ...>
+  <detail>
+    <__ideaplow>
+      <zone id="zone-1736951234000" name="Miller Rd bridge" kind="bridge" mult="0.50"
+            lat="36.1627000" lon="-86.7816000" radiusM="200.0" by="Sup-1"
+            time="1736951234000"/>
+    </__ideaplow>
+  </detail>
+</event>
+```
+
+- `kind`: `bridge`, `ramp`, `hill`, `school`; `mult` is the cycle-time multiplier
+  (0.5 = half the cycle time — stricter).
+- Circle zones use `lat`/`lon`/`radiusM`; polygon zones add
+  `poly="lat,lon;lat,lon;..."` (polygon wins for containment when present).
+- Segments whose midpoint falls inside a zone are colored against the **stricter**
+  of the zone-tightened and priority cycle times.
+
+## Supervisor tasks (Phase 2)
+
+Tasking rides `b-i-x-ideaplow-task`. The task and every state transition
+(ack/decline/cancel) re-send under the **same event uid** so all clients converge;
+escalation timers are local bookkeeping and never ride the wire:
+
+```xml
+<event uid="ideaplow-task-IDEAPLOW-S-1-1736951234000" type="b-i-x-ideaplow-task" ...>
+  <detail>
+    <__ideaplow>
+      <task target="IDEAPLOW-T-1042" targetCallsign="Plow-12" by="Sup-1"
+            kind="segment" ref="" desc="Treat the flagged stretch"
+            state="pending" stateBy="" stateTime="1736951234000"
+            time="1736951234000"/>
+    </__ideaplow>
+  </detail>
+</event>
+```
+
+- `kind`: `segment` (overdue segment) or `hazard`; `ref` optionally names the
+  segment/hazard id.
+- `state`: `pending` → `acked` / `declined` / `cancelled` (terminal states never
+  regress to pending, regardless of clock skew).
+- The event point is the task location; nearest-truck suggestion happens on the
+  supervisor side before sending. A GeoChat message alongside the task is an
+  SDK-fixup stub (`ChatManagerMapComponent`).
+
+## Road conditions (Phase 2)
+
+Quick driver reports (bare/wet/slush/snow-covered/ice) at the current position.
+Uses a stock map-point type so every ATAK client renders a labeled marker (the
+contact callsign carries the condition); IdeaPlow clients also get the typed
+detail:
+
+```xml
+<event uid="ideaplow-cond-IDEAPLOW-T-1042-1736951234000" type="b-m-p-s-m"
+       how="h-g-i-g-o" ...>
+  <detail>
+    <contact callsign="Ice (Plow-12)"/>
+    <remarks>Road Ice reported by Plow-12</remarks>
+    <__ideaplow>
+      <condition state="ice" reporterUid="IDEAPLOW-T-1042" reporterCallsign="Plow-12"
+                 stormId="2026-01-15-1736951234" time="1736951234000"/>
+    </__ideaplow>
+  </detail>
+</event>
+```
+
+`state`: `bare`, `wet`, `slush`, `snow_covered`, `ice`.
 
 ## Offline queue — documented limitations
 

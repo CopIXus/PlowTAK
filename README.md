@@ -62,6 +62,44 @@ See [docs/ops-guide.md](docs/ops-guide.md) for the operator guide and
   limitations); a foreground service keeps recording alive through Android doze
   while a shift is active.
 
+## Phase 2 features (ops hardening)
+
+- **Direction-aware coverage** — segment headings are bearing-binned so a road
+  treated northbound-only renders "half-treated" (dashed) until the southbound pass;
+  side-of-road (left/right of centerline) estimated from heading and shared in PLI.
+- **Priority cycle times + special zones** — per-priority cycle overrides (P1/P2/P3
+  falling back to the default) and supervisor-defined bridge/ramp/hill/school zones
+  (circle or polygon) with cycle-time multipliers; segments inside a zone color
+  against the stricter cycle. Zones share fleet-wide over CoT.
+- **Material types** — driver material selector (Salt / Sand / Brine / Pre-wet)
+  carried per segment and in PLI, breaking segments on material change.
+- **Width presets** — driver-selectable standard blade / wing extended / tow plow
+  presets change the effective swath width live; wing/tow widths configured in setup.
+- **GPS quality gating + performance** — teleport-jump rejection and stationary
+  jitter suppression on top of the CE threshold (no swath blobs at red lights);
+  grid-binned spatial index and segment-count pruning keep recolor/merge fast with
+  thousands of segments.
+- **Forgot-to-toggle nudges** — prompts only, never auto-flips: moving during an
+  active storm without treating → nudge; blade down above max plow speed → confirm;
+  treating inside a facility geofence → confirm. Surfaced as dialog + voice.
+- **Hazard photos + road conditions** — optional photo attachment on hazard drops
+  (camera intent is an SDK-fixup stub); one-tap road-condition reports
+  (bare/wet/slush/snow-covered/ice) as labeled markers every client sees.
+- **Supervisor tasking** — long-press a truck to send a task (nearest-truck
+  suggestion available); drivers get big ACK/DECLINE buttons; unacked tasks
+  escalate back to the supervisor after a configurable timer. GeoChat message
+  alongside the task is an SDK-fixup stub.
+- **Voice alerts + night palette** — TTS announcements (task received, route
+  overdue, distress nearby, sanity prompts) with a settings toggle; high-contrast
+  black/amber night mode for the driver panel.
+- **Post-storm export + live metrics** — records-grade GeoJSON + CSV export of the
+  storm session (segments, alerts, road conditions, reloads, shifts) to the device
+  export folder; live supervisor metrics line (lane-miles treated and per hour,
+  % of coverage within cycle, reload counts).
+- **Optional road-snap** — pure-Kotlin read-only reader for GraphHopper 1.0 graph
+  files (`nodes`/`edges`/`geometry`) snaps GPS to the nearest road edge; off by
+  default, fail-open to raw GPS, verified against the Virginia pack.
+
 ## Requirements
 
 - **Host:** ATAK-CIV **5.8.x** on Android. Plugins are version-locked: an IdeaPlow APK
@@ -115,15 +153,17 @@ To install map packs on a device for use with VNS, see
 
 - **Phase 0 — Repo & scaffold** (done): buildable ATAK 5.8 CIV plugin skeleton,
   docs, map pack policy.
-- **Phase 1 — MVP storm tool** (this state): vehicle capability profiles,
+- **Phase 1 — MVP storm tool** (done): vehicle capability profiles,
   capability-gated blade/salt UI, swath recording with plow width, freshness
   coloring vs cycle time, fleet + coverage CoT sharing, storm sessions, distress
   alerts, vehicle status + facility geofences, shift login, hazard drops, offline
   store. Framework-free engine logic is unit-tested without the SDK
   (`.\gradlew.bat -p coretests test`).
-- **Phase 2 — Ops hardening:** side/direction gap detection, priority cycle times and
-  zones, GPS quality gating and track thinning, forgot-to-toggle nudges, tasking via
-  GeoChat, records-grade export, optional GraphHopper road snap.
+- **Phase 2 — Ops hardening** (this state): side/direction gap detection, priority
+  cycle times and special zones, material types and width presets, GPS quality
+  gating and spatial indexing, forgot-to-toggle nudges, supervisor tasking with
+  escalation, hazard photos and road conditions, voice alerts and night palette,
+  records-grade export and live metrics, optional GraphHopper road snap.
 - **Phase 3 — Agency GIS + hardware:** lane/priority GIS import, Bluetooth
   EquipmentProvider for plow/spreader controllers, contractor onboarding, storm replay.
 
