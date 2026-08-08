@@ -41,7 +41,9 @@ class SwathBuilder(
         val vehicleUid: String,
         val callsign: String,
         val stormId: String,
-        val operatorId: String
+        val operatorId: String,
+        /** Contractor unit — segments are tagged for payment verification. */
+        val contractor: Boolean = false
     )
 
     private var context: Context = Context("", "", "", "")
@@ -49,6 +51,8 @@ class SwathBuilder(
     private var currentMaterial: MaterialMode = MaterialMode.NONE
     private var currentWidthM: Double = 0.0
     private var currentSpreadMaterial: Material? = null
+    private var currentRateLbsPerMi: Double? = null
+    private var currentRoadTempF: Double? = null
 
     /** Update identity/context; a change mid-pass breaks the segment. */
     fun setContext(ctx: Context) {
@@ -68,12 +72,20 @@ class SwathBuilder(
         treating: Boolean,
         material: MaterialMode,
         widthM: Double,
-        spreadMaterial: Material? = null
+        spreadMaterial: Material? = null,
+        /** Live hardware telemetry (Phase 3 Bluetooth); stamped at close. */
+        rateLbsPerMi: Double? = null,
+        roadTempF: Double? = null
     ) {
         if (!treating) {
             flush()
             return
         }
+
+        // Telemetry fluctuates continuously — record the latest reading but
+        // never break a segment over it (unlike a material/width change).
+        rateLbsPerMi?.let { currentRateLbsPerMi = it }
+        roadTempF?.let { currentRoadTempF = it }
 
         val last = buffer.lastOrNull()
         if (last != null) {
@@ -128,12 +140,17 @@ class SwathBuilder(
                         points = simplified,
                         startTimeMs = simplified.first().timeMs,
                         endTimeMs = simplified.last().timeMs,
-                        spreadMaterial = currentSpreadMaterial
+                        spreadMaterial = currentSpreadMaterial,
+                        applicationRateLbsPerMi = currentRateLbsPerMi,
+                        roadTempF = currentRoadTempF,
+                        contractor = context.contractor
                     )
                 )
             }
         }
         buffer.clear()
+        currentRateLbsPerMi = null
+        currentRoadTempF = null
     }
 
     companion object {

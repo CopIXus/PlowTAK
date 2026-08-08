@@ -134,6 +134,33 @@ class IdeaPlowPreferences(context: Context) : KeyValuePersistence {
         get() = prefs.getInt(KEY_TASK_ESCALATE, 5)
         set(v) = prefs.edit().putInt(KEY_TASK_ESCALATE, v.coerceIn(1, 60)).apply()
 
+    // ------------------------------------------------------ Phase 3 settings
+
+    /** Path of the imported agency road GeoJSON/KML (copied on-device). */
+    var roadNetworkFile: String
+        get() = prefs.getString(KEY_ROAD_NETWORK_FILE, "") ?: ""
+        set(v) = prefs.edit().putString(KEY_ROAD_NETWORK_FILE, v).apply()
+
+    /** Bluetooth equipment link enabled (blade/spreader controller). */
+    var btEquipmentEnabled: Boolean
+        get() = prefs.getBoolean(KEY_BT_ENABLED, false)
+        set(v) = prefs.edit().putBoolean(KEY_BT_ENABLED, v).apply()
+
+    /** MAC address of the chosen controller; empty = none picked. */
+    var btDeviceAddress: String
+        get() = prefs.getString(KEY_BT_ADDRESS, "") ?: ""
+        set(v) = prefs.edit().putString(KEY_BT_ADDRESS, v).apply()
+
+    /** Friendly name of the picked device, for the settings UI. */
+    var btDeviceName: String
+        get() = prefs.getString(KEY_BT_NAME, "") ?: ""
+        set(v) = prefs.edit().putString(KEY_BT_NAME, v).apply()
+
+    /** Use BLE GATT instead of classic SPP for the controller link. */
+    var btUseBle: Boolean
+        get() = prefs.getBoolean(KEY_BT_BLE, false)
+        set(v) = prefs.edit().putBoolean(KEY_BT_BLE, v).apply()
+
     companion object {
         const val PREFS_NAME = "ideaplow_prefs"
         private const val KEY_REPORT_MOVING = "ideaplow.report_interval_moving_s"
@@ -155,5 +182,10 @@ class IdeaPlowPreferences(context: Context) : KeyValuePersistence {
         private const val KEY_MAX_PLOW_MPH = "ideaplow.max_plow_speed_mph"
         private const val KEY_MAX_SEGMENTS = "ideaplow.max_retained_segments"
         private const val KEY_TASK_ESCALATE = "ideaplow.task_escalate_min"
+        private const val KEY_ROAD_NETWORK_FILE = "ideaplow.road_network_file"
+        private const val KEY_BT_ENABLED = "ideaplow.bt_enabled"
+        private const val KEY_BT_ADDRESS = "ideaplow.bt_address"
+        private const val KEY_BT_NAME = "ideaplow.bt_name"
+        private const val KEY_BT_BLE = "ideaplow.bt_use_ble"
     }
 }

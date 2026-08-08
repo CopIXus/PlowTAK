@@ -2,6 +2,7 @@ package com.atakmap.android.ideaplow.prefs
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.atakmap.android.ideaplow.model.ContractorId
 import com.atakmap.android.ideaplow.model.VehicleCapability
 import com.atakmap.android.ideaplow.model.VehicleType
 import java.util.UUID
@@ -42,6 +43,17 @@ class VehicleCapabilityStore(context: Context) {
             return uid
         }
 
+    /**
+     * UID this unit publishes under. Municipal units always use the
+     * persistent [vehicleUid]; a contractor inside an active storm uses the
+     * per-storm temporary `CTR-<storm>-<n>` UID so each engagement's records
+     * stay separable for payment verification (Phase 3).
+     */
+    fun effectiveUid(activeStormId: String): String {
+        if (activeStormId.isEmpty() || !load().contractor) return vehicleUid
+        return ContractorId.uidFor(activeStormId, ContractorId.slotFor(vehicleUid))
+    }
+
     fun save(capability: VehicleCapability) {
         val cap = VehicleCapability.sanitize(capability)
         prefs.edit()
@@ -59,6 +71,7 @@ class VehicleCapabilityStore(context: Context) {
             .putString(KEY_CALLSIGN, cap.callsign)
             .putString(KEY_VEHICLE_ID, cap.vehicleId)
             .putString(KEY_OBS_LABEL, cap.observerLabel)
+            .putBoolean(KEY_CONTRACTOR, cap.contractor)
             .apply()
         listeners.toList().forEach { it.onCapabilityChanged(cap) }
     }
@@ -81,7 +94,8 @@ class VehicleCapabilityStore(context: Context) {
             towWidthM = prefs.getFloat(KEY_TOW_WIDTH, 0f).toDouble(),
             callsign = prefs.getString(KEY_CALLSIGN, "") ?: "",
             vehicleId = prefs.getString(KEY_VEHICLE_ID, "") ?: "",
-            observerLabel = prefs.getString(KEY_OBS_LABEL, "") ?: ""
+            observerLabel = prefs.getString(KEY_OBS_LABEL, "") ?: "",
+            contractor = prefs.getBoolean(KEY_CONTRACTOR, false)
         )
     }
 
@@ -101,5 +115,6 @@ class VehicleCapabilityStore(context: Context) {
         private const val KEY_CALLSIGN = "ideaplow.cap.callsign"
         private const val KEY_VEHICLE_ID = "ideaplow.cap.vehicle_id"
         private const val KEY_OBS_LABEL = "ideaplow.cap.observer_label"
+        private const val KEY_CONTRACTOR = "ideaplow.cap.contractor"
     }
 }

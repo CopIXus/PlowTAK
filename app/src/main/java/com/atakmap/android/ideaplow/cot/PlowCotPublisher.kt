@@ -5,6 +5,7 @@ import com.atakmap.android.ideaplow.cot.codec.AlertCotCodec
 import com.atakmap.android.ideaplow.cot.codec.CoverageCotCodec
 import com.atakmap.android.ideaplow.cot.codec.IdeaPlowDetail
 import com.atakmap.android.ideaplow.cot.codec.RoadConditionCotCodec
+import com.atakmap.android.ideaplow.cot.codec.RouteAssignmentCotCodec
 import com.atakmap.android.ideaplow.cot.codec.StormCotCodec
 import com.atakmap.android.ideaplow.cot.codec.TaskCotCodec
 import com.atakmap.android.ideaplow.cot.codec.ZoneCotCodec
@@ -15,6 +16,7 @@ import com.atakmap.android.ideaplow.model.RoadConditionReport
 import com.atakmap.android.ideaplow.model.SpecialZone
 import com.atakmap.android.ideaplow.model.StormSession
 import com.atakmap.android.ideaplow.model.TaskEvent
+import com.atakmap.android.ideaplow.ops.RouteAssignment
 import com.atakmap.android.ideaplow.ops.ShiftLog
 import com.atakmap.android.ideaplow.ops.StatusManager
 import com.atakmap.android.ideaplow.ops.StormSessionManager
@@ -97,8 +99,10 @@ class PlowCotPublisher(
             reloadCount = reloadCount()
         )
 
+        // Contractor units publish under the per-storm CTR uid (Phase 3).
+        val selfUid = capabilityStore.effectiveUid(stormManager.activeStormId)
         val event = newEvent(
-            uid = capabilityStore.vehicleUid,
+            uid = selfUid,
             type = PLI_EVENT_TYPE,
             lat = sample.lat,
             lon = sample.lon,
@@ -106,7 +110,7 @@ class PlowCotPublisher(
         )
         val root = CotDetail("detail")
         val contact = CotDetail("contact")
-        contact.setAttribute("callsign", cap.callsign.ifEmpty { capabilityStore.vehicleUid })
+        contact.setAttribute("callsign", cap.callsign.ifEmpty { selfUid })
         root.addChild(contact)
         root.addChild(CotDetailAdapter.toCotDetail(detail.toNode()))
         event.detail = root
@@ -125,7 +129,7 @@ class PlowCotPublisher(
             val first = batch.first().points.first()
 
             val event = newEvent(
-                uid = "${capabilityStore.vehicleUid}-cov-${batch.first().startTimeMs}",
+                uid = "${capabilityStore.effectiveUid(stormId)}-cov-${batch.first().startTimeMs}",
                 type = CoverageCotCodec.COVERAGE_EVENT_TYPE,
                 lat = first.lat,
                 lon = first.lon,
@@ -230,6 +234,25 @@ class PlowCotPublisher(
         // ChatManagerMapComponent.getInstance().sendMessage(...)
     }
 
+    // ---------------------------------------------------- route assignment
+
+    /** Broadcast a route assignment (or its empty-route tombstone). */
+    fun publishRouteAssignment(assignment: RouteAssignment, lat: Double, lon: Double) {
+        val event = newEvent(
+            uid = RouteAssignmentCotCodec.eventUidFor(assignment.vehicleUid),
+            type = RouteAssignmentCotCodec.ROUTE_EVENT_TYPE,
+            lat = lat,
+            lon = lon,
+            staleSeconds = ROUTE_STALE_S
+        )
+        val root = CotDetail("detail")
+        root.addChild(
+            CotDetailAdapter.toCotDetail(RouteAssignmentCotCodec.encode(assignment))
+        )
+        event.detail = root
+        queue.send(event, alsoInternal = false) // already in the local manager
+    }
+
     // --------------------------------------------------- road conditions
 
     /** Broadcast a road-condition quick report as a map-point marker. */
@@ -289,6 +312,7 @@ class PlowCotPublisher(
         private const val STORM_STALE_S = 24 * 3600
         private const val ZONE_STALE_S = 7 * 24 * 3600
         private const val TASK_STALE_S = 4 * 3600
+        private const val ROUTE_STALE_S = 24 * 3600
         private const val CONDITION_STALE_S = 4 * 3600
     }
 }
