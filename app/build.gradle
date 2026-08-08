@@ -57,8 +57,9 @@ buildscript {
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.6.1'
-        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.24'
+        // Match ATAK-CIV 5.8.0.1 samples (main.jar ships Kotlin 2.2 metadata).
+        classpath 'com.android.tools.build:gradle:8.13.0'
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:2.2.0'
         if (isDevKitEnabled()) {
             classpath "com.atakmap.gradle:atak-gradle-takdev:${takdevVersion}"
         } else {
@@ -218,7 +219,7 @@ android {
 }
 
 dependencies {
-    implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.9.24'
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib:2.2.0'
     // The ATAK API (main.jar) is wired as compileOnly by the atak-takdev-plugin
     // from sdk.path / takrepo. Do not add it here explicitly.
 }
