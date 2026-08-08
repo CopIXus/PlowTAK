@@ -24,6 +24,7 @@ import com.atakmap.android.plowtak.model.AlertEvent
 import com.atakmap.android.plowtak.model.AlertState
 import com.atakmap.android.plowtak.model.CapabilityRules
 import com.atakmap.android.plowtak.model.FacilityType
+import com.atakmap.android.plowtak.model.HazardEvent
 import com.atakmap.android.plowtak.model.HazardType
 import com.atakmap.android.plowtak.model.RoadCondition
 import com.atakmap.android.plowtak.model.RoadConditionReport
@@ -90,9 +91,12 @@ class PlowTakController(
     val alertManager = AlertManager()
     val zoneManager = ZoneManager(prefs)
     val taskManager = TaskManager(escalateAfterMs = prefs.taskEscalateMinutes * 60_000L)
+    val routeAssignments = RouteAssignmentManager(prefs)
     private val toggleSanity = ToggleSanity(
         ToggleSanity.Config(maxPlowSpeedMps = prefs.maxPlowSpeedMph * MPS_PER_MPH)
     )
+    private val hazardLog = LinkedHashMap<String, HazardEvent>()
+    private val conditionLog = LinkedHashMap<String, RoadConditionReport>()
 
     // ----------------------------------------------------------- coverage
     val freshnessModel = FreshnessModel(
@@ -116,14 +120,20 @@ class PlowTakController(
         }
     )
     private val cotListener = PlowCotListener(
-        selfUid = { capabilityStore.vehicleUid },
+        selfUid = { capabilityStore.effectiveUid(stormManager.activeStormId) },
         fleetManager = fleetManager,
         coverageStore = coverageStore,
         alertManager = alertManager,
         stormManager = stormManager,
         zoneManager = zoneManager,
-        taskManager = taskManager
+        taskManager = taskManager,
+        routeAssignments = routeAssignments,
+        onHazard = { hazard -> synchronized(hazardLog) { hazardLog[hazard.uid] = hazard } },
+        onCondition = { report -> synchronized(conditionLog) { conditionLog[report.uid] = report } }
     )
+
+    /** Active publish UID (contractor storms use a temporary CTR-* identity). */
+    fun selfUid(): String = capabilityStore.effectiveUid(stormManager.activeStormId)
 
     // ------------------------------------------------------------ display
     val coverageOverlay = CoverageOverlay(mapView, coverageStore, freshnessModel)
@@ -217,10 +227,10 @@ class PlowTakController(
         // Local alert transitions go out over CoT; new remote ones get voice.
         alertManager.addListener(object : AlertManager.Listener {
             override fun onAlertsChanged(alerts: List<AlertEvent>) {
-                val selfUid = capabilityStore.vehicleUid
+                val self = selfUid()
                 for (alert in alerts) {
                     if (alert.state != AlertState.ACTIVE) continue
-                    if (alert.vehicleUid == selfUid) continue
+                    if (alert.vehicleUid == self) continue
                     if (seenAlertUids.add(alert.uid + alert.timeMs)) {
                         voiceAlerts.distressNearby(alert.callsign)
                     }
@@ -236,12 +246,23 @@ class PlowTakController(
             coverageOverlay.recolorAll(System.currentTimeMillis())
         }
 
+        // Route assignments: local supervisor edits broadcast over CoT.
+        routeAssignments.addListener(object : RouteAssignmentManager.Listener {
+            override fun onAssignmentsChanged(assignments: List<RouteAssignment>) = Unit
+            override fun onLocalAssignment(assignment: RouteAssignment) {
+                val pos = lastPositionSample
+                cotPublisher.publishRouteAssignment(
+                    assignment, pos?.lat ?: 0.0, pos?.lon ?: 0.0
+                )
+            }
+        })
+
         // Task plumbing: local transitions broadcast; new tasks for this
         // vehicle get a voice ping; escalations re-alert the supervisor.
         taskManager.addListener(object : TaskManager.Listener {
             override fun onTasksChanged(tasks: List<TaskEvent>) {
-                val selfUid = capabilityStore.vehicleUid
-                for (task in taskManager.pendingFor(selfUid)) {
+                val self = selfUid()
+                for (task in taskManager.pendingFor(self)) {
                     if (seenTaskUids.add(task.uid)) {
                         voiceAlerts.taskReceived(task.assignedBy)
                     }
@@ -325,10 +346,11 @@ class PlowTakController(
         val cap = capabilityStore.load()
         if (!cap.canSendDistress) return
         val pos = lastPositionSample ?: return
+        val uid = selfUid()
         alertManager.raiseLocal(
             AlertEvent(
-                uid = AlertEvent.makeUid(capabilityStore.vehicleUid),
-                vehicleUid = capabilityStore.vehicleUid,
+                uid = AlertEvent.makeUid(uid),
+                vehicleUid = uid,
                 callsign = cap.callsign,
                 vehicleType = cap.type,
                 lat = pos.lat,
@@ -342,7 +364,7 @@ class PlowTakController(
 
     /** Cancel our own outstanding distress. */
     fun clearOwnDistress() {
-        val uid = AlertEvent.makeUid(capabilityStore.vehicleUid)
+        val uid = AlertEvent.makeUid(selfUid())
         alertManager.clear(uid, capabilityStore.load().callsign)
     }
 
@@ -350,11 +372,12 @@ class PlowTakController(
     fun reportHazard(type: HazardType, photoFile: String = "") {
         val pos = lastPositionSample ?: return
         val cap = capabilityStore.load()
-        hazardReporter.report(
+        val hazard = hazardReporter.report(
             type, pos.lat, pos.lon,
-            capabilityStore.vehicleUid, cap.callsign, stormManager.activeStormId,
+            selfUid(), cap.callsign, stormManager.activeStormId,
             photoFile
         )
+        synchronized(hazardLog) { hazardLog[hazard.uid] = hazard }
     }
 
     /** Quick road-condition report at the current position. */
@@ -362,18 +385,18 @@ class PlowTakController(
         val pos = lastPositionSample ?: return
         val cap = capabilityStore.load()
         val now = System.currentTimeMillis()
-        cotPublisher.publishRoadCondition(
-            RoadConditionReport(
-                uid = RoadConditionReport.makeUid(capabilityStore.vehicleUid, now),
-                condition = condition,
-                reporterUid = capabilityStore.vehicleUid,
-                reporterCallsign = cap.callsign,
-                lat = pos.lat,
-                lon = pos.lon,
-                timeMs = now,
-                stormId = stormManager.activeStormId
-            )
+        val report = RoadConditionReport(
+            uid = RoadConditionReport.makeUid(selfUid(), now),
+            condition = condition,
+            reporterUid = selfUid(),
+            reporterCallsign = cap.callsign,
+            lat = pos.lat,
+            lon = pos.lon,
+            timeMs = now,
+            stormId = stormManager.activeStormId
         )
+        synchronized(conditionLog) { conditionLog[report.uid] = report }
+        cotPublisher.publishRoadCondition(report)
     }
 
     /** Supervisor: start a storm session and broadcast it. */
@@ -426,7 +449,7 @@ class PlowTakController(
         if (!cap.canManageStorm) return null
         val now = System.currentTimeMillis()
         val task = TaskEvent(
-            uid = TaskEvent.makeUid(capabilityStore.vehicleUid, now),
+            uid = TaskEvent.makeUid(selfUid(), now),
             targetVehicleUid = targetUid,
             targetCallsign = targetCallsign,
             assignedBy = cap.callsign,
@@ -439,6 +462,36 @@ class PlowTakController(
         )
         taskManager.createLocal(task)
         return task
+    }
+
+    /** Supervisor: assign a unit to a GIS or drawn route; broadcasts over CoT. */
+    fun assignRoute(
+        vehicleUid: String,
+        callsign: String,
+        routeId: String,
+        source: RouteAssignment.Source
+    ) {
+        if (!capabilityStore.load().canManageStorm) return
+        routeAssignments.assign(
+            RouteAssignment(
+                vehicleUid = vehicleUid,
+                callsign = callsign,
+                routeId = routeId,
+                source = source,
+                assignedBy = capabilityStore.load().callsign,
+                timeMs = System.currentTimeMillis()
+            )
+        )
+    }
+
+    /** Supervisor: clear a unit's route assignment. */
+    fun unassignRoute(vehicleUid: String) {
+        if (!capabilityStore.load().canManageStorm) return
+        routeAssignments.unassign(
+            vehicleUid,
+            capabilityStore.load().callsign,
+            System.currentTimeMillis()
+        )
     }
 
     /** Driver: acknowledge a pending task (big green button). */
@@ -478,12 +531,12 @@ class PlowTakController(
                 stormManager.current?.id ?: ""
             },
             generatedAtMs = System.currentTimeMillis(),
-            vehicleUid = capabilityStore.vehicleUid,
+            vehicleUid = selfUid(),
             callsign = cap.callsign,
             segments = coverageStore.all(),
             alerts = alertManager.all(),
-            hazards = emptyList(), // remote hazards are ATAK markers, not stored
-            conditions = emptyList(),
+            hazards = synchronized(hazardLog) { hazardLog.values.toList() },
+            conditions = synchronized(conditionLog) { conditionLog.values.toList() },
             reloads = facilityGeofences.reloads(),
             shifts = shiftLog.shiftHistory() + listOfNotNull(shiftLog.currentShift)
         )
@@ -547,7 +600,7 @@ class PlowTakController(
 
         swathBuilder.setContext(
             SwathBuilder.Context(
-                vehicleUid = capabilityStore.vehicleUid,
+                vehicleUid = selfUid(),
                 callsign = cap.callsign,
                 stormId = stormManager.activeStormId,
                 operatorId = shift?.operatorId ?: ""

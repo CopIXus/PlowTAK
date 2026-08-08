@@ -76,7 +76,9 @@ class OutboundCotQueue(
 
     private fun dispatchExternal(event: CotEvent) {
         try {
-            CotMapComponent.getExternalDispatcher()?.dispatch(event)
+            // Match ATAK SDK samples (helloworld / cotinjector): broadcast to
+            // configured streaming outputs rather than a bare dispatch().
+            CotMapComponent.getExternalDispatcher()?.dispatchToBroadcast(event)
         } catch (e: Exception) {
             Log.w(TAG, "external dispatch failed for ${event.uid}", e)
         }

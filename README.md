@@ -53,14 +53,13 @@ One APK, four per-device roles (chosen in settings on first run):
 | **Supervisor** | Ops lead driving or checking routes | Yes (non-treating) | No | None (inspection mode) |
 | **Observer** | Responders, traffic control, EOC viewers | Optional | No | None (read-only) |
 
-## Data flow & Data Sync batching
+## Data flow & coverage sharing
 
 Coverage and ops events ride standard TAK Cursor-on-Target with a `<__plowtak>`
-detail namespace. Live PLI stays frequent; **coverage is batched and thinned** so the
-mesh stays usable in a storm. The planned sharing architecture uses **Data Sync
-5-minute chunks** (time-windowed coverage packages) for efficient fleet
-convergence — that batching path is the target design even where full Data Sync
-integration is still landing.
+detail namespace (double-underscore custom detail per TAK CoT guidance). Live PLI
+stays frequent; **coverage is batched and thinned over CoT** (~20s drain from the
+local store) so the mesh stays usable in a storm. **TAK Data Sync 5-minute mission
+chunks** are planned next — not shipped yet.
 
 ![PlowTAK Data Sync batching](docs/images/plowtak-datasync.png)
 
@@ -70,9 +69,10 @@ flowchart TB
   Gate -->|treating| Swath["SwathBuilder"]
   Swath --> Store["CoverageStore"]
   Store --> Local["Local storm persistence"]
-  Store --> Batch["Coverage batch / thin<br/>(planned: Data Sync 5-min chunks)"]
-  Batch --> Queue["OutboundCotQueue"]
+  Store --> Batch["Coverage batch / thin (CoT)"]
+  Batch --> Queue["OutboundCotQueue<br/>dispatchToBroadcast"]
   Queue --> TAK["TAK Server"]
+  Store -.->|planned| DataSync["Data Sync 5-min chunks"]
   TAK --> In["PlowCotListener"]
   In --> Merge["Merge treat-capable paint only"]
   Merge --> Store

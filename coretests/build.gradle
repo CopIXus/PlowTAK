@@ -32,6 +32,7 @@ sourceSets {
             // protocol parser + backoff it uses stay pure and tested.
             exclude 'com/atakmap/android/plowtak/equipment/BluetoothEquipmentProvider.kt'
             include 'com/atakmap/android/plowtak/cot/codec/**'
+            include 'com/atakmap/android/plowtak/cot/SelfCotFilter.kt'
             // report/ mixes pure exporters with ATAK-touching reporters —
             // include only the framework-free files.
             include 'com/atakmap/android/plowtak/report/StormExportData.kt'

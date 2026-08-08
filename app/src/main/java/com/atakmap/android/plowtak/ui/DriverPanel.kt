@@ -177,7 +177,7 @@ class DriverPanel(
         refreshWidthSelection()
 
         val myAlert = controller.alertManager
-            .get(AlertEvent.makeUid(controller.capabilityStore.vehicleUid))
+            .get(AlertEvent.makeUid(controller.selfUid()))
         distressButton.text = view.context.getString(
             if (myAlert != null && myAlert.state != AlertState.CLEARED)
                 R.string.driver_distress_clear
@@ -190,7 +190,7 @@ class DriverPanel(
 
     private fun refreshTaskBar() {
         val pending = controller.taskManager
-            .pendingFor(controller.capabilityStore.vehicleUid)
+            .pendingFor(controller.selfUid())
             .firstOrNull()
         currentTask = pending
         if (pending == null) {
@@ -387,7 +387,7 @@ class DriverPanel(
     }
 
     private fun onDistress() {
-        val myUid = AlertEvent.makeUid(controller.capabilityStore.vehicleUid)
+        val myUid = AlertEvent.makeUid(controller.selfUid())
         val existing = controller.alertManager.get(myUid)
         if (existing != null && existing.state != AlertState.CLEARED) {
             controller.clearOwnDistress()

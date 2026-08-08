@@ -1,17 +1,24 @@
 # ATAK plugin proguard configuration (release builds).
+# System-style keeps mirror ATAK-CIV 5.8 SDK samples/helloworld/proguard-gradle.txt.
 -dontskipnonpubliclibraryclasses
 -dontshrink
 -dontoptimize
 
-# Repackage plugin classes under a unique namespace to avoid collisions with
-# other plugins loaded into the ATAK process.
--repackageclasses atakplugin.PlowTAK
-
 -keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod
 
-# Keep the plugin entry points referenced from assets/plugin.xml
+# Keep every IPlugin / AbstractPluginTool entry (plugin.xml + toolbar tools).
+-keep class * implements gov.tak.api.plugin.IPlugin {
+}
+-keep class * extends com.atak.plugins.impl.AbstractPluginTool {
+}
+
+# Explicit entry points for clarity / older loaders.
 -keep class com.atakmap.android.plowtak.plugin.PlowTakLifecycle { *; }
 -keep class com.atakmap.android.plowtak.plugin.PlowTakTool { *; }
+-keep class com.atakmap.android.plowtak.PlowTakMapComponent { *; }
+
+# Manifest-declared foreground service (must keep the class name).
+-keep class com.atakmap.android.plowtak.service.PlowTakShiftService { *; }
 
 # Kotlin
 -dontwarn kotlin.**
@@ -21,3 +28,7 @@
 -dontwarn com.atakmap.**
 -dontwarn gov.tak.**
 -dontwarn transapps.**
+
+# Repackage plugin classes under a unique namespace to avoid collisions with
+# other plugins loaded into the ATAK process (SDK sample convention).
+-repackageclasses atakplugin.PlowTAK

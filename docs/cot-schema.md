@@ -23,10 +23,16 @@ never string XML templating.
 | Special zone (Phase 2) | `b-i-x-plowtak-zone` | `<zone>` |
 | Supervisor task (Phase 2) | `b-i-x-plowtak-task` | `<task>` |
 | Road condition (Phase 2) | `b-m-p-s-m` (stock map point) | `<condition>` |
+| Route assignment (Phase 3) | `b-i-x-plowtak-route` | `<routeAssign>` |
 
 The `b-i-x-plowtak-*` types are non-marker "bits" types: stock ATAK clients ignore
 them instead of rendering bogus markers, while every PlowTAK client converges on the
 same coverage/storm picture.
+
+Custom detail tags use the TAK double-underscore convention (`<__plowtak>`), matching
+the ATAK Developer Guide “Custom CoT Details” guidance. Outbound fleet traffic uses
+`CotMapComponent.getExternalDispatcher().dispatchToBroadcast(...)` so every configured
+network output receives the event (see “Sending CoT Messages through ATAK”).
 
 ## PLI example
 
@@ -191,7 +197,8 @@ plus the PlowTAK detail for the specific kind:
 
 `photo` (Phase 2) is optional: the filename of an attached photo following ATAK's
 attachment convention (camera-intent capture is an SDK-fixup stub pending plugin
-ActivityResult plumbing; the schema and receive path are wired end-to-end).
+ActivityResult plumbing). Typed `<hazard>` / `<condition>` details are decoded into
+the storm export log; stock ATAK still renders the marker from the event type.
 
 ## Special zones (Phase 2)
 

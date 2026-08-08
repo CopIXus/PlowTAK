@@ -7,7 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- CoT self-echo filter no longer uses bare `startsWith(selfUid)` (dropped peer
+  units like `PLOWTAK-T-10` when self was `PLOWTAK-T-1`). Matching is exact PLI
+  uid or `"$selfUid-"` derived events (`SelfCotFilter`).
+- Publish/listen/record identity unified on `effectiveUid` (contractor CTR-* in
+  an active storm).
+- External CoT now uses `dispatchToBroadcast` per TAK “Sending CoT Messages”
+  guidance (was bare `dispatch`).
+- Route assignments wired end-to-end; hazard/condition details logged for export.
+- ProGuard keeps aligned with ATAK-CIV 5.8 SDK sample (`IPlugin`,
+  `AbstractPluginTool`, shift service, map component).
+
 ### Changed
+- Docs: ops guide rewritten for shipped Phase 1/2 behavior; README clarifies CoT
+  batching vs planned Data Sync 5-minute chunks.
 - Relicensed under **PlowTAK Free Application License 1.0** (CopIX LLC), matching
   WinTAKTracker: free to use, source available, do not sell the application.
   Prior MIT snapshots remain under MIT (see LICENSE §8).

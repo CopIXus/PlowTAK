@@ -4,14 +4,18 @@ import android.os.Bundle
 import android.util.Log
 import com.atakmap.android.plowtak.cot.codec.AlertCotCodec
 import com.atakmap.android.plowtak.cot.codec.CoverageCotCodec
+import com.atakmap.android.plowtak.cot.codec.HazardCotCodec
 import com.atakmap.android.plowtak.cot.codec.PlowTakDetail
+import com.atakmap.android.plowtak.cot.codec.RoadConditionCotCodec
 import com.atakmap.android.plowtak.cot.codec.RouteAssignmentCotCodec
 import com.atakmap.android.plowtak.cot.codec.StormCotCodec
 import com.atakmap.android.plowtak.cot.codec.TaskCotCodec
 import com.atakmap.android.plowtak.cot.codec.ZoneCotCodec
 import com.atakmap.android.plowtak.coverage.CoverageStore
 import com.atakmap.android.plowtak.model.CapabilityRules
+import com.atakmap.android.plowtak.model.HazardEvent
 import com.atakmap.android.plowtak.model.PlowVehicle
+import com.atakmap.android.plowtak.model.RoadConditionReport
 import com.atakmap.android.plowtak.ops.AlertManager
 import com.atakmap.android.plowtak.ops.FleetManager
 import com.atakmap.android.plowtak.ops.RouteAssignmentManager
@@ -29,7 +33,9 @@ import com.atakmap.coremap.cot.event.CotEvent
  *  - distress alerts (and cancels) → [AlertManager];
  *  - storm session broadcasts → [StormSessionManager] adoption;
  *  - special-zone updates → [ZoneManager];
- *  - supervisor tasks + state transitions → [TaskManager].
+ *  - supervisor tasks + state transitions → [TaskManager];
+ *  - route assignments → [RouteAssignmentManager];
+ *  - hazard / road-condition details → optional storm logs (export).
  */
 class PlowCotListener(
     private val selfUid: () -> String,
@@ -39,7 +45,9 @@ class PlowCotListener(
     private val stormManager: StormSessionManager,
     private val zoneManager: ZoneManager? = null,
     private val taskManager: TaskManager? = null,
-    private val routeAssignments: RouteAssignmentManager? = null
+    private val routeAssignments: RouteAssignmentManager? = null,
+    private val onHazard: ((HazardEvent) -> Unit)? = null,
+    private val onCondition: ((RoadConditionReport) -> Unit)? = null
 ) : CotServiceRemote.CotEventListener, CotServiceRemote.ConnectionListener {
 
     private var remote: CotServiceRemote? = null
@@ -71,7 +79,7 @@ class PlowCotListener(
 
     override fun onCotEvent(event: CotEvent?, extra: Bundle?) {
         if (event == null || !event.isValid) return
-        if (event.uid == null || event.uid.startsWith(selfUid())) return // ignore self echo
+        if (SelfCotFilter.isSelfEcho(event.uid, selfUid())) return
 
         try {
             when {
@@ -83,7 +91,9 @@ class PlowCotListener(
                 event.type == TaskCotCodec.TASK_EVENT_TYPE -> handleTask(event)
                 event.type == RouteAssignmentCotCodec.ROUTE_EVENT_TYPE ->
                     handleRouteAssignment(event)
-                else -> handlePli(event)
+                else -> {
+                    if (!handleHazardOrCondition(event)) handlePli(event)
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "failed handling CoT ${event.uid} (${event.type})", e)
@@ -167,6 +177,27 @@ class PlowCotListener(
         val node = CotDetailAdapter.findPlowTakNode(event.detail) ?: return
         val assignment = RouteAssignmentCotCodec.decode(node) ?: return
         manager.onRemote(assignment)
+    }
+
+    /**
+     * Hazard / condition markers use stock ATAK types; PlowTAK semantics ride
+     * in `<__plowtak>`. Returns true when a typed detail was consumed.
+     */
+    private fun handleHazardOrCondition(event: CotEvent): Boolean {
+        val node = CotDetailAdapter.findPlowTakNode(event.detail) ?: return false
+        val point = event.cotPoint ?: return false
+        val self = selfUid()
+        HazardCotCodec.decode(node, event.uid, point.lat, point.lon)?.let {
+            // Hazard/condition uids are not "$self-…" so SelfCotFilter misses them;
+            // skip the reporter's own echo when CotServiceRemote sees internal dispatch.
+            if (it.reporterUid != self) onHazard?.invoke(it)
+            return true
+        }
+        RoadConditionCotCodec.decode(node, event.uid, point.lat, point.lon)?.let {
+            if (it.reporterUid != self) onCondition?.invoke(it)
+            return true
+        }
+        return false
     }
 
     private fun handleStorm(event: CotEvent) {
