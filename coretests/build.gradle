@@ -1,0 +1,45 @@
+plugins {
+    id 'org.jetbrains.kotlin.jvm' version '1.9.24'
+}
+
+repositories {
+    mavenCentral()
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+dependencies {
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.9.24'
+    testImplementation 'junit:junit:4.13.2'
+}
+
+// Compile only the framework-free packages out of the app module.
+// Anything that imports android.* / com.atakmap (SDK) stays out of this list.
+sourceSets {
+    main {
+        kotlin {
+            srcDirs = ['../app/src/main/java']
+            include 'com/atakmap/android/ideaplow/model/**'
+            include 'com/atakmap/android/ideaplow/coverage/**'
+            include 'com/atakmap/android/ideaplow/ops/**'
+            include 'com/atakmap/android/ideaplow/equipment/**'
+            include 'com/atakmap/android/ideaplow/cot/codec/**'
+        }
+    }
+    test {
+        kotlin {
+            srcDirs = ['../app/src/test/java']
+        }
+    }
+}
+
+test {
+    testLogging {
+        events 'passed', 'failed', 'skipped'
+        exceptionFormat 'full'
+    }
+}

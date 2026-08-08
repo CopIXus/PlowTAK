@@ -1,0 +1,9 @@
+// Standalone JVM test harness for IdeaPlow's framework-free logic.
+//
+// The app module cannot compile without the ATAK SDK (main.jar), but the
+// model/coverage/ops/equipment/cot.codec packages are pure Kotlin. This
+// side-project compiles just those packages plus the JUnit tests so the core
+// engine is verified before the SDK is available.
+//
+// Run from the repo root:  .\gradlew.bat -p coretests test
+rootProject.name = 'ideaplow-coretests'
