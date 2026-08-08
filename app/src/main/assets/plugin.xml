@@ -1,11 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <plugin>
     <extension
-        type="transapps.maps.plugin.lifecycle.Lifecycle"
+        type="gov.tak.api.plugin.IPlugin"
         impl="com.atakmap.android.plowtak.plugin.PlowTakLifecycle"
-        singleton="true" />
-    <extension
-        type="transapps.maps.plugin.tool.Tool"
-        impl="com.atakmap.android.plowtak.plugin.PlowTakTool"
         singleton="true" />
 </plugin>

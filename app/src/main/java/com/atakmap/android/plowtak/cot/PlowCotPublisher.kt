@@ -297,7 +297,7 @@ class PlowCotPublisher(
         event.time = now
         event.start = now
         event.stale = now.addSeconds(staleSeconds)
-        event.cotPoint = CotPoint(lat, lon, CotPoint.UNKNOWN, CotPoint.UNKNOWN, CotPoint.UNKNOWN)
+        event.setPoint(CotPoint(lat, lon, CotPoint.UNKNOWN, CotPoint.UNKNOWN, CotPoint.UNKNOWN))
         return event
     }
 

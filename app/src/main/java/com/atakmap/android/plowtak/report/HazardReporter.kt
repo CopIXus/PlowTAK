@@ -61,8 +61,9 @@ class HazardReporter(
             event.time = time
             event.start = time
             event.stale = time.addSeconds(HAZARD_STALE_S)
-            event.cotPoint =
+            event.setPoint(
                 CotPoint(lat, lon, CotPoint.UNKNOWN, CotPoint.UNKNOWN, CotPoint.UNKNOWN)
+            )
 
             val root = CotDetail("detail")
             val contact = CotDetail("contact")

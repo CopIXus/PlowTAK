@@ -220,6 +220,8 @@ android {
 
 dependencies {
     implementation 'org.jetbrains.kotlin:kotlin-stdlib:2.2.0'
-    // The ATAK API (main.jar) is wired as compileOnly by the atak-takdev-plugin
-    // from sdk.path / takrepo. Do not add it here explicitly.
+    // Wired by atak-takdev-plugin from sdk.path; explicit fallback for CI when
+    // jars are staged under <root>/atak-sdk/.
+    def sdkPath = getProperty('sdk.path', "${rootProject.projectDir}/atak-sdk")
+    compileOnly files("${sdkPath}/main.jar")
 }
