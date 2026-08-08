@@ -5,6 +5,7 @@ on:
     branches: [main]
     tags:
       - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -41,7 +42,7 @@ jobs:
             TAG="${{ github.ref_name }}"
             NAME="PlowTAK $VERSION"
             KIND="tag"
-          elif [[ "$REF" == "refs/heads/main" ]]; then
+          elif [[ "$REF" == "refs/heads/main" ]] || [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             VERSION="0.1.$RUN"
             TAG="build-$VERSION"
             NAME="PlowTAK $VERSION (main @$SHA)"
@@ -59,24 +60,26 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "kind=$KIND tag=$TAG version=$VERSION"
 
-      - name: Decode ATAK-CIV SDK jars
+      - name: Download ATAK-CIV SDK jars from private cache
         env:
-          ATAK_MAIN_JAR_BASE64: ${{ secrets.ATAK_MAIN_JAR_BASE64 }}
-          ATAK_TAKDEV_JAR_BASE64: ${{ secrets.ATAK_TAKDEV_JAR_BASE64 }}
+          GH_TOKEN: ${{ secrets.CI_SDK_REPO_TOKEN }}
+          CACHE_REPO: ${{ secrets.ATAK_SDK_CACHE_REPO }}
+          CACHE_TAG: ${{ secrets.ATAK_SDK_RELEASE_TAG }}
         run: |
-          if [ -z "$ATAK_MAIN_JAR_BASE64" ] || [ -z "$ATAK_TAKDEV_JAR_BASE64" ]; then
-            echo "::error::Missing ATAK_MAIN_JAR_BASE64 and/or ATAK_TAKDEV_JAR_BASE64."
-            echo "Encode the ATAK-CIV 5.8 SDK jars (from tak.gov) and set them as repo secrets:"
-            echo "  base64 -w0 main.jar"
-            echo "  base64 -w0 atak-gradle-takdev.jar"
-            echo "See docs/ci-build.md"
+          if [ -z "$GH_TOKEN" ] || [ -z "$CACHE_REPO" ] || [ -z "$CACHE_TAG" ]; then
+            echo "::error::Missing CI_SDK_REPO_TOKEN / ATAK_SDK_CACHE_REPO / ATAK_SDK_RELEASE_TAG."
+            echo "See docs/ci-build.md — SDK jars are too large for GitHub Actions secrets."
             exit 1
           fi
           mkdir -p atak-sdk
-          echo "$ATAK_MAIN_JAR_BASE64" | base64 -d > atak-sdk/main.jar
-          echo "$ATAK_TAKDEV_JAR_BASE64" | base64 -d > atak-sdk/atak-gradle-takdev.jar
+          gh release download "$CACHE_TAG" \
+            -R "$CACHE_REPO" \
+            -p "*-ci-jars.zip" \
+            -D "$RUNNER_TEMP/sdk"
+          unzip -o "$RUNNER_TEMP/sdk/"*-ci-jars.zip -d atak-sdk
           ls -la atak-sdk/
-          file atak-sdk/main.jar atak-sdk/atak-gradle-takdev.jar
+          test -f atak-sdk/main.jar
+          test -f atak-sdk/atak-gradle-takdev.jar
 
       - name: Decode release keystore
         env:
@@ -84,7 +87,6 @@ jobs:
         run: |
           if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
             echo "::error::Missing ANDROID_KEYSTORE_BASE64 — cannot produce a signed APK."
-            echo "Copy the same keystore secrets used by CopIXus/AndroidTAKTracker, or see docs/ci-build.md"
             exit 1
           fi
           mkdir -p ci
@@ -110,7 +112,6 @@ jobs:
           takDebugKeyAlias=${KEY_ALIAS}
           takDebugKeyPassword=${KEY_PASS}
           EOF
-          # Strip accidental leading spaces from heredoc lines
           sed -i 's/^[[:space:]]*//' local.properties
           cat local.properties | sed 's/Password=.*/Password=***/;s/password=.*/password=***/'
 
