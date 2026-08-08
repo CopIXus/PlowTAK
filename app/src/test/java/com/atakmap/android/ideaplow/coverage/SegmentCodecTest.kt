@@ -87,6 +87,40 @@ class SegmentCodecTest {
     }
 
     @Test
+    fun `contractor and telemetry round-trip in v3`() {
+        val orig = segment().copy(
+            contractor = true,
+            applicationRateLbsPerMi = 250.0,
+            roadTempF = 28.4
+        )
+        val line = SegmentCodec.encode(orig)
+        assertTrue(line.startsWith("3|"))
+        val back = SegmentCodec.decode(line)!!
+        assertTrue(back.contractor)
+        assertEquals(250.0, back.applicationRateLbsPerMi!!, 1e-9)
+        assertEquals(28.4, back.roadTempF!!, 1e-9)
+    }
+
+    @Test
+    fun `v3 defaults stay empty for a plain municipal segment`() {
+        val back = SegmentCodec.decode(SegmentCodec.encode(segment()))!!
+        assertTrue(!back.contractor)
+        assertNull(back.applicationRateLbsPerMi)
+        assertNull(back.roadTempF)
+    }
+
+    @Test
+    fun `v2 lines from an older install still decode`() {
+        val v2 = "2|PLOW-12-1700000000000|PLOW-12|Plow-12|storm|op-9|salt|3|1700000000000|" +
+                "36.1627001,-86.7816002,0,87.2;36.1630000,-86.7810000,3000,|brine"
+        val back = SegmentCodec.decode(v2)!!
+        assertEquals(Material.BRINE, back.spreadMaterial)
+        assertTrue(!back.contractor)
+        assertNull(back.applicationRateLbsPerMi)
+        assertNull(back.roadTempF)
+    }
+
+    @Test
     fun `garbage lines decode to null`() {
         assertNull(SegmentCodec.decode(""))
         assertNull(SegmentCodec.decode("not a segment"))

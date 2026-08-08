@@ -57,7 +57,12 @@ object CapabilityRules {
         }
     }
 
-    /** Units pulled from "nearest available" suggestions. */
+    /**
+     * Units pulled from "nearest available" suggestions. LOADING is also
+     * excluded (Phase 3): a truck at the salt dome can't respond promptly.
+     */
     fun isDispatchable(status: VehicleStatus): Boolean =
-        status != VehicleStatus.OUT_OF_SERVICE && status != VehicleStatus.OFF_DUTY
+        status != VehicleStatus.OUT_OF_SERVICE &&
+                status != VehicleStatus.OFF_DUTY &&
+                status != VehicleStatus.LOADING
 }

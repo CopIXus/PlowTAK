@@ -43,7 +43,9 @@ data class IdeaPlowDetail(
     /** Active effective-width preset. */
     val widthPreset: WidthPreset = WidthPreset.STANDARD,
     /** Reloads logged this storm (salt-dome geofence entries). */
-    val reloadCount: Int = 0
+    val reloadCount: Int = 0,
+    /** Hired (contractor) unit — publishes under a CTR-<storm>-<n> uid. */
+    val contractor: Boolean = false
 ) {
 
     /** Side of the corridor a treating pass is painting, from heading. */
@@ -60,13 +62,15 @@ data class IdeaPlowDetail(
     fun toNode(): DetailNode {
         val children = mutableListOf(
             DetailNode(
-                "vehicle", mapOf(
-                    "type" to vehicleType.wireName,
-                    "hasBlade" to hasBlade.toString(),
-                    "hasSalt" to hasSalt.toString(),
-                    "canTreat" to canTreat.toString(),
-                    "role" to role
-                )
+                "vehicle", buildMap {
+                    put("type", vehicleType.wireName)
+                    put("hasBlade", hasBlade.toString())
+                    put("hasSalt", hasSalt.toString())
+                    put("canTreat", canTreat.toString())
+                    put("role", role)
+                    // Present only for hired units (older receivers ignore).
+                    if (contractor) put("contractor", "true")
+                }
             ),
             DetailNode(
                 "status", mapOf(
@@ -151,7 +155,8 @@ data class IdeaPlowDetail(
             operatorId = operatorId,
             operatorName = operatorName,
             widthPreset = widthPreset,
-            reloadCount = reloadCount
+            reloadCount = reloadCount,
+            contractor = cap.contractor
         )
 
         /** Returns null if the node is not a valid `<__ideaplow>` detail. */
@@ -182,7 +187,8 @@ data class IdeaPlowDetail(
                 operatorName = operator?.attr("name") ?: "",
                 widthPreset = WidthPreset.fromWireName(status?.attr("preset"))
                     ?: WidthPreset.STANDARD,
-                reloadCount = ops?.attrLong("reloads", 0L)?.toInt() ?: 0
+                reloadCount = ops?.attrLong("reloads", 0L)?.toInt() ?: 0,
+                contractor = vehicle.attr("contractor") == "true"
             )
         }
     }

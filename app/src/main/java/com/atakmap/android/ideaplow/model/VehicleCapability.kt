@@ -24,7 +24,13 @@ data class VehicleCapability(
     /** Persistent per-truck identifier — distinct from the per-shift operator. */
     val vehicleId: String,
     /** Observer sub-label (Fire / EMS / Traffic / EOC); empty for other types. */
-    val observerLabel: String = ""
+    val observerLabel: String = "",
+    /**
+     * Hired (contractor) truck: coverage records and exports carry a
+     * `contractor` tag for payment verification, and the unit publishes
+     * under a per-storm temporary UID (Phase 3, `model/ContractorId`).
+     */
+    val contractor: Boolean = false
 ) {
 
     /**
@@ -115,7 +121,9 @@ data class VehicleCapability(
                 plowWidthM = if (treatType) cap.plowWidthM.coerceAtLeast(1.0) else 0.0,
                 wingWidthM = if (treatType) cap.wingWidthM.coerceAtLeast(0.0) else 0.0,
                 towWidthM = if (treatType) cap.towWidthM.coerceAtLeast(0.0) else 0.0,
-                observerLabel = if (cap.type == VehicleType.OBSERVER) cap.observerLabel else ""
+                observerLabel = if (cap.type == VehicleType.OBSERVER) cap.observerLabel else "",
+                // Only treat-capable trucks can be hired contractor units.
+                contractor = cap.contractor && treatType
             )
         }
     }

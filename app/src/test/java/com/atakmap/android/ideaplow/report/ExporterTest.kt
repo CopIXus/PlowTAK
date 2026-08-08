@@ -92,6 +92,34 @@ class ExporterTest {
     }
 
     @Test
+    fun `contractor tag and telemetry export when present`() {
+        val ctr = data.copy(
+            segments = listOf(
+                segment.copy(
+                    contractor = true,
+                    applicationRateLbsPerMi = 250.0,
+                    roadTempF = 28.4
+                )
+            )
+        )
+        val json = GeoJsonExporter.export(ctr)
+        assertTrue(json.contains("\"contractor\":true"))
+        assertTrue(json.contains("\"rateLbsPerMi\":250.0"))
+        assertTrue(json.contains("\"roadTempF\":28.4"))
+
+        val csv = CsvExporter.segmentsCsv(ctr.segments)
+        val lines = csv.trimEnd().split("\r\n")
+        assertTrue(lines[0].endsWith("contractor,rateLbsPerMi,roadTempF"))
+        assertTrue(lines[1].endsWith("true,250.0,28.4"))
+
+        // Municipal segments keep the columns but leave them blank / omit
+        // the GeoJSON props.
+        val plainJson = GeoJsonExporter.export(data)
+        assertFalse(plainJson.contains("contractor"))
+        assertTrue(CsvExporter.segmentsCsv(listOf(segment)).trimEnd().endsWith(",,"))
+    }
+
+    @Test
     fun `geojson is structurally balanced`() {
         val json = GeoJsonExporter.export(data)
         assertEquals(json.count { it == '{' }, json.count { it == '}' })

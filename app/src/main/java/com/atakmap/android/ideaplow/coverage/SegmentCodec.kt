@@ -11,10 +11,12 @@ import java.util.Locale
  * flat-file offline store (one segment per line) and the `points` attribute
  * of coverage CoT details.
  *
- * Line format (pipe-delimited, v2):
- *   2|id|vehicleUid|callsign|stormId|operatorId|material|widthM|startMs|points|spreadMaterial
- * v1 lines (no spreadMaterial field) still decode — storm files persist
- * across app updates.
+ * Line format (pipe-delimited, v3):
+ *   3|id|vehicleUid|callsign|stormId|operatorId|material|widthM|startMs|points|spreadMaterial|contractor|rate|temp
+ * v3 appends `contractor` ("1" or empty), `rate` (spreader lbs/mile from
+ * hardware, empty when unknown) and `temp` (road deg F, empty when
+ * unknown). v1 lines (no spreadMaterial) and v2 lines (no telemetry
+ * fields) still decode — storm files persist across app updates.
  * Points format:
  *   lat,lon,dtMs,heading;lat,lon,dtMs,heading;...
  * where dtMs is the offset from startMs (keeps lines short) and heading is
@@ -24,12 +26,13 @@ object SegmentCodec {
 
     private const val VERSION_1 = "1"
     private const val VERSION_2 = "2"
+    private const val VERSION_3 = "3"
     private const val FIELD_SEP = "|"
     private const val ESCAPED_PIPE = "&#124;"
 
     fun encode(seg: TreatSegment): String {
         return listOf(
-            VERSION_2,
+            VERSION_3,
             escape(seg.id),
             escape(seg.vehicleUid),
             escape(seg.callsign),
@@ -39,7 +42,10 @@ object SegmentCodec {
             formatDouble(seg.widthM),
             seg.startTimeMs.toString(),
             encodePoints(seg.points, seg.startTimeMs),
-            seg.spreadMaterial?.wireName ?: ""
+            seg.spreadMaterial?.wireName ?: "",
+            if (seg.contractor) "1" else "",
+            seg.applicationRateLbsPerMi?.let { formatDouble(it) } ?: "",
+            seg.roadTempF?.let { formatDouble(it) } ?: ""
         ).joinToString(FIELD_SEP)
     }
 
@@ -47,7 +53,8 @@ object SegmentCodec {
     fun decode(line: String): TreatSegment? {
         val f = line.trim().split(FIELD_SEP)
         val valid = (f.size == 10 && f[0] == VERSION_1) ||
-                (f.size == 11 && f[0] == VERSION_2)
+                (f.size == 11 && f[0] == VERSION_2) ||
+                (f.size == 14 && f[0] == VERSION_3)
         if (!valid) return null
         return try {
             val startMs = f[8].toLong()
@@ -64,7 +71,10 @@ object SegmentCodec {
                 points = points,
                 startTimeMs = startMs,
                 endTimeMs = points.last().timeMs,
-                spreadMaterial = if (f.size > 10) Material.fromWireName(f[10]) else null
+                spreadMaterial = if (f.size > 10) Material.fromWireName(f[10]) else null,
+                contractor = f.size > 11 && f[11] == "1",
+                applicationRateLbsPerMi = if (f.size > 12) f[12].toDoubleOrNull() else null,
+                roadTempF = if (f.size > 13) f[13].toDoubleOrNull() else null
             )
         } catch (e: NumberFormatException) {
             null

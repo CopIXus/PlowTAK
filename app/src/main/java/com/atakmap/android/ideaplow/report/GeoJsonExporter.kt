@@ -104,10 +104,17 @@ object GeoJsonExporter {
             ",\"headingDeg\":" + num(heading, 1) +
                     ",\"side\":" + jsonString(DirectionModel.sideOfRoad(heading).wireName)
         } else ""
+        // Phase 3: contractor tag + hardware telemetry, present only when set
+        // so pre-Phase-3 exports stay byte-identical.
+        val phase3Props = buildString {
+            if (seg.contractor) append(",\"contractor\":true")
+            seg.applicationRateLbsPerMi?.let { append(",\"rateLbsPerMi\":" + num(it, 1)) }
+            seg.roadTempF?.let { append(",\"roadTempF\":" + num(it, 1)) }
+        }
 
         return "{\"type\":\"Feature\",\"geometry\":{\"type\":\"LineString\"," +
                 "\"coordinates\":[" + coords + "]},\"properties\":{" +
-                props(propMap) + "," + numericProps + headingProps + "}}"
+                props(propMap) + "," + numericProps + headingProps + phase3Props + "}}"
     }
 
     private fun pointFeature(lat: Double, lon: Double, properties: Map<String, String>): String =

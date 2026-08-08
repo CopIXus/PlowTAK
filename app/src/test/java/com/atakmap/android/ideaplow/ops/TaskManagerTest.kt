@@ -147,4 +147,13 @@ class TaskManagerTest {
         assertEquals("salt", TaskManager.suggestNearest(fleet, 36.0, -86.0)?.uid)
         assertNull(TaskManager.suggestNearest(emptyList(), 36.0, -86.0))
     }
+
+    @Test
+    fun `loading trucks are skipped for send-nearest`() {
+        val fleet = listOf(
+            vehicle("at-dome", 36.001, status = VehicleStatus.LOADING),
+            vehicle("rolling", 36.05, status = VehicleStatus.DEADHEAD)
+        )
+        assertEquals("rolling", TaskManager.suggestNearest(fleet, 36.0, -86.0)?.uid)
+    }
 }

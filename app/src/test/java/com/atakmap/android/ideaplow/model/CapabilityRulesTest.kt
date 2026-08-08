@@ -117,10 +117,13 @@ class CapabilityRulesTest {
     }
 
     @Test
-    fun `out of service and off duty are not dispatchable`() {
+    fun `out of service, off duty and loading are not dispatchable`() {
         assertFalse(CapabilityRules.isDispatchable(VehicleStatus.OUT_OF_SERVICE))
         assertFalse(CapabilityRules.isDispatchable(VehicleStatus.OFF_DUTY))
+        // Phase 3: a truck at the dome can't take a "send nearest" task.
+        assertFalse(CapabilityRules.isDispatchable(VehicleStatus.LOADING))
         assertTrue(CapabilityRules.isDispatchable(VehicleStatus.TREATING))
-        assertTrue(CapabilityRules.isDispatchable(VehicleStatus.LOADING))
+        assertTrue(CapabilityRules.isDispatchable(VehicleStatus.DEADHEAD))
+        assertTrue(CapabilityRules.isDispatchable(VehicleStatus.REFUELING))
     }
 }

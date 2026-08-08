@@ -30,7 +30,13 @@ data class TreatSegment(
     val startTimeMs: Long,
     val endTimeMs: Long,
     /** Specific material dispensed when the spreader was on; null otherwise. */
-    val spreadMaterial: Material? = null
+    val spreadMaterial: Material? = null,
+    /** Spreader application rate (lbs/mile) from hardware; null when unknown. */
+    val applicationRateLbsPerMi: Double? = null,
+    /** Road surface temperature (deg F) from hardware; null when unknown. */
+    val roadTempF: Double? = null,
+    /** Pass recorded by a contractor unit (payment-verification tagging). */
+    val contractor: Boolean = false
 ) {
     init {
         require(points.size >= 2) { "TreatSegment requires at least 2 points" }

@@ -32,5 +32,12 @@ data class EquipmentState(
     val saltOn: Boolean = false,
     val material: Material = Material.SALT,
     /** Active effective-width preset (standard blade / wing / tow). */
-    val widthPreset: WidthPreset = WidthPreset.STANDARD
+    val widthPreset: WidthPreset = WidthPreset.STANDARD,
+    /**
+     * Spreader application rate in lbs/mile, reported by a Bluetooth
+     * controller (Phase 3); null when no hardware telemetry is present.
+     */
+    val rateLbsPerMi: Double? = null,
+    /** Road surface temperature (deg F) from hardware; null when unknown. */
+    val roadTempF: Double? = null
 )
