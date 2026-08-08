@@ -2,7 +2,7 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/ideaplow_bg">
+    android:background="@color/plowtak_bg">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -14,7 +14,7 @@
             android:id="@+id/sup_header"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="@color/ideaplow_text"
+            android:textColor="@color/plowtak_text"
             android:textSize="20sp"
             android:textStyle="bold" />
 
@@ -23,7 +23,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:textColor="@color/ideaplow_accent"
+            android:textColor="@color/plowtak_accent"
             android:textSize="16sp" />
 
         <Button
@@ -31,7 +31,7 @@
             android:layout_width="match_parent"
             android:layout_height="64dp"
             android:layout_marginTop="8dp"
-            android:backgroundTint="@color/ideaplow_accent"
+            android:backgroundTint="@color/plowtak_accent"
             android:text="@string/sup_storm_start"
             android:textSize="18sp"
             android:textStyle="bold" />
@@ -50,15 +50,15 @@
                 android:layout_weight="1"
                 android:hint="@string/sup_cycle_time_hint"
                 android:inputType="number"
-                android:textColor="@color/ideaplow_text"
-                android:textColorHint="@color/ideaplow_grey"
+                android:textColor="@color/plowtak_text"
+                android:textColorHint="@color/plowtak_grey"
                 android:textSize="18sp" />
 
             <Button
                 android:id="@+id/sup_cycle_apply"
                 android:layout_width="wrap_content"
                 android:layout_height="48dp"
-                android:backgroundTint="@color/ideaplow_toggle_off"
+                android:backgroundTint="@color/plowtak_toggle_off"
                 android:text="@string/sup_cycle_time_apply"
                 android:textSize="16sp" />
         </LinearLayout>
@@ -69,7 +69,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:text="@string/sup_priority_title"
-            android:textColor="@color/ideaplow_text"
+            android:textColor="@color/plowtak_text"
             android:textSize="14sp" />
 
         <LinearLayout
@@ -84,8 +84,8 @@
                 android:layout_weight="1"
                 android:hint="@string/sup_p1_hint"
                 android:inputType="number"
-                android:textColor="@color/ideaplow_text"
-                android:textColorHint="@color/ideaplow_grey"
+                android:textColor="@color/plowtak_text"
+                android:textColorHint="@color/plowtak_grey"
                 android:textSize="16sp" />
 
             <EditText
@@ -95,8 +95,8 @@
                 android:layout_weight="1"
                 android:hint="@string/sup_p2_hint"
                 android:inputType="number"
-                android:textColor="@color/ideaplow_text"
-                android:textColorHint="@color/ideaplow_grey"
+                android:textColor="@color/plowtak_text"
+                android:textColorHint="@color/plowtak_grey"
                 android:textSize="16sp" />
 
             <EditText
@@ -106,8 +106,8 @@
                 android:layout_weight="1"
                 android:hint="@string/sup_p3_hint"
                 android:inputType="number"
-                android:textColor="@color/ideaplow_text"
-                android:textColorHint="@color/ideaplow_grey"
+                android:textColor="@color/plowtak_text"
+                android:textColorHint="@color/plowtak_grey"
                 android:textSize="16sp" />
         </LinearLayout>
 
@@ -117,7 +117,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:text="@string/sup_zone_title"
-            android:textColor="@color/ideaplow_text"
+            android:textColor="@color/plowtak_text"
             android:textSize="14sp" />
 
         <LinearLayout
@@ -132,8 +132,8 @@
                 android:layout_weight="2"
                 android:hint="@string/sup_zone_name_hint"
                 android:inputType="text"
-                android:textColor="@color/ideaplow_text"
-                android:textColorHint="@color/ideaplow_grey"
+                android:textColor="@color/plowtak_text"
+                android:textColorHint="@color/plowtak_grey"
                 android:textSize="16sp" />
 
             <Spinner
@@ -149,8 +149,8 @@
                 android:layout_weight="1"
                 android:hint="@string/sup_zone_radius_hint"
                 android:inputType="number"
-                android:textColor="@color/ideaplow_text"
-                android:textColorHint="@color/ideaplow_grey"
+                android:textColor="@color/plowtak_text"
+                android:textColorHint="@color/plowtak_grey"
                 android:textSize="16sp" />
         </LinearLayout>
 
@@ -158,7 +158,7 @@
             android:id="@+id/sup_zone_add"
             android:layout_width="match_parent"
             android:layout_height="48dp"
-            android:backgroundTint="@color/ideaplow_toggle_off"
+            android:backgroundTint="@color/plowtak_toggle_off"
             android:text="@string/sup_zone_add"
             android:textSize="16sp" />
 
@@ -167,7 +167,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:text="@string/sup_zones_title"
-            android:textColor="@color/ideaplow_text"
+            android:textColor="@color/plowtak_text"
             android:textSize="14sp" />
 
         <ListView
@@ -189,8 +189,8 @@
                 android:layout_weight="1"
                 android:hint="@string/sup_facility_name_hint"
                 android:inputType="text"
-                android:textColor="@color/ideaplow_text"
-                android:textColorHint="@color/ideaplow_grey"
+                android:textColor="@color/plowtak_text"
+                android:textColorHint="@color/plowtak_grey"
                 android:textSize="16sp" />
 
             <Spinner
@@ -203,7 +203,7 @@
             android:id="@+id/sup_facility_add"
             android:layout_width="match_parent"
             android:layout_height="48dp"
-            android:backgroundTint="@color/ideaplow_toggle_off"
+            android:backgroundTint="@color/plowtak_toggle_off"
             android:text="@string/sup_add_facility"
             android:textSize="16sp" />
 
@@ -213,7 +213,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:text="@string/sup_alerts_title"
-            android:textColor="@color/ideaplow_red"
+            android:textColor="@color/plowtak_red"
             android:textSize="16sp"
             android:textStyle="bold" />
 
@@ -229,7 +229,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:text="@string/sup_metrics_placeholder"
-            android:textColor="@color/ideaplow_accent"
+            android:textColor="@color/plowtak_accent"
             android:textSize="14sp"
             android:textStyle="bold" />
 
@@ -239,7 +239,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:text="@string/sup_fleet_hint"
-            android:textColor="@color/ideaplow_text"
+            android:textColor="@color/plowtak_text"
             android:textSize="16sp"
             android:textStyle="bold" />
 
@@ -253,7 +253,7 @@
             android:layout_width="match_parent"
             android:layout_height="48dp"
             android:layout_marginTop="8dp"
-            android:backgroundTint="@color/ideaplow_toggle_off"
+            android:backgroundTint="@color/plowtak_toggle_off"
             android:text="@string/sup_export"
             android:textSize="14sp" />
 
@@ -262,9 +262,9 @@
             android:layout_width="match_parent"
             android:layout_height="64dp"
             android:layout_marginTop="12dp"
-            android:backgroundTint="@color/ideaplow_distress"
+            android:backgroundTint="@color/plowtak_distress"
             android:text="@string/driver_distress"
-            android:textColor="@color/ideaplow_text"
+            android:textColor="@color/plowtak_text"
             android:textSize="18sp"
             android:textStyle="bold" />
 
@@ -273,7 +273,7 @@
             android:layout_width="match_parent"
             android:layout_height="48dp"
             android:layout_marginTop="8dp"
-            android:backgroundTint="@color/ideaplow_toggle_off"
+            android:backgroundTint="@color/plowtak_toggle_off"
             android:text="@string/driver_settings"
             android:textSize="14sp" />
     </LinearLayout>

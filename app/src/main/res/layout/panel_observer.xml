@@ -2,7 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/ideaplow_bg"
+    android:background="@color/plowtak_bg"
     android:orientation="vertical"
     android:padding="12dp">
 
@@ -11,7 +11,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/obs_title"
-        android:textColor="@color/ideaplow_text"
+        android:textColor="@color/plowtak_text"
         android:textSize="20sp"
         android:textStyle="bold" />
 
@@ -20,7 +20,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
-        android:textColor="@color/ideaplow_accent"
+        android:textColor="@color/plowtak_accent"
         android:textSize="16sp" />
 
     <TextView
@@ -28,7 +28,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
         android:text="@string/obs_alerts_title"
-        android:textColor="@color/ideaplow_red"
+        android:textColor="@color/plowtak_red"
         android:textSize="16sp"
         android:textStyle="bold" />
 
@@ -43,7 +43,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
         android:text="@string/obs_fleet_title"
-        android:textColor="@color/ideaplow_text"
+        android:textColor="@color/plowtak_text"
         android:textSize="16sp"
         android:textStyle="bold" />
 
@@ -58,7 +58,7 @@
         android:layout_width="match_parent"
         android:layout_height="48dp"
         android:layout_marginTop="8dp"
-        android:backgroundTint="@color/ideaplow_toggle_off"
+        android:backgroundTint="@color/plowtak_toggle_off"
         android:text="@string/driver_settings"
         android:textSize="14sp" />
 </LinearLayout>

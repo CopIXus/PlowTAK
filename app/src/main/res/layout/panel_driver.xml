@@ -2,7 +2,7 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/ideaplow_bg">
+    android:background="@color/plowtak_bg">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -14,7 +14,7 @@
             android:id="@+id/driver_header"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="@color/ideaplow_text"
+            android:textColor="@color/plowtak_text"
             android:textSize="20sp"
             android:textStyle="bold" />
 
@@ -23,7 +23,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:textColor="@color/ideaplow_accent"
+            android:textColor="@color/plowtak_accent"
             android:textSize="18sp"
             android:textStyle="bold" />
 
@@ -41,8 +41,8 @@
                 android:layout_height="wrap_content"
                 android:hint="@string/driver_operator_name_hint"
                 android:inputType="textPersonName"
-                android:textColor="@color/ideaplow_text"
-                android:textColorHint="@color/ideaplow_grey"
+                android:textColor="@color/plowtak_text"
+                android:textColorHint="@color/plowtak_grey"
                 android:textSize="18sp" />
 
             <EditText
@@ -51,8 +51,8 @@
                 android:layout_height="wrap_content"
                 android:hint="@string/driver_operator_id_hint"
                 android:inputType="text"
-                android:textColor="@color/ideaplow_text"
-                android:textColorHint="@color/ideaplow_grey"
+                android:textColor="@color/plowtak_text"
+                android:textColorHint="@color/plowtak_grey"
                 android:textSize="18sp" />
         </LinearLayout>
 
@@ -61,7 +61,7 @@
             android:layout_width="match_parent"
             android:layout_height="56dp"
             android:layout_marginTop="4dp"
-            android:backgroundTint="@color/ideaplow_accent"
+            android:backgroundTint="@color/plowtak_accent"
             android:text="@string/driver_shift_start"
             android:textSize="18sp"
             android:textStyle="bold" />
@@ -72,8 +72,8 @@
             android:layout_width="match_parent"
             android:layout_height="80dp"
             android:layout_marginTop="12dp"
-            android:backgroundTint="@color/ideaplow_toggle_off"
-            android:textColor="@color/ideaplow_text"
+            android:backgroundTint="@color/plowtak_toggle_off"
+            android:textColor="@color/plowtak_text"
             android:textOff="@string/driver_blade_up"
             android:textOn="@string/driver_blade_down"
             android:textSize="24sp"
@@ -84,8 +84,8 @@
             android:layout_width="match_parent"
             android:layout_height="80dp"
             android:layout_marginTop="8dp"
-            android:backgroundTint="@color/ideaplow_toggle_off"
-            android:textColor="@color/ideaplow_text"
+            android:backgroundTint="@color/plowtak_toggle_off"
+            android:textColor="@color/plowtak_text"
             android:textOff="@string/driver_salt_off"
             android:textOn="@string/driver_salt_on"
             android:textSize="24sp"
@@ -97,7 +97,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:background="@color/ideaplow_toggle_off"
+            android:background="@color/plowtak_toggle_off"
             android:orientation="vertical"
             android:padding="8dp"
             android:visibility="gone">
@@ -106,7 +106,7 @@
                 android:id="@+id/driver_task_text"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="@color/ideaplow_text"
+                android:textColor="@color/plowtak_text"
                 android:textSize="18sp"
                 android:textStyle="bold" />
 
@@ -122,7 +122,7 @@
                     android:layout_height="72dp"
                     android:layout_marginEnd="4dp"
                     android:layout_weight="1"
-                    android:backgroundTint="@color/ideaplow_accent"
+                    android:backgroundTint="@color/plowtak_accent"
                     android:text="@string/driver_task_ack"
                     android:textSize="22sp"
                     android:textStyle="bold" />
@@ -133,9 +133,9 @@
                     android:layout_height="72dp"
                     android:layout_marginStart="4dp"
                     android:layout_weight="1"
-                    android:backgroundTint="@color/ideaplow_distress"
+                    android:backgroundTint="@color/plowtak_distress"
                     android:text="@string/driver_task_decline"
-                    android:textColor="@color/ideaplow_text"
+                    android:textColor="@color/plowtak_text"
                     android:textSize="22sp"
                     android:textStyle="bold" />
             </LinearLayout>
@@ -148,7 +148,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:text="@string/driver_material_title"
-            android:textColor="@color/ideaplow_text"
+            android:textColor="@color/plowtak_text"
             android:textSize="16sp"
             android:textStyle="bold" />
 
@@ -165,7 +165,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:text="@string/driver_width_title"
-            android:textColor="@color/ideaplow_text"
+            android:textColor="@color/plowtak_text"
             android:textSize="16sp"
             android:textStyle="bold" />
 
@@ -189,7 +189,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:text="@string/driver_hazards_title"
-            android:textColor="@color/ideaplow_text"
+            android:textColor="@color/plowtak_text"
             android:textSize="16sp"
             android:textStyle="bold" />
 
@@ -205,7 +205,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:text="@string/driver_conditions_title"
-            android:textColor="@color/ideaplow_text"
+            android:textColor="@color/plowtak_text"
             android:textSize="16sp"
             android:textStyle="bold" />
 
@@ -221,9 +221,9 @@
             android:layout_width="match_parent"
             android:layout_height="88dp"
             android:layout_marginTop="16dp"
-            android:backgroundTint="@color/ideaplow_distress"
+            android:backgroundTint="@color/plowtak_distress"
             android:text="@string/driver_distress"
-            android:textColor="@color/ideaplow_text"
+            android:textColor="@color/plowtak_text"
             android:textSize="22sp"
             android:textStyle="bold" />
 
@@ -232,8 +232,8 @@
             android:layout_width="match_parent"
             android:layout_height="48dp"
             android:layout_marginTop="12dp"
-            android:backgroundTint="@color/ideaplow_toggle_off"
-            android:textColor="@color/ideaplow_text"
+            android:backgroundTint="@color/plowtak_toggle_off"
+            android:textColor="@color/plowtak_text"
             android:textOff="@string/driver_night_off"
             android:textOn="@string/driver_night_on"
             android:textSize="14sp" />
@@ -243,7 +243,7 @@
             android:layout_width="match_parent"
             android:layout_height="48dp"
             android:layout_marginTop="8dp"
-            android:backgroundTint="@color/ideaplow_toggle_off"
+            android:backgroundTint="@color/plowtak_toggle_off"
             android:text="@string/driver_settings"
             android:textSize="14sp" />
     </LinearLayout>

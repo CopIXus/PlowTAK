@@ -8,7 +8,7 @@
 
     <application
         android:allowBackup="false"
-        android:icon="@drawable/ic_ideaplow"
+        android:icon="@drawable/ic_plowtak"
         android:label="@string/app_name">
 
         <!-- ATAK plugin contract: host API version this plugin was built against -->
@@ -21,9 +21,9 @@
             android:value="@string/app_desc" />
 
         <!-- Exported because plugin code runs in the ATAK host process and
-             starts this service cross-package (see IdeaPlowShiftService). -->
+             starts this service cross-package (see PlowTakShiftService). -->
         <service
-            android:name="com.atakmap.android.ideaplow.service.IdeaPlowShiftService"
+            android:name="com.atakmap.android.plowtak.service.PlowTakShiftService"
             android:exported="true"
             android:foregroundServiceType="location" />
 

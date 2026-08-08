@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ideaplow_bg">#1B2A41</color>
-    <color name="ideaplow_accent">#5FA8D3</color>
-    <color name="ideaplow_text">#F5F7FA</color>
-    <color name="ideaplow_green">#2ECC40</color>
-    <color name="ideaplow_yellow">#FFDC00</color>
-    <color name="ideaplow_red">#FF4136</color>
-    <color name="ideaplow_grey">#9E9E9E</color>
-    <color name="ideaplow_distress">#C62828</color>
-    <color name="ideaplow_toggle_on">#2E7D32</color>
-    <color name="ideaplow_toggle_off">#455A64</color>
+    <color name="plowtak_bg">#1B2A41</color>
+    <color name="plowtak_accent">#5FA8D3</color>
+    <color name="plowtak_text">#F5F7FA</color>
+    <color name="plowtak_green">#2ECC40</color>
+    <color name="plowtak_yellow">#FFDC00</color>
+    <color name="plowtak_red">#FF4136</color>
+    <color name="plowtak_grey">#9E9E9E</color>
+    <color name="plowtak_distress">#C62828</color>
+    <color name="plowtak_toggle_on">#2E7D32</color>
+    <color name="plowtak_toggle_off">#455A64</color>
 </resources>

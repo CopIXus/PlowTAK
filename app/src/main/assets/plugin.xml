@@ -2,10 +2,10 @@
 <plugin>
     <extension
         type="transapps.maps.plugin.lifecycle.Lifecycle"
-        impl="com.atakmap.android.ideaplow.plugin.IdeaPlowLifecycle"
+        impl="com.atakmap.android.plowtak.plugin.PlowTakLifecycle"
         singleton="true" />
     <extension
         type="transapps.maps.plugin.tool.Tool"
-        impl="com.atakmap.android.ideaplow.plugin.IdeaPlowTool"
+        impl="com.atakmap.android.plowtak.plugin.PlowTakTool"
         singleton="true" />
 </plugin>

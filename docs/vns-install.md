@@ -10,7 +10,7 @@ The **Vehicle Navigation System (VNS)** plugin (by PAR Government / partech) add
 - Route creation snapped to roadways, conversion of manual routes, audio/visual turn cues, on-the-fly re-routing, and "Quick Nav" one-tap routing to pre-set safe points.
 - Offline routing uses **GraphHopper 1.0** (built 2020-05-22, commit `d852592`) compiled directly into the plugin dex — car profile with Contraction Hierarchies (CH).
 
-This APK targets **ATAK-CIV 5.8.0**. IdeaPlow treats VNS as a peer dependency: we install map packs into VNS's folder, we do not call its (obfuscated, private) APIs.
+This APK targets **ATAK-CIV 5.8.0**. PlowTAK treats VNS as a peer dependency: we install map packs into VNS's folder, we do not call its (obfuscated, private) APIs.
 
 ## Where to get VNS
 

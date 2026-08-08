@@ -1,4 +1,4 @@
-// Standalone JVM test harness for IdeaPlow's framework-free logic.
+// Standalone JVM test harness for PlowTAK's framework-free logic.
 //
 // The app module cannot compile without the ATAK SDK (main.jar), but the
 // model/coverage/ops/equipment/cot.codec packages are pure Kotlin. This
@@ -6,4 +6,4 @@
 // engine is verified before the SDK is available.
 //
 // Run from the repo root:  .\gradlew.bat -p coretests test
-rootProject.name = 'ideaplow-coretests'
+rootProject.name = 'plowtak-coretests'

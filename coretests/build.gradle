@@ -23,23 +23,23 @@ sourceSets {
     main {
         kotlin {
             srcDirs = ['../app/src/main/java']
-            include 'com/atakmap/android/ideaplow/model/**'
-            include 'com/atakmap/android/ideaplow/coverage/**'
-            include 'com/atakmap/android/ideaplow/gis/**'
-            include 'com/atakmap/android/ideaplow/ops/**'
-            include 'com/atakmap/android/ideaplow/equipment/**'
+            include 'com/atakmap/android/plowtak/model/**'
+            include 'com/atakmap/android/plowtak/coverage/**'
+            include 'com/atakmap/android/plowtak/gis/**'
+            include 'com/atakmap/android/plowtak/ops/**'
+            include 'com/atakmap/android/plowtak/equipment/**'
             // BluetoothEquipmentProvider imports android.bluetooth — the
             // protocol parser + backoff it uses stay pure and tested.
-            exclude 'com/atakmap/android/ideaplow/equipment/BluetoothEquipmentProvider.kt'
-            include 'com/atakmap/android/ideaplow/cot/codec/**'
+            exclude 'com/atakmap/android/plowtak/equipment/BluetoothEquipmentProvider.kt'
+            include 'com/atakmap/android/plowtak/cot/codec/**'
             // report/ mixes pure exporters with ATAK-touching reporters —
             // include only the framework-free files.
-            include 'com/atakmap/android/ideaplow/report/StormExportData.kt'
-            include 'com/atakmap/android/ideaplow/report/ExportFormat.kt'
-            include 'com/atakmap/android/ideaplow/report/GeoJsonExporter.kt'
-            include 'com/atakmap/android/ideaplow/report/CsvExporter.kt'
-            include 'com/atakmap/android/ideaplow/report/MetricsCalculator.kt'
-            include 'com/atakmap/android/ideaplow/report/StormReplay.kt'
+            include 'com/atakmap/android/plowtak/report/StormExportData.kt'
+            include 'com/atakmap/android/plowtak/report/ExportFormat.kt'
+            include 'com/atakmap/android/plowtak/report/GeoJsonExporter.kt'
+            include 'com/atakmap/android/plowtak/report/CsvExporter.kt'
+            include 'com/atakmap/android/plowtak/report/MetricsCalculator.kt'
+            include 'com/atakmap/android/plowtak/report/StormReplay.kt'
         }
     }
     test {

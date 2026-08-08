@@ -1,8 +1,8 @@
-# IdeaPlow CoT Detail Schema
+# PlowTAK CoT Detail Schema
 
-IdeaPlow rides on standard TAK Cursor-on-Target (CoT) messages. Vehicle presence uses
-ordinary PLI events (so non-IdeaPlow ATAK users still see markers); IdeaPlow semantics
-are carried in a custom detail namespace `<__ideaplow>` inside the CoT `<detail>`
+PlowTAK rides on standard TAK Cursor-on-Target (CoT) messages. Vehicle presence uses
+ordinary PLI events (so non-PlowTAK ATAK users still see markers); PlowTAK semantics
+are carried in a custom detail namespace `<__plowtak>` inside the CoT `<detail>`
 element.
 
 Status: **implemented** (Phase 1 + Phase 2). Codecs live in `cot/codec/`
@@ -15,33 +15,33 @@ never string XML templating.
 | Event | CoT type | Detail payload |
 |-------|----------|----------------|
 | Vehicle PLI | `a-f-G-E-V-C` | `<vehicle>` `<status>` `<geom>` `<ops>` `<operator>` |
-| Coverage batch | `b-i-x-ideaplow-cov` | `<coverage>` with `<segment>` children |
-| Storm session | `b-i-x-ideaplow-storm` | `<storm>` |
+| Coverage batch | `b-i-x-plowtak-cov` | `<coverage>` with `<segment>` children |
+| Storm session | `b-i-x-plowtak-storm` | `<storm>` |
 | Distress alert | `b-a-o-tbl` (911-alert convention) | `<alert>` |
 | Distress clear | `b-a-o-can` | `<alert state="cleared">` |
 | Hazard drop | per-hazard marker type (see below) | `<hazard>` |
-| Special zone (Phase 2) | `b-i-x-ideaplow-zone` | `<zone>` |
-| Supervisor task (Phase 2) | `b-i-x-ideaplow-task` | `<task>` |
+| Special zone (Phase 2) | `b-i-x-plowtak-zone` | `<zone>` |
+| Supervisor task (Phase 2) | `b-i-x-plowtak-task` | `<task>` |
 | Road condition (Phase 2) | `b-m-p-s-m` (stock map point) | `<condition>` |
 
-The `b-i-x-ideaplow-*` types are non-marker "bits" types: stock ATAK clients ignore
-them instead of rendering bogus markers, while every IdeaPlow client converges on the
+The `b-i-x-plowtak-*` types are non-marker "bits" types: stock ATAK clients ignore
+them instead of rendering bogus markers, while every PlowTAK client converges on the
 same coverage/storm picture.
 
 ## PLI example
 
 ```xml
-<event version="2.0" uid="IDEAPLOW-T-1042" type="a-f-G-E-V-C" how="m-g" ...>
+<event version="2.0" uid="PLOWTAK-T-1042" type="a-f-G-E-V-C" how="m-g" ...>
   <point lat="36.1627" lon="-86.7816" hae="9999999.0" ce="9999999.0" le="9999999.0"/>
   <detail>
     <contact callsign="Plow-12"/>
-    <__ideaplow>
+    <__plowtak>
       <vehicle type="plow" hasBlade="true" hasSalt="true" canTreat="true" role="treating"/>
       <status blade="down" salt="on" material="salt" mode="treating"/>
       <geom plowWidthM="3.0" heading="87.2"/>
       <ops stormId="2026-01-15-1736951234"/>
       <operator id="op-77" name="J. Smith"/>
-    </__ideaplow>
+    </__plowtak>
   </detail>
 </event>
 ```
@@ -112,16 +112,16 @@ Treated-road coverage is shared as batched, thinned segments (max 8 segments per
 event, max 60 points per segment on the wire — re-simplified harder when needed):
 
 ```xml
-<event uid="IDEAPLOW-T-1042-cov-1736951234000" type="b-i-x-ideaplow-cov" ...>
+<event uid="PLOWTAK-T-1042-cov-1736951234000" type="b-i-x-plowtak-cov" ...>
   <detail>
-    <__ideaplow>
+    <__plowtak>
       <coverage stormId="2026-01-15-1736951234" count="2">
-        <segment id="IDEAPLOW-T-1042-1736951234000" uid="IDEAPLOW-T-1042"
+        <segment id="PLOWTAK-T-1042-1736951234000" uid="PLOWTAK-T-1042"
                  callsign="Plow-12" op="op-77" material="plow+salt" mat="salt"
                  widthM="3.0" start="1736951234000"
                  points="36.1627001,-86.7816002,0,87.2;36.1630000,-86.7810000,3000,;..."/>
       </coverage>
-    </__ideaplow>
+    </__plowtak>
   </detail>
 </event>
 ```
@@ -141,9 +141,9 @@ event, max 60 points per segment on the wire — re-simplified harder when neede
 ## Storm session
 
 ```xml
-<__ideaplow>
+<__plowtak>
   <storm id="2026-01-15-1736951234" start="1736951234000" end="0" startedBy="Sup-1"/>
-</__ideaplow>
+</__plowtak>
 ```
 
 `end="0"` while active. Convergence without a server authority: clients adopt a
@@ -153,15 +153,15 @@ session change, giving "never treated **this storm**" semantics.
 
 ## Distress alerts
 
-Sent as ATAK's 911-alert convention (`b-a-o-tbl`) so even non-IdeaPlow clients raise
+Sent as ATAK's 911-alert convention (`b-a-o-tbl`) so even non-PlowTAK clients raise
 it; cleared with `b-a-o-can`. State transitions re-send under the same event uid
 (`<vehicleUid>-distress`):
 
 ```xml
-<__ideaplow>
-  <alert vehicleUid="IDEAPLOW-T-1042" callsign="Plow-12" vehicleType="plow"
+<__plowtak>
+  <alert vehicleUid="PLOWTAK-T-1042" callsign="Plow-12" vehicleType="plow"
          state="active" handledBy="" blade="true" salt="false" time="1736951234000"/>
-</__ideaplow>
+</__plowtak>
 ```
 
 - `state`: `active` → `acked` (supervisor tap) → `cleared` (long-press, or sender
@@ -171,7 +171,7 @@ it; cleared with `b-a-o-can`. State transitions re-send under the same event uid
 ## Hazard drops
 
 One-tap hazards use ordinary marker types so stock ATAK renders something sensible,
-plus the IdeaPlow detail for the specific kind:
+plus the PlowTAK detail for the specific kind:
 
 | Hazard (`kind`) | Marker CoT type |
 |-----------------|-----------------|
@@ -182,11 +182,11 @@ plus the IdeaPlow detail for the specific kind:
 | `damage` (sign/mailbox strike) | `b-m-p-s-m` |
 
 ```xml
-<__ideaplow>
-  <hazard kind="tree_wires" reporterUid="IDEAPLOW-T-1042" reporterCallsign="Plow-12"
+<__plowtak>
+  <hazard kind="tree_wires" reporterUid="PLOWTAK-T-1042" reporterCallsign="Plow-12"
           stormId="2026-01-15-1736951234" time="1736951234000"
           photo="hazard-1736951234000.jpg"/>
-</__ideaplow>
+</__plowtak>
 ```
 
 `photo` (Phase 2) is optional: the filename of an attached photo following ATAK's
@@ -200,13 +200,13 @@ shared like facility geofences so freshness coloring converges fleet-wide. Remov
 is a re-send of the same zone with `removed="true"`:
 
 ```xml
-<event uid="ideaplow-zone-zone-1736951234000" type="b-i-x-ideaplow-zone" ...>
+<event uid="plowtak-zone-zone-1736951234000" type="b-i-x-plowtak-zone" ...>
   <detail>
-    <__ideaplow>
+    <__plowtak>
       <zone id="zone-1736951234000" name="Miller Rd bridge" kind="bridge" mult="0.50"
             lat="36.1627000" lon="-86.7816000" radiusM="200.0" by="Sup-1"
             time="1736951234000"/>
-    </__ideaplow>
+    </__plowtak>
   </detail>
 </event>
 ```
@@ -220,19 +220,19 @@ is a re-send of the same zone with `removed="true"`:
 
 ## Supervisor tasks (Phase 2)
 
-Tasking rides `b-i-x-ideaplow-task`. The task and every state transition
+Tasking rides `b-i-x-plowtak-task`. The task and every state transition
 (ack/decline/cancel) re-send under the **same event uid** so all clients converge;
 escalation timers are local bookkeeping and never ride the wire:
 
 ```xml
-<event uid="ideaplow-task-IDEAPLOW-S-1-1736951234000" type="b-i-x-ideaplow-task" ...>
+<event uid="plowtak-task-PLOWTAK-S-1-1736951234000" type="b-i-x-plowtak-task" ...>
   <detail>
-    <__ideaplow>
-      <task target="IDEAPLOW-T-1042" targetCallsign="Plow-12" by="Sup-1"
+    <__plowtak>
+      <task target="PLOWTAK-T-1042" targetCallsign="Plow-12" by="Sup-1"
             kind="segment" ref="" desc="Treat the flagged stretch"
             state="pending" stateBy="" stateTime="1736951234000"
             time="1736951234000"/>
-    </__ideaplow>
+    </__plowtak>
   </detail>
 </event>
 ```
@@ -249,19 +249,19 @@ escalation timers are local bookkeeping and never ride the wire:
 
 Quick driver reports (bare/wet/slush/snow-covered/ice) at the current position.
 Uses a stock map-point type so every ATAK client renders a labeled marker (the
-contact callsign carries the condition); IdeaPlow clients also get the typed
+contact callsign carries the condition); PlowTAK clients also get the typed
 detail:
 
 ```xml
-<event uid="ideaplow-cond-IDEAPLOW-T-1042-1736951234000" type="b-m-p-s-m"
+<event uid="plowtak-cond-PLOWTAK-T-1042-1736951234000" type="b-m-p-s-m"
        how="h-g-i-g-o" ...>
   <detail>
     <contact callsign="Ice (Plow-12)"/>
     <remarks>Road Ice reported by Plow-12</remarks>
-    <__ideaplow>
-      <condition state="ice" reporterUid="IDEAPLOW-T-1042" reporterCallsign="Plow-12"
+    <__plowtak>
+      <condition state="ice" reporterUid="PLOWTAK-T-1042" reporterCallsign="Plow-12"
                  stormId="2026-01-15-1736951234" time="1736951234000"/>
-    </__ideaplow>
+    </__plowtak>
   </detail>
 </event>
 ```

@@ -2,7 +2,7 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/ideaplow_bg">
+    android:background="@color/plowtak_bg">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -14,7 +14,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/setup_title"
-            android:textColor="@color/ideaplow_text"
+            android:textColor="@color/plowtak_text"
             android:textSize="24sp"
             android:textStyle="bold" />
 
@@ -23,7 +23,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:text="@string/setup_intro"
-            android:textColor="@color/ideaplow_text"
+            android:textColor="@color/plowtak_text"
             android:textSize="14sp" />
 
         <RadioGroup
@@ -39,7 +39,7 @@
                 android:layout_height="56dp"
                 android:checked="true"
                 android:text="@string/setup_type_plow"
-                android:textColor="@color/ideaplow_text"
+                android:textColor="@color/plowtak_text"
                 android:textSize="18sp" />
 
             <RadioButton
@@ -47,7 +47,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
                 android:text="@string/setup_type_salt"
-                android:textColor="@color/ideaplow_text"
+                android:textColor="@color/plowtak_text"
                 android:textSize="18sp" />
 
             <RadioButton
@@ -55,7 +55,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
                 android:text="@string/setup_type_supervisor"
-                android:textColor="@color/ideaplow_text"
+                android:textColor="@color/plowtak_text"
                 android:textSize="18sp" />
 
             <RadioButton
@@ -63,7 +63,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
                 android:text="@string/setup_type_observer"
-                android:textColor="@color/ideaplow_text"
+                android:textColor="@color/plowtak_text"
                 android:textSize="18sp" />
         </RadioGroup>
 
@@ -74,8 +74,8 @@
             android:layout_marginTop="8dp"
             android:hint="@string/setup_callsign_hint"
             android:inputType="text"
-            android:textColor="@color/ideaplow_text"
-            android:textColorHint="@color/ideaplow_grey"
+            android:textColor="@color/plowtak_text"
+            android:textColorHint="@color/plowtak_grey"
             android:textSize="18sp" />
 
         <EditText
@@ -84,8 +84,8 @@
             android:layout_height="wrap_content"
             android:hint="@string/setup_vehicle_id_hint"
             android:inputType="text"
-            android:textColor="@color/ideaplow_text"
-            android:textColorHint="@color/ideaplow_grey"
+            android:textColor="@color/plowtak_text"
+            android:textColorHint="@color/plowtak_grey"
             android:textSize="18sp" />
 
         <!-- Plow / salt sub-options -->
@@ -100,7 +100,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
                 android:text="@string/setup_has_salt"
-                android:textColor="@color/ideaplow_text"
+                android:textColor="@color/plowtak_text"
                 android:textSize="16sp" />
 
             <TextView
@@ -108,7 +108,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:text="@string/setup_plow_width"
-                android:textColor="@color/ideaplow_text"
+                android:textColor="@color/plowtak_text"
                 android:textSize="16sp" />
 
             <Spinner
@@ -121,7 +121,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:text="@string/setup_wing_width"
-                android:textColor="@color/ideaplow_text"
+                android:textColor="@color/plowtak_text"
                 android:textSize="16sp" />
 
             <Spinner
@@ -134,7 +134,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:text="@string/setup_tow_width"
-                android:textColor="@color/ideaplow_text"
+                android:textColor="@color/plowtak_text"
                 android:textSize="16sp" />
 
             <Spinner
@@ -157,8 +157,8 @@
                 android:layout_height="wrap_content"
                 android:hint="@string/setup_observer_label_hint"
                 android:inputType="text"
-                android:textColor="@color/ideaplow_text"
-                android:textColorHint="@color/ideaplow_grey"
+                android:textColor="@color/plowtak_text"
+                android:textColorHint="@color/plowtak_grey"
                 android:textSize="16sp" />
         </LinearLayout>
 
@@ -168,7 +168,7 @@
             android:layout_height="48dp"
             android:checked="true"
             android:text="@string/setup_publish_presence"
-            android:textColor="@color/ideaplow_text"
+            android:textColor="@color/plowtak_text"
             android:textSize="16sp" />
 
         <CheckBox
@@ -177,7 +177,7 @@
             android:layout_height="48dp"
             android:checked="true"
             android:text="@string/setup_distress_enabled"
-            android:textColor="@color/ideaplow_text"
+            android:textColor="@color/plowtak_text"
             android:textSize="16sp" />
 
         <CheckBox
@@ -186,7 +186,7 @@
             android:layout_height="48dp"
             android:checked="true"
             android:text="@string/setup_tts_enabled"
-            android:textColor="@color/ideaplow_text"
+            android:textColor="@color/plowtak_text"
             android:textSize="16sp" />
 
         <CheckBox
@@ -194,7 +194,7 @@
             android:layout_width="match_parent"
             android:layout_height="48dp"
             android:text="@string/setup_roadsnap_enabled"
-            android:textColor="@color/ideaplow_text"
+            android:textColor="@color/plowtak_text"
             android:textSize="16sp" />
 
         <EditText
@@ -203,8 +203,8 @@
             android:layout_height="wrap_content"
             android:hint="@string/setup_roadsnap_dir_hint"
             android:inputType="text"
-            android:textColor="@color/ideaplow_text"
-            android:textColorHint="@color/ideaplow_grey"
+            android:textColor="@color/plowtak_text"
+            android:textColorHint="@color/plowtak_grey"
             android:textSize="14sp"
             android:visibility="gone" />
 
@@ -215,7 +215,7 @@
             android:layout_marginTop="8dp"
             android:alpha="0.5"
             android:text="@string/setup_bluetooth_placeholder"
-            android:textColor="@color/ideaplow_grey"
+            android:textColor="@color/plowtak_grey"
             android:textSize="14sp" />
 
         <Button
@@ -223,7 +223,7 @@
             android:layout_width="match_parent"
             android:layout_height="64dp"
             android:layout_marginTop="16dp"
-            android:backgroundTint="@color/ideaplow_accent"
+            android:backgroundTint="@color/plowtak_accent"
             android:text="@string/setup_save"
             android:textSize="20sp"
             android:textStyle="bold" />

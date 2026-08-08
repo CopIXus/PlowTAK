@@ -5,13 +5,13 @@
 
 # Repackage plugin classes under a unique namespace to avoid collisions with
 # other plugins loaded into the ATAK process.
--repackageclasses atakplugin.IdeaPlowPlugin
+-repackageclasses atakplugin.PlowTAK
 
 -keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod
 
 # Keep the plugin entry points referenced from assets/plugin.xml
--keep class com.atakmap.android.ideaplow.plugin.IdeaPlowLifecycle { *; }
--keep class com.atakmap.android.ideaplow.plugin.IdeaPlowTool { *; }
+-keep class com.atakmap.android.plowtak.plugin.PlowTakLifecycle { *; }
+-keep class com.atakmap.android.plowtak.plugin.PlowTakTool { *; }
 
 # Kotlin
 -dontwarn kotlin.**

@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// IdeaPlow ATAK plugin module.
+// PlowTAK ATAK plugin module.
 // Follows the ATAK-CIV plugin template conventions (takdev plugin, main.jar as
 // compileOnly via takdev, civ flavor, ATAK APK naming).
 ////////////////////////////////////////////////////////////////////////////////
@@ -105,11 +105,11 @@ def getProperty = { name, defValue ->
 }
 
 android {
-    namespace 'com.atakmap.android.ideaplow'
+    namespace 'com.atakmap.android.plowtak'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.atakmap.android.ideaplow.plugin"
+        applicationId "com.atakmap.android.plowtak.plugin"
         minSdk 26
         targetSdk 34
         versionCode 1
@@ -183,7 +183,7 @@ android {
     }
 
     // ATAK plugin naming convention, matching e.g.
-    // ATAK-Plugin-IdeaPlowPlugin-0.1--5.8.0-civ-release.apk
+    // ATAK-Plugin-PlowTAK-0.1--5.8.0-civ-release.apk
     applicationVariants.all { variant ->
         variant.outputs.all { output ->
             output.outputFileName =

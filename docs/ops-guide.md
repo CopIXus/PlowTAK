@@ -1,15 +1,15 @@
-# IdeaPlow Operator Guide (skeleton)
+# PlowTAK Operator Guide (skeleton)
 
 > Status: **skeleton** — Phase 0. Sections will be filled in as Phase 1 features land.
 
-IdeaPlow is a winter-operations plugin for ATAK-CIV 5.8. One APK serves the whole
+PlowTAK is a winter-operations plugin for ATAK-CIV 5.8. One APK serves the whole
 fleet; each device is configured with a **vehicle capability type** on first run that
 determines what the operator sees and can do.
 
 ## 1. Getting started
 
 - Install ATAK-CIV 5.8.x, the VNS 4.0 plugin (offline maps — see
-  [vns-install.md](vns-install.md)), and the IdeaPlow plugin APK.
+  [vns-install.md](vns-install.md)), and the PlowTAK plugin APK.
 - Connect the device to your agency's TAK Server.
 - On first launch, pick your **vehicle type** and sub-options (callsign, plow width,
   materials carried).
@@ -76,7 +76,7 @@ the fleet. Supervisors see an alert list and map pulse.
 
 ## 5. Offline operation
 
-IdeaPlow keeps recording coverage with no connectivity and syncs to TAK Server when
+PlowTAK keeps recording coverage with no connectivity and syncs to TAK Server when
 the connection returns. VNS provides the offline basemap.
 
 _TODO (Phase 1): local store behavior, storage limits._
