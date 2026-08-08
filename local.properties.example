@@ -1,0 +1,31 @@
+# Copy this file to local.properties and fill in your paths.
+# local.properties is git-ignored — never commit it.
+
+# Android SDK location
+sdk.dir=C\:\\Users\\<you>\\AppData\\Local\\Android\\Sdk
+
+# Path to the extracted ATAK-CIV 5.8 SDK (the directory containing main.jar).
+# Download from https://tak.gov (registration required).
+sdk.path=T\:\\TAK\\ATAK-CIV-5.8.0-SDK
+
+# Offline fallback path to the atak-gradle-takdev Gradle plugin jar from the SDK.
+# Used when no takrepo Maven access is configured below.
+takdev.plugin=T\:\\TAK\\ATAK-CIV-5.8.0-SDK\\atak-gradle-takdev.jar
+
+# Optional: TAK artifact repository access (artifacts.tak.gov). When set, the
+# takdev plugin and ATAK API are resolved from the repo instead of local jars.
+#takrepo.url=https://artifacts.tak.gov/artifactory/maven
+#takrepo.user=<tak.gov username>
+#takrepo.password=<tak.gov password>
+
+# Plugin signing keystores. ATAK plugins must be signed; debug builds can use the
+# Android debug keystore, release builds need your own key.
+takDebugKeyFile=C\:\\Users\\<you>\\.android\\debug.keystore
+takDebugKeyFilePassword=android
+takDebugKeyAlias=androiddebugkey
+takDebugKeyPassword=android
+
+takReleaseKeyFile=C\:\\path\\to\\release.keystore
+takReleaseKeyFilePassword=<store password>
+takReleaseKeyAlias=<alias>
+takReleaseKeyPassword=<key password>

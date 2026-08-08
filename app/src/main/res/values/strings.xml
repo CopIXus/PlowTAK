@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">IdeaPlow</string>
+    <string name="app_desc">Snow plow fleet coverage tracking for winter road operations</string>
+    <string name="ideaplow_placeholder_title">IdeaPlow</string>
+    <string name="ideaplow_placeholder_body">Winter operations coverage tracking.\n\nPhase 1 adds the vehicle capability setup (Plow / Salt only / Supervisor / Observer), treating toggles, and the live coverage map.</string>
+</resources>

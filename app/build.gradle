@@ -1,0 +1,206 @@
+////////////////////////////////////////////////////////////////////////////////
+// IdeaPlow ATAK plugin module.
+// Follows the ATAK-CIV plugin template conventions (takdev plugin, main.jar as
+// compileOnly via takdev, civ flavor, ATAK APK naming).
+////////////////////////////////////////////////////////////////////////////////
+
+buildscript {
+
+    ext.PLUGIN_VERSION = "0.1"
+    ext.ATAK_VERSION = "5.8.0"
+
+    def takdevVersion = '2.+'
+
+    def getValueFromPropertiesFile = { propFile, key ->
+        if (!propFile.isFile() || !propFile.canRead())
+            return null
+        def prop = new Properties()
+        def reader = propFile.newReader()
+        try {
+            prop.load(reader)
+        } finally {
+            reader.close()
+        }
+        return prop.get(key)
+    }
+
+    def getProperty = { name, defValue ->
+        def prop = project.properties[name] ?:
+                getValueFromPropertiesFile(project.rootProject.file('local.properties'), name)
+        return (null == prop) ? defValue : prop
+    }
+
+    def urlKey = 'takrepo.url'
+
+    ext.isDevKitEnabled = { ->
+        return getProperty(urlKey, null) != null
+    }
+
+    ext.takrepoUrl = getProperty(urlKey, 'http://localhost/')
+    ext.takrepoUser = getProperty('takrepo.user', 'invalid')
+    ext.takrepoPassword = getProperty('takrepo.password', 'invalid')
+    // Offline fallback: path to atak-gradle-takdev.jar from the ATAK-CIV SDK.
+    ext.takdevPlugin = getProperty('takdev.plugin', "${rootDir}/../atak-gradle-takdev.jar")
+
+    repositories {
+        google()
+        mavenCentral()
+        maven {
+            url = takrepoUrl
+            credentials {
+                username = takrepoUser
+                password = takrepoPassword
+            }
+            allowInsecureProtocol = true
+        }
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.6.1'
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.24'
+        if (isDevKitEnabled()) {
+            classpath "com.atakmap.gradle:atak-gradle-takdev:${takdevVersion}"
+        } else {
+            classpath files(takdevPlugin)
+        }
+    }
+}
+
+apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
+apply plugin: 'atak-takdev-plugin'
+
+def getVersionName() {
+    try {
+        def stdout = new ByteArrayOutputStream()
+        exec {
+            commandLine 'git', 'rev-parse', '--short=8', 'HEAD'
+            standardOutput = stdout
+            errorOutput = new ByteArrayOutputStream()
+        }
+        def desc = stdout.toString().trim()
+        return desc.isEmpty() ? "" : desc
+    } catch (Exception ignored) {
+        return ""
+    }
+}
+
+def getValueFromPropertiesFile = { propFile, key ->
+    if (!propFile.isFile() || !propFile.canRead())
+        return null
+    def prop = new Properties()
+    def reader = propFile.newReader()
+    try {
+        prop.load(reader)
+    } finally {
+        reader.close()
+    }
+    return prop.get(key)
+}
+
+def getProperty = { name, defValue ->
+    def prop = project.properties[name] ?:
+            getValueFromPropertiesFile(project.rootProject.file('local.properties'), name)
+    return (null == prop) ? defValue : prop
+}
+
+android {
+    namespace 'com.atakmap.android.ideaplow'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.atakmap.android.ideaplow.plugin"
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName PLUGIN_VERSION + " (" + getVersionName() + ") - [" + ATAK_VERSION + "]"
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+    signingConfigs {
+        debug {
+            def kf = getProperty('takDebugKeyFile', null)
+            if (kf != null) {
+                storeFile file(kf)
+                storePassword getProperty('takDebugKeyFilePassword', '')
+                keyAlias getProperty('takDebugKeyAlias', '')
+                keyPassword getProperty('takDebugKeyPassword', '')
+            }
+        }
+        release {
+            def kf = getProperty('takReleaseKeyFile', null)
+            if (kf != null) {
+                storeFile file(kf)
+                storePassword getProperty('takReleaseKeyFilePassword', '')
+                keyAlias getProperty('takReleaseKeyAlias', '')
+                keyPassword getProperty('takReleaseKeyPassword', '')
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            debuggable true
+            matchingFallbacks = ['sdk']
+        }
+        release {
+            minifyEnabled true
+            proguardFile 'proguard-gradle.txt'
+            signingConfig signingConfigs.release
+            matchingFallbacks = ['odk']
+        }
+    }
+
+    flavorDimensions = ["application"]
+
+    productFlavors {
+        civ {
+            getIsDefault().set(true)
+            dimension "application"
+            manifestPlaceholders = [atakApiVersion: "com.atakmap.app@" + ATAK_VERSION + ".CIV"]
+        }
+    }
+
+    packagingOptions {
+        resources {
+            excludes += ['META-INF/INDEX.LIST']
+        }
+    }
+
+    sourceSets {
+        main {
+            setProperty("archivesBaseName", "ATAK-Plugin-" + rootProject.name + "-" + PLUGIN_VERSION)
+            defaultConfig.versionCode = 1
+        }
+    }
+
+    // ATAK plugin naming convention, matching e.g.
+    // ATAK-Plugin-IdeaPlowPlugin-0.1--5.8.0-civ-release.apk
+    applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            output.outputFileName =
+                    "ATAK-Plugin-" + rootProject.name + "-" + PLUGIN_VERSION + "-" +
+                    getVersionName() + "-" + ATAK_VERSION + "-" +
+                    variant.flavorName + "-" + variant.buildType.name + ".apk"
+        }
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}
+
+dependencies {
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.9.24'
+    // The ATAK API (main.jar) is wired as compileOnly by the atak-takdev-plugin
+    // from sdk.path / takrepo. Do not add it here explicitly.
+}

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<plugin>
+    <extension
+        type="transapps.maps.plugin.lifecycle.Lifecycle"
+        impl="com.atakmap.android.ideaplow.plugin.IdeaPlowLifecycle"
+        singleton="true" />
+    <extension
+        type="transapps.maps.plugin.tool.Tool"
+        impl="com.atakmap.android.ideaplow.plugin.IdeaPlowTool"
+        singleton="true" />
+</plugin>

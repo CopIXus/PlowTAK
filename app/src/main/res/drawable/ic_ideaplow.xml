@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Snowflake over a plow blade -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <!-- Snowflake: vertical, horizontal, and two diagonal arms -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M24,4 L24,28" />
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M12,16 L36,16" />
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M15,7 L33,25" />
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M33,7 L15,25" />
+    <!-- Arm ticks -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:pathData="M21,7 L24,10 L27,7 M21,25 L24,22 L27,25" />
+
+    <!-- Plow blade: angled scoop pushing snow -->
+    <path
+        android:fillColor="#5FA8D3"
+        android:pathData="M6,32 C10,30 16,30 22,33 L42,33 L42,40 L6,40 Z" />
+    <!-- Ground / snow line -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M4,44 L44,44" />
+</vector>

@@ -1,0 +1,5 @@
+// Root build file. All plugin build logic lives in app/build.gradle,
+// following the ATAK plugin template convention.
+task clean(type: Delete) {
+    delete rootProject.layout.buildDirectory
+}

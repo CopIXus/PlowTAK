@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Theme applied to the plugin context before inflating plugin views,
+         per the ATAK plugin template. -->
+    <style name="ATAKPluginTheme" parent="@android:style/Theme.Material">
+        <item name="android:colorPrimary">#1B2A41</item>
+        <item name="android:colorAccent">#5FA8D3</item>
+    </style>
+</resources>

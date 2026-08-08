@@ -1,0 +1,38 @@
+# --- IdeaPlowPlugin ---
+
+# Offline GraphHopper map packs (~489 MB) are NOT tracked in git.
+# They are distributed as GitHub Release assets instead.
+# See README.md ("Offline map packs") and docs/vns-install.md.
+Maps/
+
+# ATAK SDK artifacts — obtain from tak.gov, never commit
+main.jar
+atak-gradle-takdev*.jar
+*.aar
+
+# Gradle
+.gradle/
+build/
+local.properties
+
+# Signing
+*.keystore
+*.jks
+
+# IDE
+.idea/
+*.iml
+.vscode/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# APK / build outputs
+*.apk
+*.ap_
+*.dex
+output-metadata.json

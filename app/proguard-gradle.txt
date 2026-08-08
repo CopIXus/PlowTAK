@@ -1,0 +1,23 @@
+# ATAK plugin proguard configuration (release builds).
+-dontskipnonpubliclibraryclasses
+-dontshrink
+-dontoptimize
+
+# Repackage plugin classes under a unique namespace to avoid collisions with
+# other plugins loaded into the ATAK process.
+-repackageclasses atakplugin.IdeaPlowPlugin
+
+-keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod
+
+# Keep the plugin entry points referenced from assets/plugin.xml
+-keep class com.atakmap.android.ideaplow.plugin.IdeaPlowLifecycle { *; }
+-keep class com.atakmap.android.ideaplow.plugin.IdeaPlowTool { *; }
+
+# Kotlin
+-dontwarn kotlin.**
+-keep class kotlin.Metadata { *; }
+
+# ATAK API is provided by the host — never warn about it
+-dontwarn com.atakmap.**
+-dontwarn gov.tak.**
+-dontwarn transapps.**
