@@ -150,8 +150,19 @@ Release assets**. Device install steps: [docs/vns-install.md](docs/vns-install.m
 | [docs/ops-guide.md](docs/ops-guide.md) | Operator guide (roles, coverage colors, distress) |
 | [docs/cot-schema.md](docs/cot-schema.md) | `<__plowtak>` CoT detail schema |
 | [docs/vns-install.md](docs/vns-install.md) | VNS / GraphHopper pack install |
+| [docs/ci-build.md](docs/ci-build.md) | GitHub Actions APK build + required secrets |
 | [CHANGELOG.md](CHANGELOG.md) | Release history |
+
+## CI / Releases
+
+Push to `main` runs engine tests and, when secrets are configured, builds a signed
+CIV release APK and publishes a GitHub Release (`build-0.1.<n>`). Setup guide:
+[docs/ci-build.md](docs/ci-build.md).
 
 ## License
 
-[MIT](LICENSE) — © CopIX / PlowTAK contributors.
+[PlowTAK Free Application License 1.0](LICENSE) — © 2026 CopIX LLC.
+
+Same terms as [WinTAKTracker](https://github.com/CopIXus/WinTAKTracker): free to
+use; source stays available; do not sell the application itself. Solution
+providers may charge for install/support time.

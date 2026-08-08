@@ -6,7 +6,8 @@
 
 buildscript {
 
-    ext.PLUGIN_VERSION = "0.1"
+    // CI can override with -PPLUGIN_VERSION=0.1.<run>
+    ext.PLUGIN_VERSION = project.findProperty('PLUGIN_VERSION') ?: "0.1"
     ext.ATAK_VERSION = "5.8.0"
 
     def takdevVersion = '2.+'
@@ -127,21 +128,28 @@ android {
 
     signingConfigs {
         debug {
-            def kf = getProperty('takDebugKeyFile', null)
+            // Prefer local.properties; fall back to ANDROID_* env (GitHub Actions).
+            def kf = getProperty('takDebugKeyFile', System.getenv('ANDROID_KEYSTORE_FILE'))
             if (kf != null) {
                 storeFile file(kf)
-                storePassword getProperty('takDebugKeyFilePassword', '')
-                keyAlias getProperty('takDebugKeyAlias', '')
-                keyPassword getProperty('takDebugKeyPassword', '')
+                storePassword getProperty('takDebugKeyFilePassword',
+                        System.getenv('ANDROID_KEYSTORE_PASSWORD') ?: '')
+                keyAlias getProperty('takDebugKeyAlias',
+                        System.getenv('ANDROID_KEY_ALIAS') ?: '')
+                keyPassword getProperty('takDebugKeyPassword',
+                        System.getenv('ANDROID_KEY_PASSWORD') ?: '')
             }
         }
         release {
-            def kf = getProperty('takReleaseKeyFile', null)
+            def kf = getProperty('takReleaseKeyFile', System.getenv('ANDROID_KEYSTORE_FILE'))
             if (kf != null) {
                 storeFile file(kf)
-                storePassword getProperty('takReleaseKeyFilePassword', '')
-                keyAlias getProperty('takReleaseKeyAlias', '')
-                keyPassword getProperty('takReleaseKeyPassword', '')
+                storePassword getProperty('takReleaseKeyFilePassword',
+                        System.getenv('ANDROID_KEYSTORE_PASSWORD') ?: '')
+                keyAlias getProperty('takReleaseKeyAlias',
+                        System.getenv('ANDROID_KEY_ALIAS') ?: '')
+                keyPassword getProperty('takReleaseKeyPassword',
+                        System.getenv('ANDROID_KEY_PASSWORD') ?: '')
             }
         }
     }

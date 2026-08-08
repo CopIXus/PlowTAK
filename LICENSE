@@ -1,21 +1,76 @@
-MIT License
+PlowTAK Free Application License 1.0
 
-Copyright (c) 2026 CopIX / PlowTAK contributors
+Copyright 2026 CopIX LLC
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+This is a source-available license. It is NOT an OSI “Open Source” license
+(classic OSI licenses generally allow selling the software). This text is not
+legal advice; consult counsel for your situation.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+Purpose
+-------
+Anyone may use PlowTAK at no cost for the application itself. Nobody may
+charge for the application or sell licenses to it. Source stays publicly
+available. Forks of this software also must not charge for the application.
+Solution providers may charge for their time (install, manage, train, support)
+— just not for the software itself.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+1. Definitions
+
+   “Software” means the PlowTAK source code and binaries in this
+   repository, including modified versions and derivatives.
+
+   “Sell the Software” means to charge a fee, accept payment, or otherwise
+   commercially license or distribute the Software (or a fork/derivative) as a
+   product — including paid downloads, SaaS access fees for the app itself, or
+   selling licenses to use the Software. It does not include charging only for
+   separate human services described in Section 3.
+
+2. Grant
+
+   Subject to this License, CopIX LLC grants you a worldwide, royalty-free,
+   non-exclusive, perpetual license to use, copy, modify, and distribute the
+   Software for any purpose, including operational use by individuals and
+   organizations (for-profit or otherwise) for their own TAK / winter-ops needs,
+   provided you do not Sell the Software.
+
+3. Paid services permitted
+
+   You may charge for installation, configuration, training, managed services,
+   consulting, and support time related to the Software, as long as you do not
+   Sell the Software or require payment for a license to the Software itself.
+
+4. Source availability (share-alike)
+
+   If you distribute the Software or a modified version to others (source or
+   binary), you must:
+   (a) make the corresponding source publicly available at no charge for the
+       Software itself; and
+   (b) license that distributed version under this same License (PlowTAK
+       Free Application License 1.0), with copyright notices preserved.
+
+5. Notices
+
+   Retain this License and copyright notices in all copies and substantial
+   portions of the Software. Do not remove attribution to CopIX LLC.
+
+6. No trademark license
+
+   This License does not grant rights to the names “PlowTAK”, “CopIX”,
+   “CopIX LLC”, or related marks, except as needed to describe the origin of
+   the Software.
+
+7. Disclaimer of Warranty
+
+   THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL
+   THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING
+   FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+   DEALINGS IN THE SOFTWARE.
+
+8. Prior MIT releases
+
+   Releases published under the MIT License remain available under that
+   license. New code and releases from the adoption of this License forward
+   are licensed under PlowTAK Free Application License 1.0.

@@ -1,0 +1,173 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build CIV APK and publish Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Resolve version
+        id: ver
+        shell: bash
+        run: |
+          REF="${{ github.ref }}"
+          SHA="${GITHUB_SHA:0:7}"
+          RUN="${{ github.run_number }}"
+          if [[ "$REF" =~ ^refs/tags/v([0-9]+\.[0-9]+\.[0-9]+([.-].+)?)$ ]]; then
+            VERSION="${BASH_REMATCH[1]}"
+            TAG="${{ github.ref_name }}"
+            NAME="PlowTAK $VERSION"
+            KIND="tag"
+          elif [[ "$REF" == "refs/heads/main" ]]; then
+            VERSION="0.1.$RUN"
+            TAG="build-$VERSION"
+            NAME="PlowTAK $VERSION (main @$SHA)"
+            KIND="push"
+          else
+            echo "Unsupported ref $REF" >&2
+            exit 1
+          fi
+          {
+            echo "tag=$TAG"
+            echo "version=$VERSION"
+            echo "name=$NAME"
+            echo "kind=$KIND"
+            echo "sha=$SHA"
+          } >> "$GITHUB_OUTPUT"
+          echo "kind=$KIND tag=$TAG version=$VERSION"
+
+      - name: Decode ATAK-CIV SDK jars
+        env:
+          ATAK_MAIN_JAR_BASE64: ${{ secrets.ATAK_MAIN_JAR_BASE64 }}
+          ATAK_TAKDEV_JAR_BASE64: ${{ secrets.ATAK_TAKDEV_JAR_BASE64 }}
+        run: |
+          if [ -z "$ATAK_MAIN_JAR_BASE64" ] || [ -z "$ATAK_TAKDEV_JAR_BASE64" ]; then
+            echo "::error::Missing ATAK_MAIN_JAR_BASE64 and/or ATAK_TAKDEV_JAR_BASE64."
+            echo "Encode the ATAK-CIV 5.8 SDK jars (from tak.gov) and set them as repo secrets:"
+            echo "  base64 -w0 main.jar"
+            echo "  base64 -w0 atak-gradle-takdev.jar"
+            echo "See docs/ci-build.md"
+            exit 1
+          fi
+          mkdir -p atak-sdk
+          echo "$ATAK_MAIN_JAR_BASE64" | base64 -d > atak-sdk/main.jar
+          echo "$ATAK_TAKDEV_JAR_BASE64" | base64 -d > atak-sdk/atak-gradle-takdev.jar
+          ls -la atak-sdk/
+          file atak-sdk/main.jar atak-sdk/atak-gradle-takdev.jar
+
+      - name: Decode release keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "::error::Missing ANDROID_KEYSTORE_BASE64 — cannot produce a signed APK."
+            echo "Copy the same keystore secrets used by CopIXus/AndroidTAKTracker, or see docs/ci-build.md"
+            exit 1
+          fi
+          mkdir -p ci
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > ci/release.jks
+          ls -la ci/release.jks
+
+      - name: Write local.properties for CI
+        env:
+          STORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          cat > local.properties <<EOF
+          sdk.dir=${ANDROID_HOME}
+          sdk.path=${GITHUB_WORKSPACE}/atak-sdk
+          takdev.plugin=${GITHUB_WORKSPACE}/atak-sdk/atak-gradle-takdev.jar
+          takReleaseKeyFile=${GITHUB_WORKSPACE}/ci/release.jks
+          takReleaseKeyFilePassword=${STORE_PASS}
+          takReleaseKeyAlias=${KEY_ALIAS}
+          takReleaseKeyPassword=${KEY_PASS}
+          takDebugKeyFile=${GITHUB_WORKSPACE}/ci/release.jks
+          takDebugKeyFilePassword=${STORE_PASS}
+          takDebugKeyAlias=${KEY_ALIAS}
+          takDebugKeyPassword=${KEY_PASS}
+          EOF
+          # Strip accidental leading spaces from heredoc lines
+          sed -i 's/^[[:space:]]*//' local.properties
+          cat local.properties | sed 's/Password=.*/Password=***/;s/password=.*/password=***/'
+
+      - name: Assemble signed CIV release
+        env:
+          ANDROID_KEYSTORE_FILE: ${{ github.workspace }}/ci/release.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          ./gradlew :app:assembleCivRelease \
+            -PPLUGIN_VERSION=${{ steps.ver.outputs.version }} \
+            --stacktrace
+
+      - name: Package APK + SHA256
+        id: pkg
+        run: |
+          mkdir -p dist
+          SRC=$(ls app/build/outputs/apk/civ/release/*.apk | head -n1)
+          if [ -z "$SRC" ]; then
+            echo "No APK under app/build/outputs/apk/civ/release/" >&2
+            find app/build/outputs -name '*.apk' || true
+            exit 1
+          fi
+          case "$SRC" in
+            *unsigned*) echo "Refusing to publish unsigned APK: $SRC"; exit 1 ;;
+          esac
+          OUT="dist/ATAK-Plugin-PlowTAK-${{ steps.ver.outputs.version }}-5.8.0-civ-release.apk"
+          cp "$SRC" "$OUT"
+          (cd dist && sha256sum "$(basename "$OUT")" | awk '{print $1 "  " $2}' > "$(basename "$OUT").sha256")
+          echo "apk=$(basename "$OUT")" >> "$GITHUB_OUTPUT"
+          ls -la dist/
+          cat dist/*.sha256
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PlowTAK-civ-release
+          path: dist/*
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: ${{ steps.ver.outputs.name }}
+          generate_release_notes: true
+          files: |
+            dist/*
+          body: |
+            Continuous build of **PlowTAK** (ATAK-CIV 5.8 plugin, signed release APK).
+
+            Install `${{ steps.pkg.outputs.apk }}` on a device running **ATAK-CIV 5.8.x**,
+            then enable the plugin in ATAK → Settings → Tool Preferences / Plugins.
+
+            Peer dependency: **VNS 4.0** from [tak.gov](https://tak.gov) for offline maps.
+            Verify the APK with the matching `.sha256` sidecar.
+
+            Licensed under the [PlowTAK Free Application License 1.0](LICENSE).
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

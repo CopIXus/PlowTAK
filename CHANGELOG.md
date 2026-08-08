@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Relicensed under **PlowTAK Free Application License 1.0** (CopIX LLC), matching
+  WinTAKTracker: free to use, source available, do not sell the application.
+  Prior MIT snapshots remain under MIT (see LICENSE §8).
+- Added GitHub Actions CI (`coretests`) and Release workflow that builds a signed
+  ATAK-CIV 5.8 plugin APK when ATAK SDK + keystore secrets are configured
+  (`docs/ci-build.md`).
 - **Renamed project from IdeaPlowPlugin / IdeaPlow to PlowTAK.** Package
   `com.atakmap.android.ideaplow` → `com.atakmap.android.plowtak`; CoT detail
   `<__ideaplow>` → `<__plowtak>`; event types `b-i-x-ideaplow-*` →
