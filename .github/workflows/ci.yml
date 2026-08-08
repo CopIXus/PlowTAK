@@ -21,7 +21,7 @@ jobs:
           java-version: "17"
 
       - name: Make gradlew executable
-        run: chmod +x ./gradlew ./coretests/gradlew
+        run: chmod +x ./gradlew
 
       - name: Run framework-free engine tests
         run: ./gradlew -p coretests test --stacktrace
