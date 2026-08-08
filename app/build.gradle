@@ -10,7 +10,7 @@ buildscript {
     ext.PLUGIN_VERSION = project.findProperty('PLUGIN_VERSION') ?: "0.1"
     ext.ATAK_VERSION = "5.8.0"
 
-    def takdevVersion = '2.+'
+    def takdevVersion = '3.+'
 
     def getValueFromPropertiesFile = { propFile, key ->
         if (!propFile.isFile() || !propFile.canRead())
@@ -64,6 +64,16 @@ buildscript {
         } else {
             classpath files(takdevPlugin)
         }
+    }
+}
+
+// Required so dependencies (kotlin-stdlib, etc.) resolve from Maven — takdev
+// offline mode otherwise only searches .takdev/aars/. Matches ATAK 5.8 samples.
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+        mavenLocal()
     }
 }
 
