@@ -50,6 +50,35 @@ object GeoMath {
     }
 
     /**
+     * Closest point to p on the segment (a, b) with its distance, using a
+     * local equirectangular projection centered on a. Result is
+     * [lat, lon, distanceM].
+     */
+    fun closestPointOnSegment(
+        pLat: Double, pLon: Double,
+        aLat: Double, aLon: Double,
+        bLat: Double, bLon: Double
+    ): DoubleArray {
+        val cosLat = cos(Math.toRadians(aLat))
+        val px = Math.toRadians(pLon - aLon) * cosLat * EARTH_RADIUS_M
+        val py = Math.toRadians(pLat - aLat) * EARTH_RADIUS_M
+        val bx = Math.toRadians(bLon - aLon) * cosLat * EARTH_RADIUS_M
+        val by = Math.toRadians(bLat - aLat) * EARTH_RADIUS_M
+
+        val segLenSq = bx * bx + by * by
+        val t = if (segLenSq < 1e-9) 0.0
+        else ((px * bx + py * by) / segLenSq).coerceIn(0.0, 1.0)
+
+        val cx = t * bx
+        val cy = t * by
+        val dx = px - cx
+        val dy = py - cy
+        val lat = aLat + Math.toDegrees(cy / EARTH_RADIUS_M)
+        val lon = aLon + Math.toDegrees(cx / (EARTH_RADIUS_M * cosLat))
+        return doubleArrayOf(lat, lon, sqrt(dx * dx + dy * dy))
+    }
+
+    /**
      * Ray-casting point-in-polygon on raw lat/lon vertices. Fine for the
      * zone scale this plugin uses (hundreds of meters to a few km); not for
      * polygons spanning the antimeridian or poles.
