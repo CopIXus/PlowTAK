@@ -101,6 +101,53 @@ class CoverageStoreTest {
     }
 
     @Test
+    fun `nearby queries use the spatial index`() {
+        val store = CoverageStore(null)
+        store.setStorm("storm-A")
+        store.addLocal(segment("PLOW-1", now))            // at 36.0, -86.0
+        store.mergeRemote(
+            segment("SALT-9", now + 1000).let { seg ->
+                seg.copy(points = seg.points.map { it.copy(lat = it.lat + 0.5) })
+            }
+        ) // ~55 km north
+
+        val near = store.nearby(36.0, -86.0, 500.0)
+        assertEquals(1, near.size)
+        assertEquals("PLOW-1", near[0].vehicleUid)
+
+        val around = store.nearSegment(store.all().first { it.vehicleUid == "PLOW-1" }, 500.0)
+        assertTrue(around.none { it.vehicleUid == "PLOW-1" })
+    }
+
+    @Test
+    fun `index survives storm reload`() {
+        val dir = tmp.newFolder()
+        val store = CoverageStore(dir)
+        store.setStorm("storm-A")
+        store.addLocal(segment("PLOW-1", now))
+
+        val reloaded = CoverageStore(dir)
+        reloaded.setStorm("storm-A")
+        assertEquals(1, reloaded.nearby(36.0, -86.0, 500.0).size)
+    }
+
+    @Test
+    fun `count cap prunes oldest segments first`() {
+        val store = CoverageStore(null)
+        store.setStorm("storm-A")
+        for (i in 0 until 10) {
+            store.addLocal(segment("PLOW-1", now + i * 60_000L))
+        }
+        store.pruneOverCount(4)
+        assertEquals(4, store.size())
+        // The four newest survive.
+        assertTrue(store.all().all { it.startTimeMs >= now + 6 * 60_000L })
+        // No-op when under the cap.
+        store.pruneOverCount(100)
+        assertEquals(4, store.size())
+    }
+
+    @Test
     fun `listener sees adds and removals`() {
         val store = CoverageStore(null)
         store.setStorm("storm-A")

@@ -30,5 +30,7 @@ enum class MaterialMode(val wireName: String) {
 data class EquipmentState(
     val bladeDown: Boolean = false,
     val saltOn: Boolean = false,
-    val material: Material = Material.SALT
+    val material: Material = Material.SALT,
+    /** Active effective-width preset (standard blade / wing / tow). */
+    val widthPreset: WidthPreset = WidthPreset.STANDARD
 )

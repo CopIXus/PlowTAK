@@ -28,7 +28,9 @@ data class TreatSegment(
     val widthM: Double,
     val points: List<TrackPoint>,
     val startTimeMs: Long,
-    val endTimeMs: Long
+    val endTimeMs: Long,
+    /** Specific material dispensed when the spreader was on; null otherwise. */
+    val spreadMaterial: Material? = null
 ) {
     init {
         require(points.size >= 2) { "TreatSegment requires at least 2 points" }

@@ -1,5 +1,6 @@
 package com.atakmap.android.ideaplow.coverage
 
+import com.atakmap.android.ideaplow.model.Material
 import com.atakmap.android.ideaplow.model.MaterialMode
 import com.atakmap.android.ideaplow.model.TrackPoint
 import com.atakmap.android.ideaplow.model.TreatSegment
@@ -10,8 +11,10 @@ import java.util.Locale
  * flat-file offline store (one segment per line) and the `points` attribute
  * of coverage CoT details.
  *
- * Line format (pipe-delimited, v1):
- *   1|id|vehicleUid|callsign|stormId|operatorId|material|widthM|startMs|points
+ * Line format (pipe-delimited, v2):
+ *   2|id|vehicleUid|callsign|stormId|operatorId|material|widthM|startMs|points|spreadMaterial
+ * v1 lines (no spreadMaterial field) still decode — storm files persist
+ * across app updates.
  * Points format:
  *   lat,lon,dtMs,heading;lat,lon,dtMs,heading;...
  * where dtMs is the offset from startMs (keeps lines short) and heading is
@@ -19,13 +22,14 @@ import java.util.Locale
  */
 object SegmentCodec {
 
-    private const val VERSION = "1"
+    private const val VERSION_1 = "1"
+    private const val VERSION_2 = "2"
     private const val FIELD_SEP = "|"
     private const val ESCAPED_PIPE = "&#124;"
 
     fun encode(seg: TreatSegment): String {
         return listOf(
-            VERSION,
+            VERSION_2,
             escape(seg.id),
             escape(seg.vehicleUid),
             escape(seg.callsign),
@@ -34,14 +38,17 @@ object SegmentCodec {
             seg.material.wireName,
             formatDouble(seg.widthM),
             seg.startTimeMs.toString(),
-            encodePoints(seg.points, seg.startTimeMs)
+            encodePoints(seg.points, seg.startTimeMs),
+            seg.spreadMaterial?.wireName ?: ""
         ).joinToString(FIELD_SEP)
     }
 
     /** Returns null on any malformed input rather than throwing. */
     fun decode(line: String): TreatSegment? {
         val f = line.trim().split(FIELD_SEP)
-        if (f.size != 10 || f[0] != VERSION) return null
+        val valid = (f.size == 10 && f[0] == VERSION_1) ||
+                (f.size == 11 && f[0] == VERSION_2)
+        if (!valid) return null
         return try {
             val startMs = f[8].toLong()
             val points = decodePoints(f[9], startMs)
@@ -56,7 +63,8 @@ object SegmentCodec {
                 widthM = f[7].toDouble(),
                 points = points,
                 startTimeMs = startMs,
-                endTimeMs = points.last().timeMs
+                endTimeMs = points.last().timeMs,
+                spreadMaterial = if (f.size > 10) Material.fromWireName(f[10]) else null
             )
         } catch (e: NumberFormatException) {
             null

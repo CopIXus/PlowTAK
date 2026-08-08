@@ -2,6 +2,7 @@ package com.atakmap.android.ideaplow.equipment
 
 import com.atakmap.android.ideaplow.model.EquipmentState
 import com.atakmap.android.ideaplow.model.Material
+import com.atakmap.android.ideaplow.model.WidthPreset
 
 /**
  * Driver-operated equipment state, wired to the big glove-friendly toggles in
@@ -27,6 +28,8 @@ class ManualEquipmentProvider(
     fun setSaltOn(on: Boolean) = update(state.copy(saltOn = on))
 
     fun setMaterial(material: Material) = update(state.copy(material = material))
+
+    fun setWidthPreset(preset: WidthPreset) = update(state.copy(widthPreset = preset))
 
     private fun update(next: EquipmentState) {
         if (next == state) return

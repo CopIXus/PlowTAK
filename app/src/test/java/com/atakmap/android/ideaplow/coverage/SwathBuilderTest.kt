@@ -1,5 +1,6 @@
 package com.atakmap.android.ideaplow.coverage
 
+import com.atakmap.android.ideaplow.model.Material
 import com.atakmap.android.ideaplow.model.MaterialMode
 import com.atakmap.android.ideaplow.model.TrackPoint
 import com.atakmap.android.ideaplow.model.TreatSegment
@@ -127,6 +128,39 @@ class SwathBuilderTest {
         assertEquals(2, segments.size)
         assertEquals(MaterialMode.PLOW_ONLY, segments[0].material)
         assertEquals(MaterialMode.PLOW_AND_SALT, segments[1].material)
+    }
+
+    @Test
+    fun `spread material is stamped and a change breaks the segment`() {
+        val b = builder()
+        repeat(3) { i ->
+            b.onSample(latStep(i), -86.0, 0.0, 1000L * i, true, MaterialMode.SALT, 3.0,
+                spreadMaterial = Material.SALT)
+        }
+        repeat(3) { i ->
+            b.onSample(latStep(3 + i), -86.0, 0.0, 3000L + 1000L * i, true, MaterialMode.SALT, 3.0,
+                spreadMaterial = Material.BRINE)
+        }
+        b.flush()
+        assertEquals(2, segments.size)
+        assertEquals(Material.SALT, segments[0].spreadMaterial)
+        assertEquals(Material.BRINE, segments[1].spreadMaterial)
+    }
+
+    @Test
+    fun `width preset change breaks the segment`() {
+        val b = builder()
+        repeat(3) { i ->
+            b.onSample(latStep(i), -86.0, 0.0, 1000L * i, true, MaterialMode.PLOW_ONLY, 3.0)
+        }
+        // Wing extended mid-run: effective width changes live.
+        repeat(3) { i ->
+            b.onSample(latStep(3 + i), -86.0, 0.0, 3000L + 1000L * i, true, MaterialMode.PLOW_ONLY, 4.9)
+        }
+        b.flush()
+        assertEquals(2, segments.size)
+        assertEquals(3.0, segments[0].widthM, 1e-9)
+        assertEquals(4.9, segments[1].widthM, 1e-9)
     }
 
     @Test

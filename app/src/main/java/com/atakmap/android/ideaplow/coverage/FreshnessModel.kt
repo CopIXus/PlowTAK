@@ -26,11 +26,20 @@ class FreshnessModel(
     var retentionHours: Double = 12.0
 ) {
 
-    fun classify(segmentEndTimeMs: Long, nowMs: Long): Freshness {
+    fun classify(segmentEndTimeMs: Long, nowMs: Long): Freshness =
+        classify(segmentEndTimeMs, nowMs, cycleTimeMinutes)
+
+    /**
+     * Classify against an explicit cycle time (per-priority override or a
+     * special-zone tightened cycle from `CycleResolver`). Retention stays
+     * global — zones change how fast coverage goes RED, not how long it is
+     * kept.
+     */
+    fun classify(segmentEndTimeMs: Long, nowMs: Long, cycleMinutes: Int): Freshness {
         val ageMs = nowMs - segmentEndTimeMs
         if (ageMs < 0) return Freshness.GREEN // clock skew — be generous
 
-        val cycleMs = cycleTimeMinutes * 60_000L
+        val cycleMs = cycleMinutes * 60_000L
         val retentionMs = (retentionHours * 3_600_000L).toLong()
 
         return when {

@@ -1,5 +1,6 @@
 package com.atakmap.android.ideaplow.coverage
 
+import com.atakmap.android.ideaplow.model.Material
 import com.atakmap.android.ideaplow.model.MaterialMode
 import com.atakmap.android.ideaplow.model.TrackPoint
 import com.atakmap.android.ideaplow.model.TreatSegment
@@ -47,6 +48,7 @@ class SwathBuilder(
     private val buffer = mutableListOf<TrackPoint>()
     private var currentMaterial: MaterialMode = MaterialMode.NONE
     private var currentWidthM: Double = 0.0
+    private var currentSpreadMaterial: Material? = null
 
     /** Update identity/context; a change mid-pass breaks the segment. */
     fun setContext(ctx: Context) {
@@ -65,7 +67,8 @@ class SwathBuilder(
         timeMs: Long,
         treating: Boolean,
         material: MaterialMode,
-        widthM: Double
+        widthM: Double,
+        spreadMaterial: Material? = null
     ) {
         if (!treating) {
             flush()
@@ -77,7 +80,8 @@ class SwathBuilder(
             val gapMs = timeMs - last.timeMs
             val jumpM = GeoMath.distanceMeters(last.lat, last.lon, lat, lon)
             if (gapMs > config.maxGapMs || gapMs < 0 || jumpM > config.maxJumpM ||
-                material != currentMaterial || widthM != currentWidthM
+                material != currentMaterial || widthM != currentWidthM ||
+                spreadMaterial != currentSpreadMaterial
             ) {
                 flush()
             }
@@ -86,6 +90,7 @@ class SwathBuilder(
         if (buffer.isEmpty()) {
             currentMaterial = material
             currentWidthM = widthM
+            currentSpreadMaterial = spreadMaterial
             buffer.add(TrackPoint(lat, lon, timeMs, headingDeg))
             return
         }
@@ -122,7 +127,8 @@ class SwathBuilder(
                         widthM = currentWidthM,
                         points = simplified,
                         startTimeMs = simplified.first().timeMs,
-                        endTimeMs = simplified.last().timeMs
+                        endTimeMs = simplified.last().timeMs,
+                        spreadMaterial = currentSpreadMaterial
                     )
                 )
             }

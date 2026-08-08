@@ -49,6 +49,33 @@ object GeoMath {
         return sqrt(dx * dx + dy * dy)
     }
 
+    /**
+     * Ray-casting point-in-polygon on raw lat/lon vertices. Fine for the
+     * zone scale this plugin uses (hundreds of meters to a few km); not for
+     * polygons spanning the antimeridian or poles.
+     */
+    fun pointInPolygon(lat: Double, lon: Double, polygon: List<Pair<Double, Double>>): Boolean {
+        if (polygon.size < 3) return false
+        var inside = false
+        var j = polygon.size - 1
+        for (i in polygon.indices) {
+            val (latI, lonI) = polygon[i]
+            val (latJ, lonJ) = polygon[j]
+            if ((latI > lat) != (latJ > lat)) {
+                val intersectLon = lonI + (lat - latI) / (latJ - latI) * (lonJ - lonI)
+                if (lon < intersectLon) inside = !inside
+            }
+            j = i
+        }
+        return inside
+    }
+
+    /** Smallest absolute angle between two bearings, degrees 0–180. */
+    fun angleDiffDeg(a: Double, b: Double): Double {
+        val d = ((a - b) % 360.0 + 360.0) % 360.0
+        return if (d > 180.0) 360.0 - d else d
+    }
+
     /** Initial bearing in degrees true, 0–360, from point 1 to point 2. */
     fun bearingDeg(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
         val phi1 = Math.toRadians(lat1)

@@ -26,6 +26,8 @@ class CoverageStore(
     private val listeners = mutableListOf<Listener>()
     /** Local segments not yet shared over CoT; drained by the publisher. */
     private val pendingShare = ArrayDeque<TreatSegment>()
+    /** Grid spatial index kept in lockstep with [segments]. */
+    private val index = SegmentIndex()
 
     var currentStormId: String = ""
         private set
@@ -41,8 +43,10 @@ class CoverageStore(
             currentStormId = stormId
             removed = segments.keys.toList()
             segments.clear()
+            index.clear()
             pendingShare.clear()
             loadFromDisk(stormId)
+            segments.values.forEach { index.add(it) }
         }
         if (removed.isNotEmpty()) notifyRemoved(removed)
     }
@@ -53,6 +57,7 @@ class CoverageStore(
         synchronized(this) {
             added = segments.put(segment.id, segment) == null
             if (added) {
+                index.add(segment)
                 pendingShare.addLast(segment)
                 appendToDisk(segment)
             }
@@ -71,7 +76,10 @@ class CoverageStore(
                 segment.stormId != currentStormId
             ) return false
             added = segments.put(segment.id, segment) == null
-            if (added) appendToDisk(segment)
+            if (added) {
+                index.add(segment)
+                appendToDisk(segment)
+            }
         }
         if (added) notifyAdded(segment, local = false)
         return added
@@ -80,6 +88,14 @@ class CoverageStore(
     fun all(): List<TreatSegment> = synchronized(this) { segments.values.toList() }
 
     fun size(): Int = synchronized(this) { segments.size }
+
+    /** Coarse (bbox-precision) candidates within [radiusM] of a point. */
+    fun nearby(lat: Double, lon: Double, radiusM: Double): List<TreatSegment> =
+        synchronized(this) { index.nearby(lat, lon, radiusM) }
+
+    /** Coarse candidates within [marginM] of any point of [segment]. */
+    fun nearSegment(segment: TreatSegment, marginM: Double): List<TreatSegment> =
+        synchronized(this) { index.nearSegment(segment, marginM) }
 
     /** Drain up to [max] local segments awaiting CoT share. */
     fun drainPendingShare(max: Int): List<TreatSegment> = synchronized(this) {
@@ -103,7 +119,33 @@ class CoverageStore(
                 .filter { model.classify(it.endTimeMs, nowMs) == Freshness.EXPIRED }
                 .map { it.id }
             if (removed.isEmpty()) return
-            removed.forEach { segments.remove(it) }
+            removed.forEach {
+                segments.remove(it)
+                index.remove(it)
+            }
+            rewriteDisk()
+        }
+        notifyRemoved(removed)
+    }
+
+    /**
+     * Hard cap on retained segments so a marathon storm cannot grow the
+     * store (and the overlay) without bound: the oldest-ending segments are
+     * dropped first once [maxSegments] is exceeded.
+     */
+    fun pruneOverCount(maxSegments: Int) {
+        val removed: List<String>
+        synchronized(this) {
+            val over = segments.size - maxSegments
+            if (over <= 0) return
+            removed = segments.values
+                .sortedBy { it.endTimeMs }
+                .take(over)
+                .map { it.id }
+            removed.forEach {
+                segments.remove(it)
+                index.remove(it)
+            }
             rewriteDisk()
         }
         notifyRemoved(removed)

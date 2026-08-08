@@ -15,6 +15,10 @@ data class VehicleCapability(
     val publishPresence: Boolean,
     /** Effective treated width in meters (blade / wing / spreader spread). */
     val plowWidthM: Double,
+    /** Width with the wing extended; 0 disables the WING preset. */
+    val wingWidthM: Double = 0.0,
+    /** Width with the tow plow deployed; 0 disables the TOW preset. */
+    val towWidthM: Double = 0.0,
     /** Fleet-facing callsign, e.g. "Plow-12". */
     val callsign: String,
     /** Persistent per-truck identifier — distinct from the per-shift operator. */
@@ -22,11 +26,32 @@ data class VehicleCapability(
     /** Observer sub-label (Fire / EMS / Traffic / EOC); empty for other types. */
     val observerLabel: String = ""
 ) {
+
+    /**
+     * Effective treated width for the given preset. A preset whose width is
+     * unset (<= 0) falls back to the standard blade width so a mis-tap can
+     * never record zero-width coverage.
+     */
+    fun widthFor(preset: WidthPreset): Double = when (preset) {
+        WidthPreset.STANDARD -> plowWidthM
+        WidthPreset.WING -> if (wingWidthM > 0.0) wingWidthM else plowWidthM
+        WidthPreset.TOW -> if (towWidthM > 0.0) towWidthM else plowWidthM
+    }
+
+    /** Presets actually available on this vehicle (configured width > 0). */
+    fun availablePresets(): List<WidthPreset> = buildList {
+        add(WidthPreset.STANDARD)
+        if (wingWidthM > 0.0) add(WidthPreset.WING)
+        if (towWidthM > 0.0) add(WidthPreset.TOW)
+    }
+
     companion object {
 
         /** Common plow width presets in meters (8 ft, 10 ft, 12 ft, wing 16 ft, tow 26 ft). */
         val WIDTH_PRESETS_M = listOf(2.4, 3.0, 3.7, 4.9, 7.9)
         const val DEFAULT_WIDTH_M = 3.0
+        const val DEFAULT_WING_WIDTH_M = 4.9
+        const val DEFAULT_TOW_WIDTH_M = 7.9
 
         /**
          * Sensible defaults per vehicle type; the first-run UI starts from
@@ -88,6 +113,8 @@ data class VehicleCapability(
                 canTreat = treatType && (hasBlade || hasSalt || cap.type == VehicleType.SALT_ONLY),
                 canManageStorm = cap.canManageStorm && cap.type == VehicleType.SUPERVISOR,
                 plowWidthM = if (treatType) cap.plowWidthM.coerceAtLeast(1.0) else 0.0,
+                wingWidthM = if (treatType) cap.wingWidthM.coerceAtLeast(0.0) else 0.0,
+                towWidthM = if (treatType) cap.towWidthM.coerceAtLeast(0.0) else 0.0,
                 observerLabel = if (cap.type == VehicleType.OBSERVER) cap.observerLabel else ""
             )
         }

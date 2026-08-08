@@ -1,5 +1,6 @@
 package com.atakmap.android.ideaplow.coverage
 
+import com.atakmap.android.ideaplow.model.Material
 import com.atakmap.android.ideaplow.model.MaterialMode
 import com.atakmap.android.ideaplow.model.TrackPoint
 import com.atakmap.android.ideaplow.model.TreatSegment
@@ -61,6 +62,28 @@ class SegmentCodecTest {
         val orig = segment(callsign = "Weird|Callsign")
         val back = SegmentCodec.decode(SegmentCodec.encode(orig))!!
         assertEquals("Weird|Callsign", back.callsign)
+    }
+
+    @Test
+    fun `spread material round-trips in v2`() {
+        val orig = segment().copy(spreadMaterial = Material.BRINE)
+        val back = SegmentCodec.decode(SegmentCodec.encode(orig))!!
+        assertEquals(Material.BRINE, back.spreadMaterial)
+
+        // Absent material stays null.
+        val plain = SegmentCodec.decode(SegmentCodec.encode(segment()))!!
+        assertNull(plain.spreadMaterial)
+    }
+
+    @Test
+    fun `v1 lines from an older install still decode`() {
+        val v1 = "1|PLOW-12-1700000000000|PLOW-12|Plow-12|storm|op-9|salt|3|1700000000000|" +
+                "36.1627001,-86.7816002,0,87.2;36.1630000,-86.7810000,3000,"
+        val back = SegmentCodec.decode(v1)!!
+        assertEquals("PLOW-12", back.vehicleUid)
+        assertEquals(MaterialMode.SALT, back.material)
+        assertNull(back.spreadMaterial)
+        assertEquals(2, back.points.size)
     }
 
     @Test
