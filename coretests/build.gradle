@@ -28,6 +28,13 @@ sourceSets {
             include 'com/atakmap/android/ideaplow/ops/**'
             include 'com/atakmap/android/ideaplow/equipment/**'
             include 'com/atakmap/android/ideaplow/cot/codec/**'
+            // report/ mixes pure exporters with ATAK-touching reporters —
+            // include only the framework-free files.
+            include 'com/atakmap/android/ideaplow/report/StormExportData.kt'
+            include 'com/atakmap/android/ideaplow/report/ExportFormat.kt'
+            include 'com/atakmap/android/ideaplow/report/GeoJsonExporter.kt'
+            include 'com/atakmap/android/ideaplow/report/CsvExporter.kt'
+            include 'com/atakmap/android/ideaplow/report/MetricsCalculator.kt'
         }
     }
     test {
