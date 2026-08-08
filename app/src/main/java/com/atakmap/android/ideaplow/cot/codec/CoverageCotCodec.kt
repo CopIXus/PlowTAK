@@ -2,6 +2,7 @@ package com.atakmap.android.ideaplow.cot.codec
 
 import com.atakmap.android.ideaplow.coverage.SegmentCodec
 import com.atakmap.android.ideaplow.coverage.SwathBuilder
+import com.atakmap.android.ideaplow.model.Material
 import com.atakmap.android.ideaplow.model.MaterialMode
 import com.atakmap.android.ideaplow.model.TreatSegment
 import java.util.Locale
@@ -43,16 +44,17 @@ object CoverageCotCodec {
                         .take(MAX_POINTS_PER_WIRE_SEGMENT)
                 else seg.points
             DetailNode(
-                "segment", mapOf(
-                    "id" to seg.id,
-                    "uid" to seg.vehicleUid,
-                    "callsign" to seg.callsign,
-                    "op" to seg.operatorId,
-                    "material" to seg.material.wireName,
-                    "widthM" to String.format(Locale.US, "%.1f", seg.widthM),
-                    "start" to seg.startTimeMs.toString(),
-                    "points" to SegmentCodec.encodePoints(points, seg.startTimeMs)
-                )
+                "segment", buildMap {
+                    put("id", seg.id)
+                    put("uid", seg.vehicleUid)
+                    put("callsign", seg.callsign)
+                    put("op", seg.operatorId)
+                    put("material", seg.material.wireName)
+                    seg.spreadMaterial?.let { put("mat", it.wireName) }
+                    put("widthM", String.format(Locale.US, "%.1f", seg.widthM))
+                    put("start", seg.startTimeMs.toString())
+                    put("points", SegmentCodec.encodePoints(points, seg.startTimeMs))
+                }
             )
         }
         return DetailNode(
@@ -92,7 +94,8 @@ object CoverageCotCodec {
                 widthM = seg.attrDouble("widthM", 3.0),
                 points = points,
                 startTimeMs = start,
-                endTimeMs = points.last().timeMs
+                endTimeMs = points.last().timeMs,
+                spreadMaterial = Material.fromWireName(seg.attr("mat"))
             )
         }
     }

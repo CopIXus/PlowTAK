@@ -21,13 +21,14 @@ object HazardCotCodec {
             DetailNode.IDEAPLOW, emptyMap(),
             listOf(
                 DetailNode(
-                    "hazard", mapOf(
-                        "kind" to hazard.type.wireName,
-                        "reporterUid" to hazard.reporterUid,
-                        "reporterCallsign" to hazard.reporterCallsign,
-                        "stormId" to hazard.stormId,
-                        "time" to hazard.timeMs.toString()
-                    )
+                    "hazard", buildMap {
+                        put("kind", hazard.type.wireName)
+                        put("reporterUid", hazard.reporterUid)
+                        put("reporterCallsign", hazard.reporterCallsign)
+                        put("stormId", hazard.stormId)
+                        put("time", hazard.timeMs.toString())
+                        if (hazard.hasPhoto) put("photo", hazard.photoFile)
+                    }
                 )
             )
         )
@@ -45,7 +46,8 @@ object HazardCotCodec {
             lat = lat,
             lon = lon,
             timeMs = hazard.attrLong("time", System.currentTimeMillis()),
-            stormId = hazard.attr("stormId") ?: ""
+            stormId = hazard.attr("stormId") ?: "",
+            photoFile = hazard.attr("photo") ?: ""
         )
     }
 }

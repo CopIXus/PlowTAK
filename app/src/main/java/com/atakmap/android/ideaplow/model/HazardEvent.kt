@@ -27,5 +27,13 @@ data class HazardEvent(
     val lat: Double,
     val lon: Double,
     val timeMs: Long,
-    val stormId: String = ""
-)
+    val stormId: String = "",
+    /**
+     * Attached photo file name (not a full path) under the marker's ATAK
+     * attachment directory; empty when no photo. Receivers resolve it via
+     * the standard attachment sync convention.
+     */
+    val photoFile: String = ""
+) {
+    val hasPhoto: Boolean get() = photoFile.isNotEmpty()
+}

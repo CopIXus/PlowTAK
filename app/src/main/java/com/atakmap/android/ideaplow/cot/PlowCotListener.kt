@@ -101,7 +101,8 @@ class PlowCotListener(
                 saltOn = detail.saltOn,
                 stormId = detail.stormId,
                 operatorId = detail.operatorId,
-                operatorName = detail.operatorName
+                operatorName = detail.operatorName,
+                reloadCount = detail.reloadCount
             )
         )
     }

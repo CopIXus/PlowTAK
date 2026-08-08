@@ -19,7 +19,9 @@ data class PlowVehicle(
     val saltOn: Boolean = false,
     val stormId: String = "",
     val operatorId: String = "",
-    val operatorName: String = ""
+    val operatorName: String = "",
+    /** Reloads this truck has reported for the current storm (from PLI). */
+    val reloadCount: Int = 0
 ) {
     fun isStale(nowMs: Long, staleAfterMs: Long): Boolean =
         nowMs - lastUpdateMs > staleAfterMs

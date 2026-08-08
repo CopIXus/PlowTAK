@@ -1,10 +1,13 @@
 package com.atakmap.android.ideaplow.cot.codec
 
+import com.atakmap.android.ideaplow.coverage.DirectionModel
+import com.atakmap.android.ideaplow.coverage.RoadSide
 import com.atakmap.android.ideaplow.model.Material
 import com.atakmap.android.ideaplow.model.MaterialMode
 import com.atakmap.android.ideaplow.model.VehicleCapability
 import com.atakmap.android.ideaplow.model.VehicleStatus
 import com.atakmap.android.ideaplow.model.VehicleType
+import com.atakmap.android.ideaplow.model.WidthPreset
 import java.util.Locale
 
 /**
@@ -15,8 +18,8 @@ import java.util.Locale
  * ```
  * <__ideaplow>
  *   <vehicle type= hasBlade= hasSalt= canTreat= role=/>
- *   <status blade= salt= material= mode=/>
- *   <geom plowWidthM= heading=/>
+ *   <status blade= salt= material= preset= mode=/>
+ *   <geom plowWidthM= heading= side=/>
  *   <ops stormId= routeId=/>
  *   <operator id= name=/>
  * </__ideaplow>
@@ -36,8 +39,15 @@ data class IdeaPlowDetail(
     val stormId: String = "",
     val routeId: String = "",
     val operatorId: String = "",
-    val operatorName: String = ""
+    val operatorName: String = "",
+    /** Active effective-width preset. */
+    val widthPreset: WidthPreset = WidthPreset.STANDARD,
+    /** Reloads logged this storm (salt-dome geofence entries). */
+    val reloadCount: Int = 0
 ) {
+
+    /** Side of the corridor a treating pass is painting, from heading. */
+    val side: RoadSide get() = DirectionModel.sideOfRoad(headingDeg)
 
     /** High-level role attribute for quick filtering by receivers. */
     val role: String
@@ -71,21 +81,28 @@ data class IdeaPlowDetail(
                         else -> "off"
                     },
                     "material" to material.wireName,
+                    "preset" to widthPreset.wireName,
                     "mode" to status.wireName
                 )
             ),
             DetailNode(
                 "geom", buildMap {
                     put("plowWidthM", fmt(plowWidthM))
-                    if (!headingDeg.isNaN()) put("heading", fmt(headingDeg))
+                    if (!headingDeg.isNaN()) {
+                        put("heading", fmt(headingDeg))
+                        if (status == VehicleStatus.TREATING) {
+                            put("side", side.wireName)
+                        }
+                    }
                 }
             )
         )
-        if (stormId.isNotEmpty() || routeId.isNotEmpty()) {
+        if (stormId.isNotEmpty() || routeId.isNotEmpty() || reloadCount > 0) {
             children.add(
                 DetailNode("ops", buildMap {
                     if (stormId.isNotEmpty()) put("stormId", stormId)
                     if (routeId.isNotEmpty()) put("routeId", routeId)
+                    if (reloadCount > 0) put("reloads", reloadCount.toString())
                 })
             )
         }
@@ -115,7 +132,9 @@ data class IdeaPlowDetail(
             headingDeg: Double,
             stormId: String,
             operatorId: String,
-            operatorName: String
+            operatorName: String,
+            widthPreset: WidthPreset = WidthPreset.STANDARD,
+            reloadCount: Int = 0
         ) = IdeaPlowDetail(
             vehicleType = cap.type,
             hasBlade = cap.hasBlade,
@@ -125,11 +144,14 @@ data class IdeaPlowDetail(
             bladeDown = bladeDown,
             saltOn = saltOn,
             material = material,
-            plowWidthM = cap.plowWidthM,
+            // Preset changes the advertised effective width live.
+            plowWidthM = cap.widthFor(widthPreset),
             headingDeg = headingDeg,
             stormId = stormId,
             operatorId = operatorId,
-            operatorName = operatorName
+            operatorName = operatorName,
+            widthPreset = widthPreset,
+            reloadCount = reloadCount
         )
 
         /** Returns null if the node is not a valid `<__ideaplow>` detail. */
@@ -157,7 +179,10 @@ data class IdeaPlowDetail(
                 stormId = ops?.attr("stormId") ?: "",
                 routeId = ops?.attr("routeId") ?: "",
                 operatorId = operator?.attr("id") ?: "",
-                operatorName = operator?.attr("name") ?: ""
+                operatorName = operator?.attr("name") ?: "",
+                widthPreset = WidthPreset.fromWireName(status?.attr("preset"))
+                    ?: WidthPreset.STANDARD,
+                reloadCount = ops?.attrLong("reloads", 0L)?.toInt() ?: 0
             )
         }
     }
