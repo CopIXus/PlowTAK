@@ -25,6 +25,7 @@ sourceSets {
             srcDirs = ['../app/src/main/java']
             include 'com/atakmap/android/ideaplow/model/**'
             include 'com/atakmap/android/ideaplow/coverage/**'
+            include 'com/atakmap/android/ideaplow/gis/**'
             include 'com/atakmap/android/ideaplow/ops/**'
             include 'com/atakmap/android/ideaplow/equipment/**'
             include 'com/atakmap/android/ideaplow/cot/codec/**'
