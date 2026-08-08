@@ -93,7 +93,8 @@ class FleetMarkerManager(
                 marker.setMetaString("callsign", v.callsign)
                 marker.setMetaInteger("color", statusColor(v.status))
                 if (!v.headingDeg.isNaN()) {
-                    marker.trackHeading = v.headingDeg
+                    // SDK-fixup point: Marker.setTrack(course, speed) per 5.x API.
+                    marker.setTrack(v.headingDeg, 0.0)
                 }
                 applyStaleness(marker, v.isStale(now, fleetManager.staleAfterMs))
             } catch (e: Exception) {
