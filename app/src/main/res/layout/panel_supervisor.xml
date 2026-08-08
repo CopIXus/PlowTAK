@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/ideaplow_bg">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <TextView
+            android:id="@+id/sup_header"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/ideaplow_text"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/sup_storm_line"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="@color/ideaplow_accent"
+            android:textSize="16sp" />
+
+        <Button
+            android:id="@+id/sup_storm_button"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:layout_marginTop="8dp"
+            android:backgroundTint="@color/ideaplow_accent"
+            android:text="@string/sup_storm_start"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <!-- Cycle time -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
+
+            <EditText
+                android:id="@+id/sup_cycle_time"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="@string/sup_cycle_time_hint"
+                android:inputType="number"
+                android:textColor="@color/ideaplow_text"
+                android:textColorHint="@color/ideaplow_grey"
+                android:textSize="18sp" />
+
+            <Button
+                android:id="@+id/sup_cycle_apply"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:backgroundTint="@color/ideaplow_toggle_off"
+                android:text="@string/sup_cycle_time_apply"
+                android:textSize="16sp" />
+        </LinearLayout>
+
+        <!-- Facilities -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
+
+            <EditText
+                android:id="@+id/sup_facility_name"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="@string/sup_facility_name_hint"
+                android:inputType="text"
+                android:textColor="@color/ideaplow_text"
+                android:textColorHint="@color/ideaplow_grey"
+                android:textSize="16sp" />
+
+            <Spinner
+                android:id="@+id/sup_facility_type"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/sup_facility_add"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:backgroundTint="@color/ideaplow_toggle_off"
+            android:text="@string/sup_add_facility"
+            android:textSize="16sp" />
+
+        <!-- Alerts -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/sup_alerts_title"
+            android:textColor="@color/ideaplow_red"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <ListView
+            android:id="@+id/sup_alert_list"
+            android:layout_width="match_parent"
+            android:layout_height="140dp" />
+
+        <!-- Fleet -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/sup_fleet_title"
+            android:textColor="@color/ideaplow_text"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <ListView
+            android:id="@+id/sup_fleet_list"
+            android:layout_width="match_parent"
+            android:layout_height="220dp" />
+
+        <Button
+            android:id="@+id/sup_distress"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:layout_marginTop="12dp"
+            android:backgroundTint="@color/ideaplow_distress"
+            android:text="@string/driver_distress"
+            android:textColor="@color/ideaplow_text"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/sup_settings"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="8dp"
+            android:backgroundTint="@color/ideaplow_toggle_off"
+            android:text="@string/driver_settings"
+            android:textSize="14sp" />
+    </LinearLayout>
+</ScrollView>

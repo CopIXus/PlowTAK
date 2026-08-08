@@ -9,12 +9,13 @@ import com.atakmap.android.ipc.AtakBroadcast.DocumentedIntentFilter
 import com.atakmap.android.maps.MapView
 
 /**
- * Registers IdeaPlow receivers and (in later phases) map overlays, CoT
- * listeners, and the coverage engine.
+ * Registers IdeaPlow receivers and owns the [IdeaPlowController] engine
+ * (coverage recording, CoT publish/consume, map overlays, geofences).
  */
 class IdeaPlowMapComponent : DropDownMapComponent() {
 
     private var dropDownReceiver: IdeaPlowDropDownReceiver? = null
+    private var controller: IdeaPlowController? = null
 
     override fun onCreate(context: Context, intent: Intent, view: MapView) {
         context.setTheme(R.style.ATAKPluginTheme)
@@ -22,7 +23,11 @@ class IdeaPlowMapComponent : DropDownMapComponent() {
 
         Log.d(TAG, "creating the IdeaPlow map component")
 
-        val receiver = IdeaPlowDropDownReceiver(view, context)
+        val engine = IdeaPlowController(context, view)
+        controller = engine
+        engine.start()
+
+        val receiver = IdeaPlowDropDownReceiver(view, context, engine)
         dropDownReceiver = receiver
 
         val filter = DocumentedIntentFilter()
@@ -35,8 +40,10 @@ class IdeaPlowMapComponent : DropDownMapComponent() {
 
     override fun onDestroyImpl(context: Context, view: MapView) {
         // DropDownMapComponent unregisters receivers registered through
-        // registerDropDownReceiver; Phase 1 must also clean up MapItems,
-        // overlays, and CoT listeners here.
+        // registerDropDownReceiver; the controller tears down MapItems,
+        // overlays, timers, and CoT listeners.
+        controller?.dispose()
+        controller = null
         dropDownReceiver = null
         super.onDestroyImpl(context, view)
     }

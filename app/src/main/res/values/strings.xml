@@ -2,6 +2,52 @@
 <resources>
     <string name="app_name">IdeaPlow</string>
     <string name="app_desc">Snow plow fleet coverage tracking for winter road operations</string>
-    <string name="ideaplow_placeholder_title">IdeaPlow</string>
-    <string name="ideaplow_placeholder_body">Winter operations coverage tracking.\n\nPhase 1 adds the vehicle capability setup (Plow / Salt only / Supervisor / Observer), treating toggles, and the live coverage map.</string>
+
+    <!-- First-run setup -->
+    <string name="setup_title">Vehicle setup</string>
+    <string name="setup_intro">What is this unit? Capabilities gate the controls, CoT publishing, and whether this vehicle paints road coverage.</string>
+    <string name="setup_type_plow">Plow (blade truck)</string>
+    <string name="setup_type_salt">Salt only (spreader / brine)</string>
+    <string name="setup_type_supervisor">Supervisor</string>
+    <string name="setup_type_observer">Observer (read-only)</string>
+    <string name="setup_callsign_hint">Callsign (e.g. Plow-12)</string>
+    <string name="setup_vehicle_id_hint">Vehicle ID (e.g. T-1042)</string>
+    <string name="setup_has_salt">Has spreader (salt)</string>
+    <string name="setup_plow_width">Plow width</string>
+    <string name="setup_observer_label_hint">Observer label (Fire / EMS / Traffic / EOC)</string>
+    <string name="setup_publish_presence">Publish presence (my marker on the fleet map)</string>
+    <string name="setup_distress_enabled">Enable distress button</string>
+    <string name="setup_bluetooth_placeholder">Bluetooth equipment (plow/spreader controllers) — coming in a later phase</string>
+    <string name="setup_save">Save and continue</string>
+
+    <!-- Driver panel -->
+    <string name="driver_blade">BLADE</string>
+    <string name="driver_blade_down">BLADE DOWN</string>
+    <string name="driver_blade_up">BLADE UP</string>
+    <string name="driver_salt_on">SALT ON</string>
+    <string name="driver_salt_off">SALT OFF</string>
+    <string name="driver_distress">MAYDAY / NEED ASSIST</string>
+    <string name="driver_distress_clear">CLEAR MY MAYDAY</string>
+    <string name="driver_status_driving">DRIVING</string>
+    <string name="driver_shift_start">Start shift</string>
+    <string name="driver_shift_end">End shift</string>
+    <string name="driver_operator_name_hint">Operator name</string>
+    <string name="driver_operator_id_hint">Operator ID</string>
+    <string name="driver_hazards_title">Report hazard</string>
+    <string name="driver_settings">Vehicle setup…</string>
+
+    <!-- Supervisor panel -->
+    <string name="sup_storm_start">Start storm session</string>
+    <string name="sup_storm_end">End storm session</string>
+    <string name="sup_cycle_time_hint">Cycle time (min)</string>
+    <string name="sup_cycle_time_apply">Apply</string>
+    <string name="sup_fleet_title">Fleet</string>
+    <string name="sup_alerts_title">Alerts (tap: ack, long-press: clear)</string>
+    <string name="sup_add_facility">Add facility at my position</string>
+    <string name="sup_facility_name_hint">Facility name</string>
+
+    <!-- Observer panel -->
+    <string name="obs_title">Observer — read-only</string>
+    <string name="obs_fleet_title">Fleet</string>
+    <string name="obs_alerts_title">Active alerts</string>
 </resources>

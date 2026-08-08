@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Foreground shift service (keeps recording alive through doze) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:allowBackup="false"
         android:icon="@drawable/ic_ideaplow"
@@ -14,6 +19,13 @@
         <meta-data
             android:name="app_desc"
             android:value="@string/app_desc" />
+
+        <!-- Exported because plugin code runs in the ATAK host process and
+             starts this service cross-package (see IdeaPlowShiftService). -->
+        <service
+            android:name="com.atakmap.android.ideaplow.service.IdeaPlowShiftService"
+            android:exported="true"
+            android:foregroundServiceType="location" />
 
     </application>
 

@@ -1,0 +1,80 @@
+package com.atakmap.android.ideaplow.report
+
+import android.util.Log
+import com.atakmap.android.ideaplow.cot.CotDetailAdapter
+import com.atakmap.android.ideaplow.cot.OutboundCotQueue
+import com.atakmap.android.ideaplow.cot.codec.HazardCotCodec
+import com.atakmap.android.ideaplow.model.HazardEvent
+import com.atakmap.android.ideaplow.model.HazardType
+import com.atakmap.coremap.cot.event.CotDetail
+import com.atakmap.coremap.cot.event.CotEvent
+import com.atakmap.coremap.cot.event.CotPoint
+import com.atakmap.coremap.maps.time.CoordinatedTime
+
+/**
+ * One-tap hazard drops. Builds a marker CoT at the current position with the
+ * IdeaPlow hazard detail and dispatches it internally (local marker appears
+ * immediately) and externally (fleet + observers see it). Photo attachment
+ * is Phase 2.
+ */
+class HazardReporter(
+    private val queue: OutboundCotQueue
+) {
+
+    /** Drop a hazard at the given position. Returns the created event model. */
+    fun report(
+        type: HazardType,
+        lat: Double,
+        lon: Double,
+        reporterUid: String,
+        reporterCallsign: String,
+        stormId: String
+    ): HazardEvent {
+        val now = System.currentTimeMillis()
+        val hazard = HazardEvent(
+            uid = "ideaplow-hz-$reporterUid-$now",
+            type = type,
+            reporterUid = reporterUid,
+            reporterCallsign = reporterCallsign,
+            lat = lat,
+            lon = lon,
+            timeMs = now,
+            stormId = stormId
+        )
+
+        try {
+            val event = CotEvent()
+            event.uid = hazard.uid
+            event.type = type.cotType
+            event.how = "h-g-i-g-o" // human, gps-derived, observed
+            val time = CoordinatedTime()
+            event.time = time
+            event.start = time
+            event.stale = time.addSeconds(HAZARD_STALE_S)
+            event.cotPoint =
+                CotPoint(lat, lon, CotPoint.UNKNOWN, CotPoint.UNKNOWN, CotPoint.UNKNOWN)
+
+            val root = CotDetail("detail")
+            val contact = CotDetail("contact")
+            contact.setAttribute("callsign", "${type.label} (${reporterCallsign})")
+            root.addChild(contact)
+            val remarks = CotDetail("remarks")
+            remarks.innerText = "${type.label} reported by $reporterCallsign"
+            root.addChild(remarks)
+            root.addChild(CotDetailAdapter.toCotDetail(HazardCotCodec.encode(hazard)))
+            event.detail = root
+
+            queue.send(event)
+        } catch (e: Exception) {
+            Log.e(TAG, "hazard drop failed", e)
+        }
+        return hazard
+    }
+
+    companion object {
+        private const val TAG = "IdeaPlowHazard"
+
+        /** Hazards live 8 h unless refreshed/deleted. */
+        private const val HAZARD_STALE_S = 8 * 3600
+    }
+}
