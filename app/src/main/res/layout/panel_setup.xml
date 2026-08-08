@@ -115,6 +115,32 @@
                 android:id="@+id/setup_width_spinner"
                 android:layout_width="match_parent"
                 android:layout_height="48dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/setup_wing_width"
+                android:textColor="@color/ideaplow_text"
+                android:textSize="16sp" />
+
+            <Spinner
+                android:id="@+id/setup_wing_spinner"
+                android:layout_width="match_parent"
+                android:layout_height="48dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/setup_tow_width"
+                android:textColor="@color/ideaplow_text"
+                android:textSize="16sp" />
+
+            <Spinner
+                android:id="@+id/setup_tow_spinner"
+                android:layout_width="match_parent"
+                android:layout_height="48dp" />
         </LinearLayout>
 
         <!-- Observer sub-options -->
@@ -153,6 +179,34 @@
             android:text="@string/setup_distress_enabled"
             android:textColor="@color/ideaplow_text"
             android:textSize="16sp" />
+
+        <CheckBox
+            android:id="@+id/setup_tts"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:checked="true"
+            android:text="@string/setup_tts_enabled"
+            android:textColor="@color/ideaplow_text"
+            android:textSize="16sp" />
+
+        <CheckBox
+            android:id="@+id/setup_roadsnap"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="@string/setup_roadsnap_enabled"
+            android:textColor="@color/ideaplow_text"
+            android:textSize="16sp" />
+
+        <EditText
+            android:id="@+id/setup_roadsnap_dir"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/setup_roadsnap_dir_hint"
+            android:inputType="text"
+            android:textColor="@color/ideaplow_text"
+            android:textColorHint="@color/ideaplow_grey"
+            android:textSize="14sp"
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/setup_bt_placeholder"

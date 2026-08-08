@@ -2,6 +2,7 @@ package com.atakmap.android.ideaplow.prefs
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.atakmap.android.ideaplow.coverage.CycleTimes
 import com.atakmap.android.ideaplow.model.Material
 import com.atakmap.android.ideaplow.model.TreatRule
 import com.atakmap.android.ideaplow.ops.KeyValuePersistence
@@ -70,6 +71,69 @@ class IdeaPlowPreferences(context: Context) : KeyValuePersistence {
         get() = prefs.getFloat(KEY_GPS_CE, 25f).toDouble()
         set(v) = prefs.edit().putFloat(KEY_GPS_CE, v.toFloat().coerceIn(5f, 200f)).apply()
 
+    // ------------------------------------------------------ Phase 2 settings
+
+    /** Per-priority cycle-time override, minutes; 0 = use the default. */
+    var cycleP1Minutes: Int
+        get() = prefs.getInt(KEY_CYCLE_P1, 0)
+        set(v) = prefs.edit().putInt(KEY_CYCLE_P1, v.coerceIn(0, 24 * 60)).apply()
+
+    var cycleP2Minutes: Int
+        get() = prefs.getInt(KEY_CYCLE_P2, 0)
+        set(v) = prefs.edit().putInt(KEY_CYCLE_P2, v.coerceIn(0, 24 * 60)).apply()
+
+    var cycleP3Minutes: Int
+        get() = prefs.getInt(KEY_CYCLE_P3, 0)
+        set(v) = prefs.edit().putInt(KEY_CYCLE_P3, v.coerceIn(0, 24 * 60)).apply()
+
+    /** Full per-priority cycle model for CycleResolver. */
+    fun cycleTimes(): CycleTimes = CycleTimes(
+        defaultMinutes = cycleTimeMinutes,
+        p1Minutes = cycleP1Minutes,
+        p2Minutes = cycleP2Minutes,
+        p3Minutes = cycleP3Minutes
+    )
+
+    /** Voice (TTS) alerts for tasks / overdue / distress. */
+    var ttsEnabled: Boolean
+        get() = prefs.getBoolean(KEY_TTS, true)
+        set(v) = prefs.edit().putBoolean(KEY_TTS, v).apply()
+
+    /** Night high-contrast palette for the driver panel. */
+    var nightMode: Boolean
+        get() = prefs.getBoolean(KEY_NIGHT, false)
+        set(v) = prefs.edit().putBoolean(KEY_NIGHT, v).apply()
+
+    /** Direction-aware coverage coloring (one-way passes render dashed). */
+    var directionSplitEnabled: Boolean
+        get() = prefs.getBoolean(KEY_DIRECTION_SPLIT, true)
+        set(v) = prefs.edit().putBoolean(KEY_DIRECTION_SPLIT, v).apply()
+
+    /** Optional GPS road-snapping against a GraphHopper pack; default OFF. */
+    var roadSnapEnabled: Boolean
+        get() = prefs.getBoolean(KEY_ROADSNAP, false)
+        set(v) = prefs.edit().putBoolean(KEY_ROADSNAP, v).apply()
+
+    /** Directory of the GraphHopper pack (contains nodes/edges/geometry). */
+    var roadSnapDir: String
+        get() = prefs.getString(KEY_ROADSNAP_DIR, "") ?: ""
+        set(v) = prefs.edit().putString(KEY_ROADSNAP_DIR, v).apply()
+
+    /** Max plausible plowing speed for the sanity prompt, mph. */
+    var maxPlowSpeedMph: Int
+        get() = prefs.getInt(KEY_MAX_PLOW_MPH, 35)
+        set(v) = prefs.edit().putInt(KEY_MAX_PLOW_MPH, v.coerceIn(10, 70)).apply()
+
+    /** Hard cap on retained coverage segments (marathon-storm safety). */
+    var maxRetainedSegments: Int
+        get() = prefs.getInt(KEY_MAX_SEGMENTS, 20_000)
+        set(v) = prefs.edit().putInt(KEY_MAX_SEGMENTS, v.coerceIn(1_000, 100_000)).apply()
+
+    /** Task escalation timer, minutes. */
+    var taskEscalateMinutes: Int
+        get() = prefs.getInt(KEY_TASK_ESCALATE, 5)
+        set(v) = prefs.edit().putInt(KEY_TASK_ESCALATE, v.coerceIn(1, 60)).apply()
+
     companion object {
         const val PREFS_NAME = "ideaplow_prefs"
         private const val KEY_REPORT_MOVING = "ideaplow.report_interval_moving_s"
@@ -80,5 +144,16 @@ class IdeaPlowPreferences(context: Context) : KeyValuePersistence {
         private const val KEY_MATERIAL = "ideaplow.material"
         private const val KEY_STALE_AFTER = "ideaplow.stale_after_s"
         private const val KEY_GPS_CE = "ideaplow.gps_ce_threshold_m"
+        private const val KEY_CYCLE_P1 = "ideaplow.cycle_p1_min"
+        private const val KEY_CYCLE_P2 = "ideaplow.cycle_p2_min"
+        private const val KEY_CYCLE_P3 = "ideaplow.cycle_p3_min"
+        private const val KEY_TTS = "ideaplow.tts_enabled"
+        private const val KEY_NIGHT = "ideaplow.night_mode"
+        private const val KEY_DIRECTION_SPLIT = "ideaplow.direction_split"
+        private const val KEY_ROADSNAP = "ideaplow.roadsnap_enabled"
+        private const val KEY_ROADSNAP_DIR = "ideaplow.roadsnap_dir"
+        private const val KEY_MAX_PLOW_MPH = "ideaplow.max_plow_speed_mph"
+        private const val KEY_MAX_SEGMENTS = "ideaplow.max_retained_segments"
+        private const val KEY_TASK_ESCALATE = "ideaplow.task_escalate_min"
     }
 }

@@ -63,6 +63,118 @@
                 android:textSize="16sp" />
         </LinearLayout>
 
+        <!-- Per-priority cycle overrides -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/sup_priority_title"
+            android:textColor="@color/ideaplow_text"
+            android:textSize="14sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <EditText
+                android:id="@+id/sup_cycle_p1"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="@string/sup_p1_hint"
+                android:inputType="number"
+                android:textColor="@color/ideaplow_text"
+                android:textColorHint="@color/ideaplow_grey"
+                android:textSize="16sp" />
+
+            <EditText
+                android:id="@+id/sup_cycle_p2"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="@string/sup_p2_hint"
+                android:inputType="number"
+                android:textColor="@color/ideaplow_text"
+                android:textColorHint="@color/ideaplow_grey"
+                android:textSize="16sp" />
+
+            <EditText
+                android:id="@+id/sup_cycle_p3"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="@string/sup_p3_hint"
+                android:inputType="number"
+                android:textColor="@color/ideaplow_text"
+                android:textColorHint="@color/ideaplow_grey"
+                android:textSize="16sp" />
+        </LinearLayout>
+
+        <!-- Special zones -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/sup_zone_title"
+            android:textColor="@color/ideaplow_text"
+            android:textSize="14sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <EditText
+                android:id="@+id/sup_zone_name"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="2"
+                android:hint="@string/sup_zone_name_hint"
+                android:inputType="text"
+                android:textColor="@color/ideaplow_text"
+                android:textColorHint="@color/ideaplow_grey"
+                android:textSize="16sp" />
+
+            <Spinner
+                android:id="@+id/sup_zone_type"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1" />
+
+            <EditText
+                android:id="@+id/sup_zone_radius"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="@string/sup_zone_radius_hint"
+                android:inputType="number"
+                android:textColor="@color/ideaplow_text"
+                android:textColorHint="@color/ideaplow_grey"
+                android:textSize="16sp" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/sup_zone_add"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:backgroundTint="@color/ideaplow_toggle_off"
+            android:text="@string/sup_zone_add"
+            android:textSize="16sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/sup_zones_title"
+            android:textColor="@color/ideaplow_text"
+            android:textSize="14sp" />
+
+        <ListView
+            android:id="@+id/sup_zone_list"
+            android:layout_width="match_parent"
+            android:layout_height="100dp" />
+
         <!-- Facilities -->
         <LinearLayout
             android:layout_width="match_parent"
@@ -110,12 +222,23 @@
             android:layout_width="match_parent"
             android:layout_height="140dp" />
 
+        <!-- Live metrics -->
+        <TextView
+            android:id="@+id/sup_metrics_line"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/sup_metrics_placeholder"
+            android:textColor="@color/ideaplow_accent"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
         <!-- Fleet -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:text="@string/sup_fleet_title"
+            android:text="@string/sup_fleet_hint"
             android:textColor="@color/ideaplow_text"
             android:textSize="16sp"
             android:textStyle="bold" />
@@ -124,6 +247,15 @@
             android:id="@+id/sup_fleet_list"
             android:layout_width="match_parent"
             android:layout_height="220dp" />
+
+        <Button
+            android:id="@+id/sup_export"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="8dp"
+            android:backgroundTint="@color/ideaplow_toggle_off"
+            android:text="@string/sup_export"
+            android:textSize="14sp" />
 
         <Button
             android:id="@+id/sup_distress"

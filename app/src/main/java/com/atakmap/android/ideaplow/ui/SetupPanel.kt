@@ -33,15 +33,26 @@ class SetupPanel(
     private val treatOptions = view.findViewById<View>(R.id.setup_treat_options)
     private val hasSalt = view.findViewById<CheckBox>(R.id.setup_has_salt)
     private val widthSpinner = view.findViewById<Spinner>(R.id.setup_width_spinner)
+    private val wingSpinner = view.findViewById<Spinner>(R.id.setup_wing_spinner)
+    private val towSpinner = view.findViewById<Spinner>(R.id.setup_tow_spinner)
     private val observerOptions = view.findViewById<View>(R.id.setup_observer_options)
     private val observerLabel = view.findViewById<EditText>(R.id.setup_observer_label)
     private val presence = view.findViewById<CheckBox>(R.id.setup_presence)
     private val distress = view.findViewById<CheckBox>(R.id.setup_distress)
+    private val ttsEnabled = view.findViewById<CheckBox>(R.id.setup_tts)
+    private val roadSnap = view.findViewById<CheckBox>(R.id.setup_roadsnap)
+    private val roadSnapDir = view.findViewById<EditText>(R.id.setup_roadsnap_dir)
 
     private val widthLabels = listOf(
         "8 ft (2.4 m)", "10 ft (3.0 m)", "12 ft (3.7 m)",
         "Wing 16 ft (4.9 m)", "Tow 26 ft (7.9 m)"
     )
+
+    /** Wing / tow preset options; index 0 = not fitted (disables the preset). */
+    private val wingOptionsM = listOf(0.0, 4.9, 5.5)
+    private val wingLabels = listOf("Not fitted", "16 ft (4.9 m)", "18 ft (5.5 m)")
+    private val towOptionsM = listOf(0.0, 7.9, 8.5)
+    private val towLabels = listOf("Not fitted", "26 ft (7.9 m)", "28 ft (8.5 m)")
 
     init {
         widthSpinner.adapter = ArrayAdapter(
@@ -49,8 +60,21 @@ class SetupPanel(
             android.R.layout.simple_spinner_dropdown_item,
             widthLabels
         )
+        wingSpinner.adapter = ArrayAdapter(
+            controller.pluginContext,
+            android.R.layout.simple_spinner_dropdown_item,
+            wingLabels
+        )
+        towSpinner.adapter = ArrayAdapter(
+            controller.pluginContext,
+            android.R.layout.simple_spinner_dropdown_item,
+            towLabels
+        )
 
         typeGroup.setOnCheckedChangeListener { _, _ -> applyVisibility() }
+        roadSnap.setOnCheckedChangeListener { _, checked ->
+            roadSnapDir.visibility = if (checked) View.VISIBLE else View.GONE
+        }
 
         // Prefill from the stored profile when re-entering settings.
         val cap = controller.capabilityStore.load()
@@ -70,12 +94,23 @@ class SetupPanel(
             val presetIndex = VehicleCapability.WIDTH_PRESETS_M
                 .indexOfFirst { Math.abs(it - cap.plowWidthM) < 0.01 }
             widthSpinner.setSelection(if (presetIndex >= 0) presetIndex else 1)
+            wingSpinner.setSelection(nearestIndex(wingOptionsM, cap.wingWidthM))
+            towSpinner.setSelection(nearestIndex(towOptionsM, cap.towWidthM))
         } else {
             widthSpinner.setSelection(1) // 10 ft default
         }
+        ttsEnabled.isChecked = controller.prefs.ttsEnabled
+        roadSnap.isChecked = controller.prefs.roadSnapEnabled
+        roadSnapDir.setText(controller.prefs.roadSnapDir)
+        roadSnapDir.visibility = if (roadSnap.isChecked) View.VISIBLE else View.GONE
         applyVisibility()
 
         view.findViewById<Button>(R.id.setup_save).setOnClickListener { save() }
+    }
+
+    private fun nearestIndex(options: List<Double>, value: Double): Int {
+        val i = options.indexOfFirst { Math.abs(it - value) < 0.01 }
+        return if (i >= 0) i else 0
     }
 
     private fun selectedType(): VehicleType = when (typeGroup.checkedRadioButtonId) {
@@ -113,6 +148,12 @@ class SetupPanel(
             plowWidthM = if (defaults.canTreat)
                 VehicleCapability.WIDTH_PRESETS_M[widthIndex]
             else 0.0,
+            wingWidthM = if (defaults.canTreat)
+                wingOptionsM[wingSpinner.selectedItemPosition.coerceIn(0, wingOptionsM.size - 1)]
+            else 0.0,
+            towWidthM = if (defaults.canTreat)
+                towOptionsM[towSpinner.selectedItemPosition.coerceIn(0, towOptionsM.size - 1)]
+            else 0.0,
             callsign = callsign.text.toString().trim()
                 .ifEmpty { defaultCallsign(type) },
             vehicleId = vehicleId.text.toString().trim(),
@@ -120,6 +161,10 @@ class SetupPanel(
         )
 
         controller.capabilityStore.save(cap)
+        controller.prefs.ttsEnabled = ttsEnabled.isChecked
+        controller.prefs.roadSnapEnabled = roadSnap.isChecked
+        controller.prefs.roadSnapDir = roadSnapDir.text.toString().trim()
+        controller.reloadRoadSnapper()
         onSaved()
     }
 

@@ -4,11 +4,17 @@ import android.util.Log
 import com.atakmap.android.ideaplow.cot.codec.AlertCotCodec
 import com.atakmap.android.ideaplow.cot.codec.CoverageCotCodec
 import com.atakmap.android.ideaplow.cot.codec.IdeaPlowDetail
+import com.atakmap.android.ideaplow.cot.codec.RoadConditionCotCodec
 import com.atakmap.android.ideaplow.cot.codec.StormCotCodec
+import com.atakmap.android.ideaplow.cot.codec.TaskCotCodec
+import com.atakmap.android.ideaplow.cot.codec.ZoneCotCodec
 import com.atakmap.android.ideaplow.equipment.EquipmentProvider
 import com.atakmap.android.ideaplow.model.AlertEvent
 import com.atakmap.android.ideaplow.model.AlertState
+import com.atakmap.android.ideaplow.model.RoadConditionReport
+import com.atakmap.android.ideaplow.model.SpecialZone
 import com.atakmap.android.ideaplow.model.StormSession
+import com.atakmap.android.ideaplow.model.TaskEvent
 import com.atakmap.android.ideaplow.ops.ShiftLog
 import com.atakmap.android.ideaplow.ops.StatusManager
 import com.atakmap.android.ideaplow.ops.StormSessionManager
@@ -40,7 +46,9 @@ class PlowCotPublisher(
     private val shiftLog: ShiftLog,
     private val stormManager: StormSessionManager,
     private val coverageStore: CoverageStore,
-    private val queue: OutboundCotQueue
+    private val queue: OutboundCotQueue,
+    /** Reloads logged this storm, carried in the PLI for supervisor metrics. */
+    private val reloadCount: () -> Int = { 0 }
 ) : SelfTracker.Listener {
 
     private var lastPliMs = 0L
@@ -84,7 +92,9 @@ class PlowCotPublisher(
             headingDeg = sample.headingDeg,
             stormId = stormManager.activeStormId,
             operatorId = shiftLog.currentShift?.operatorId ?: "",
-            operatorName = shiftLog.currentShift?.operatorName ?: ""
+            operatorName = shiftLog.currentShift?.operatorName ?: "",
+            widthPreset = equipment.state.widthPreset,
+            reloadCount = reloadCount()
         )
 
         val event = newEvent(
@@ -176,6 +186,77 @@ class PlowCotPublisher(
         queue.send(event, alsoInternal = false)
     }
 
+    // -------------------------------------------------------------- zones
+
+    /** Broadcast a special-zone add/edit ([removed]=false) or removal. */
+    fun publishZone(zone: SpecialZone, removed: Boolean) {
+        val cap = capabilityStore.load()
+        val now = System.currentTimeMillis()
+        val event = newEvent(
+            uid = "ideaplow-zone-${zone.id}",
+            type = ZoneCotCodec.ZONE_EVENT_TYPE,
+            lat = zone.centerLat,
+            lon = zone.centerLon,
+            staleSeconds = ZONE_STALE_S
+        )
+        val root = CotDetail("detail")
+        root.addChild(
+            CotDetailAdapter.toCotDetail(ZoneCotCodec.encode(zone, removed, cap.callsign, now))
+        )
+        event.detail = root
+        queue.send(event, alsoInternal = false) // zone already in the local manager
+    }
+
+    // -------------------------------------------------------------- tasks
+
+    /** Broadcast a task create or state transition (same uid re-send). */
+    fun publishTask(task: TaskEvent) {
+        val event = newEvent(
+            uid = task.uid,
+            type = TaskCotCodec.TASK_EVENT_TYPE,
+            lat = task.lat,
+            lon = task.lon,
+            staleSeconds = TASK_STALE_S
+        )
+        val root = CotDetail("detail")
+        root.addChild(CotDetailAdapter.toCotDetail(TaskCotCodec.encode(task)))
+        event.detail = root
+        queue.send(event, alsoInternal = false)
+
+        // SDK-fixup: GeoChat companion message so the tasked driver also gets
+        // a chat ping. The 5.8 chat API surface (ChatManagerMapComponent /
+        // GeoChatService) needs verification against the real main.jar before
+        // enabling; the task CoT + panel + TTS already cover the alerting.
+        // ChatManagerMapComponent.getInstance().sendMessage(...)
+    }
+
+    // --------------------------------------------------- road conditions
+
+    /** Broadcast a road-condition quick report as a map-point marker. */
+    fun publishRoadCondition(report: RoadConditionReport) {
+        val event = newEvent(
+            uid = report.uid,
+            type = RoadConditionCotCodec.CONDITION_MARKER_TYPE,
+            lat = report.lat,
+            lon = report.lon,
+            staleSeconds = CONDITION_STALE_S
+        )
+        event.how = "h-g-i-g-o" // human-observed
+        val root = CotDetail("detail")
+        val contact = CotDetail("contact")
+        contact.setAttribute(
+            "callsign", "${report.condition.label} (${report.reporterCallsign})"
+        )
+        root.addChild(contact)
+        val remarks = CotDetail("remarks")
+        remarks.innerText =
+            "Road ${report.condition.label} reported by ${report.reporterCallsign}"
+        root.addChild(remarks)
+        root.addChild(CotDetailAdapter.toCotDetail(RoadConditionCotCodec.encode(report)))
+        event.detail = root
+        queue.send(event) // internal too — reporter sees their own marker
+    }
+
     // ------------------------------------------------------------ helpers
 
     private fun newEvent(
@@ -206,5 +287,8 @@ class PlowCotPublisher(
         private const val COVERAGE_SHARE_INTERVAL_MS = 20_000L
         private const val ALERT_STALE_S = 3600
         private const val STORM_STALE_S = 24 * 3600
+        private const val ZONE_STALE_S = 7 * 24 * 3600
+        private const val TASK_STALE_S = 4 * 3600
+        private const val CONDITION_STALE_S = 4 * 3600
     }
 }

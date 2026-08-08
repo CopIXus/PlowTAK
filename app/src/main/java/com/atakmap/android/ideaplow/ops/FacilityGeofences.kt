@@ -78,6 +78,9 @@ class FacilityGeofences(
 
     fun isInside(facilityId: String): Boolean = facilityId in inside
 
+    /** True while the vehicle is inside any facility geofence (ToggleSanity). */
+    fun isInsideAny(): Boolean = inside.isNotEmpty()
+
     // ------------------------------------------------------- persistence
 
     private fun save() {

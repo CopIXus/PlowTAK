@@ -2,6 +2,7 @@ package com.atakmap.android.ideaplow.map
 
 import android.util.Log
 import com.atakmap.android.ideaplow.coverage.CoverageStore
+import com.atakmap.android.ideaplow.coverage.DirectionStatus
 import com.atakmap.android.ideaplow.coverage.Freshness
 import com.atakmap.android.ideaplow.coverage.FreshnessModel
 import com.atakmap.android.ideaplow.model.TreatSegment
@@ -16,6 +17,13 @@ import com.atakmap.coremap.maps.coords.GeoPointMetaData
  * width scaled from plow width, color from freshness. The shared recolor
  * tick re-classifies every segment periodically and removes expired ones
  * from the display (the store prunes them from persistence).
+ *
+ * Phase 2 hooks (both optional, injected by the controller):
+ *  - [cycleMinutesHook]: per-segment effective cycle time (priority +
+ *    special zones via CycleResolver) instead of the single global cycle;
+ *  - [directionHook]: direction-pairing state — a segment treated in one
+ *    direction only ("northbound done, southbound not") renders in the
+ *    distinct half-treated style (dashed stroke) so the gap stays visible.
  */
 class CoverageOverlay(
     private val mapView: MapView,
@@ -23,9 +31,17 @@ class CoverageOverlay(
     private val freshnessModel: FreshnessModel
 ) : CoverageStore.Listener {
 
+    /** Effective cycle minutes for a segment; null = global model cycle. */
+    @Volatile
+    var cycleMinutesHook: ((TreatSegment) -> Int)? = null
+
+    /** Direction-pairing classifier; null disables the half-treated style. */
+    @Volatile
+    var directionHook: ((TreatSegment, Long) -> DirectionStatus)? = null
+
     private var group: MapGroup? = null
     private val lines = HashMap<String, Polyline>()
-    private val segmentEnd = HashMap<String, Long>()
+    private val renderedSegments = HashMap<String, TreatSegment>()
 
     fun start() {
         if (group != null) return
@@ -40,7 +56,7 @@ class CoverageOverlay(
         val g = group ?: return
         lines.values.forEach { safeRemove(g, it) }
         lines.clear()
-        segmentEnd.clear()
+        renderedSegments.clear()
         mapView.rootGroup.removeGroup(g)
         group = null
     }
@@ -56,7 +72,7 @@ class CoverageOverlay(
             val g = group ?: return@post
             for (id in ids) {
                 lines.remove(id)?.let { safeRemove(g, it) }
-                segmentEnd.remove(id)
+                renderedSegments.remove(id)
             }
         }
     }
@@ -67,27 +83,35 @@ class CoverageOverlay(
             val g = group ?: return@post
             val expired = mutableListOf<String>()
             for ((id, line) in lines) {
-                val end = segmentEnd[id] ?: continue
-                val freshness = freshnessModel.classify(end, nowMs)
+                val segment = renderedSegments[id] ?: continue
+                val freshness = classify(segment, nowMs)
                 if (freshness == Freshness.EXPIRED) {
                     expired.add(id)
                 } else {
                     line.strokeColor = colorFor(freshness)
+                    applyDirectionStyle(line, segment, nowMs)
                 }
             }
             for (id in expired) {
                 lines.remove(id)?.let { safeRemove(g, it) }
-                segmentEnd.remove(id)
+                renderedSegments.remove(id)
             }
         }
     }
 
     // -------------------------------------------------------- rendering
 
+    private fun classify(segment: TreatSegment, nowMs: Long): Freshness {
+        val cycle = cycleMinutesHook?.invoke(segment)
+        return if (cycle != null) freshnessModel.classify(segment.endTimeMs, nowMs, cycle)
+        else freshnessModel.classify(segment.endTimeMs, nowMs)
+    }
+
     private fun render(segment: TreatSegment) {
         val g = group ?: return
         try {
-            val freshness = freshnessModel.classify(segment.endTimeMs, System.currentTimeMillis())
+            val now = System.currentTimeMillis()
+            val freshness = classify(segment, now)
             if (freshness == Freshness.EXPIRED) return
 
             lines.remove(segment.id)?.let { safeRemove(g, it) }
@@ -101,12 +125,31 @@ class CoverageOverlay(
             line.strokeWeight = strokeWeightFor(segment.widthM)
             line.setMetaBoolean("addToObjList", false) // not a user-manageable item
             line.setMetaString("ideaplow.segment", segment.id)
+            applyDirectionStyle(line, segment, now)
 
             g.addItem(line)
             lines[segment.id] = line
-            segmentEnd[segment.id] = segment.endTimeMs
+            renderedSegments[segment.id] = segment
         } catch (e: Exception) {
             Log.e(TAG, "failed rendering segment ${segment.id}", e)
+        }
+    }
+
+    /**
+     * Half-treated style: a pass with no fresh opposite-direction companion
+     * renders dashed — the corridor still needs the other side.
+     */
+    private fun applyDirectionStyle(line: Polyline, segment: TreatSegment, nowMs: Long) {
+        val hook = directionHook ?: return
+        try {
+            val dashed = hook(segment, nowMs) == DirectionStatus.ONE_WAY_ONLY
+            // SDK-fixup: verify Polyline.setBasicLineStyle + constants exist
+            // with these names in the 5.8 main.jar (present in 4.x..5.x).
+            line.basicLineStyle =
+                if (dashed) Polyline.BASIC_LINE_STYLE_DASHED
+                else Polyline.BASIC_LINE_STYLE_SOLID
+        } catch (e: Throwable) {
+            // Style is cosmetic — never let it break rendering.
         }
     }
 
@@ -137,7 +180,7 @@ class CoverageOverlay(
 
         /**
          * Screen stroke weight from physical plow width. True
-         * meters-on-ground stroking needs an AbstractLayer (Phase 2); this
+         * meters-on-ground stroking needs an AbstractLayer (Phase 3); this
          * approximation keeps wide tow plows visually heavier.
          */
         fun strokeWeightFor(widthM: Double): Double =

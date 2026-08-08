@@ -91,6 +91,90 @@
             android:textSize="24sp"
             android:textStyle="bold" />
 
+        <!-- Pending supervisor task: big Ack / Decline -->
+        <LinearLayout
+            android:id="@+id/driver_task_bar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="@color/ideaplow_toggle_off"
+            android:orientation="vertical"
+            android:padding="8dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/driver_task_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/ideaplow_text"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/driver_task_ack"
+                    android:layout_width="0dp"
+                    android:layout_height="72dp"
+                    android:layout_marginEnd="4dp"
+                    android:layout_weight="1"
+                    android:backgroundTint="@color/ideaplow_accent"
+                    android:text="@string/driver_task_ack"
+                    android:textSize="22sp"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/driver_task_decline"
+                    android:layout_width="0dp"
+                    android:layout_height="72dp"
+                    android:layout_marginStart="4dp"
+                    android:layout_weight="1"
+                    android:backgroundTint="@color/ideaplow_distress"
+                    android:text="@string/driver_task_decline"
+                    android:textColor="@color/ideaplow_text"
+                    android:textSize="22sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Material selector (spreader-equipped units) -->
+        <TextView
+            android:id="@+id/driver_material_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/driver_material_title"
+            android:textColor="@color/ideaplow_text"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <GridLayout
+            android:id="@+id/driver_material_grid"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:columnCount="4" />
+
+        <!-- Width presets (wing / tow) -->
+        <TextView
+            android:id="@+id/driver_width_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/driver_width_title"
+            android:textColor="@color/ideaplow_text"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <GridLayout
+            android:id="@+id/driver_width_grid"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:columnCount="3" />
+
         <!-- One-tap statuses -->
         <GridLayout
             android:id="@+id/driver_status_grid"
@@ -115,6 +199,22 @@
             android:layout_height="wrap_content"
             android:columnCount="2" />
 
+        <!-- Road condition quick report -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/driver_conditions_title"
+            android:textColor="@color/ideaplow_text"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <GridLayout
+            android:id="@+id/driver_condition_grid"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:columnCount="3" />
+
         <!-- Distress -->
         <Button
             android:id="@+id/driver_distress"
@@ -127,11 +227,22 @@
             android:textSize="22sp"
             android:textStyle="bold" />
 
+        <ToggleButton
+            android:id="@+id/driver_night_toggle"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="12dp"
+            android:backgroundTint="@color/ideaplow_toggle_off"
+            android:textColor="@color/ideaplow_text"
+            android:textOff="@string/driver_night_off"
+            android:textOn="@string/driver_night_on"
+            android:textSize="14sp" />
+
         <Button
             android:id="@+id/driver_settings"
             android:layout_width="match_parent"
             android:layout_height="48dp"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="8dp"
             android:backgroundTint="@color/ideaplow_toggle_off"
             android:text="@string/driver_settings"
             android:textSize="14sp" />

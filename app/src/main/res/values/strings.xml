@@ -19,6 +19,11 @@
     <string name="setup_distress_enabled">Enable distress button</string>
     <string name="setup_bluetooth_placeholder">Bluetooth equipment (plow/spreader controllers) — coming in a later phase</string>
     <string name="setup_save">Save and continue</string>
+    <string name="setup_wing_width">Wing width (when extended)</string>
+    <string name="setup_tow_width">Tow plow width (when deployed)</string>
+    <string name="setup_tts_enabled">Voice alerts (tasks, overdue, distress)</string>
+    <string name="setup_roadsnap_enabled">Snap GPS to roads (GraphHopper pack)</string>
+    <string name="setup_roadsnap_dir_hint">Pack folder (contains nodes/edges/geometry)</string>
 
     <!-- Driver panel -->
     <string name="driver_blade">BLADE</string>
@@ -35,6 +40,13 @@
     <string name="driver_operator_id_hint">Operator ID</string>
     <string name="driver_hazards_title">Report hazard</string>
     <string name="driver_settings">Vehicle setup…</string>
+    <string name="driver_material_title">Material</string>
+    <string name="driver_width_title">Plow width</string>
+    <string name="driver_conditions_title">Road condition here</string>
+    <string name="driver_task_ack">ACK</string>
+    <string name="driver_task_decline">DECLINE</string>
+    <string name="driver_night_on">NIGHT MODE ON</string>
+    <string name="driver_night_off">NIGHT MODE OFF</string>
 
     <!-- Supervisor panel -->
     <string name="sup_storm_start">Start storm session</string>
@@ -44,6 +56,18 @@
     <string name="sup_fleet_title">Fleet</string>
     <string name="sup_alerts_title">Alerts (tap: ack, long-press: clear)</string>
     <string name="sup_add_facility">Add facility at my position</string>
+    <string name="sup_priority_title">Priority cycle overrides (min, 0 = default)</string>
+    <string name="sup_p1_hint">P1</string>
+    <string name="sup_p2_hint">P2</string>
+    <string name="sup_p3_hint">P3</string>
+    <string name="sup_zone_title">Special zone at my position (tighter cycle)</string>
+    <string name="sup_zone_name_hint">Zone name</string>
+    <string name="sup_zone_radius_hint">Radius m</string>
+    <string name="sup_zone_add">Add zone</string>
+    <string name="sup_zones_title">Zones (long-press to remove)</string>
+    <string name="sup_fleet_hint">Fleet (long-press a truck to task it)</string>
+    <string name="sup_export">Export storm records (GeoJSON + CSV)</string>
+    <string name="sup_metrics_placeholder">Metrics: waiting for coverage…</string>
     <string name="sup_facility_name_hint">Facility name</string>
 
     <!-- Observer panel -->

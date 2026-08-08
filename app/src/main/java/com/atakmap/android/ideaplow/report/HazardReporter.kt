@@ -14,8 +14,16 @@ import com.atakmap.coremap.maps.time.CoordinatedTime
 /**
  * One-tap hazard drops. Builds a marker CoT at the current position with the
  * IdeaPlow hazard detail and dispatches it internally (local marker appears
- * immediately) and externally (fleet + observers see it). Photo attachment
- * is Phase 2.
+ * immediately) and externally (fleet + observers see it).
+ *
+ * Photo attachments follow the ATAK attachment convention: the image lives
+ * at `atak/attachments/<marker uid>/<photoFile>` and TAK attachment sync
+ * carries it alongside the marker; the file *name* rides in the hazard
+ * detail. SDK-fixup: capture flow — fire
+ * `MediaStore.ACTION_IMAGE_CAPTURE` with EXTRA_OUTPUT pointed at that
+ * attachment path, then re-send the hazard with [report] passing
+ * `photoFile`. Verify the ImageDropDownReceiver / AttachmentManager surface
+ * against the real 5.8 main.jar before wiring the capture button.
  */
 class HazardReporter(
     private val queue: OutboundCotQueue
@@ -28,7 +36,8 @@ class HazardReporter(
         lon: Double,
         reporterUid: String,
         reporterCallsign: String,
-        stormId: String
+        stormId: String,
+        photoFile: String = ""
     ): HazardEvent {
         val now = System.currentTimeMillis()
         val hazard = HazardEvent(
@@ -39,7 +48,8 @@ class HazardReporter(
             lat = lat,
             lon = lon,
             timeMs = now,
-            stormId = stormId
+            stormId = stormId,
+            photoFile = photoFile
         )
 
         try {

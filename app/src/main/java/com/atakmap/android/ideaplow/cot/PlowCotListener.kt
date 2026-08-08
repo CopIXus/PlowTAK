@@ -6,12 +6,16 @@ import com.atakmap.android.ideaplow.cot.codec.AlertCotCodec
 import com.atakmap.android.ideaplow.cot.codec.CoverageCotCodec
 import com.atakmap.android.ideaplow.cot.codec.IdeaPlowDetail
 import com.atakmap.android.ideaplow.cot.codec.StormCotCodec
+import com.atakmap.android.ideaplow.cot.codec.TaskCotCodec
+import com.atakmap.android.ideaplow.cot.codec.ZoneCotCodec
 import com.atakmap.android.ideaplow.coverage.CoverageStore
 import com.atakmap.android.ideaplow.model.CapabilityRules
 import com.atakmap.android.ideaplow.model.PlowVehicle
 import com.atakmap.android.ideaplow.ops.AlertManager
 import com.atakmap.android.ideaplow.ops.FleetManager
 import com.atakmap.android.ideaplow.ops.StormSessionManager
+import com.atakmap.android.ideaplow.ops.TaskManager
+import com.atakmap.android.ideaplow.ops.ZoneManager
 import com.atakmap.comms.CotServiceRemote
 import com.atakmap.coremap.cot.event.CotEvent
 
@@ -21,14 +25,18 @@ import com.atakmap.coremap.cot.event.CotEvent
  *  - coverage events → [CoverageStore], merged ONLY from canTreat units
  *    (supervisor/observer positions never paint roads);
  *  - distress alerts (and cancels) → [AlertManager];
- *  - storm session broadcasts → [StormSessionManager] adoption.
+ *  - storm session broadcasts → [StormSessionManager] adoption;
+ *  - special-zone updates → [ZoneManager];
+ *  - supervisor tasks + state transitions → [TaskManager].
  */
 class PlowCotListener(
     private val selfUid: () -> String,
     private val fleetManager: FleetManager,
     private val coverageStore: CoverageStore,
     private val alertManager: AlertManager,
-    private val stormManager: StormSessionManager
+    private val stormManager: StormSessionManager,
+    private val zoneManager: ZoneManager? = null,
+    private val taskManager: TaskManager? = null
 ) : CotServiceRemote.CotEventListener, CotServiceRemote.ConnectionListener {
 
     private var remote: CotServiceRemote? = null
@@ -68,6 +76,8 @@ class PlowCotListener(
                 event.type == StormCotCodec.STORM_EVENT_TYPE -> handleStorm(event)
                 event.type == AlertCotCodec.DISTRESS_EVENT_TYPE ||
                         event.type == AlertCotCodec.DISTRESS_CANCEL_TYPE -> handleAlert(event)
+                event.type == ZoneCotCodec.ZONE_EVENT_TYPE -> handleZone(event)
+                event.type == TaskCotCodec.TASK_EVENT_TYPE -> handleTask(event)
                 else -> handlePli(event)
             }
         } catch (e: Exception) {
@@ -128,6 +138,23 @@ class PlowCotListener(
         val point = event.cotPoint ?: return
         val alert = AlertCotCodec.decode(node, event.uid, point.lat, point.lon) ?: return
         alertManager.onRemote(alert)
+    }
+
+    private fun handleZone(event: CotEvent) {
+        val manager = zoneManager ?: return
+        val node = CotDetailAdapter.findIdeaPlowNode(event.detail) ?: return
+        val update = ZoneCotCodec.decode(node) ?: return
+        if (manager.onRemote(update.zone, update.removed)) {
+            Log.d(TAG, "zone ${update.zone.id} ${if (update.removed) "removed" else "updated"} by ${update.by}")
+        }
+    }
+
+    private fun handleTask(event: CotEvent) {
+        val manager = taskManager ?: return
+        val node = CotDetailAdapter.findIdeaPlowNode(event.detail) ?: return
+        val point = event.cotPoint ?: return
+        val task = TaskCotCodec.decode(node, event.uid, point.lat, point.lon) ?: return
+        manager.onRemote(task)
     }
 
     private fun handleStorm(event: CotEvent) {

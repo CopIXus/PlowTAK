@@ -54,6 +54,8 @@ class VehicleCapabilityStore(context: Context) {
             .putBoolean(KEY_CAN_DISTRESS, cap.canSendDistress)
             .putBoolean(KEY_PRESENCE, cap.publishPresence)
             .putFloat(KEY_WIDTH, cap.plowWidthM.toFloat())
+            .putFloat(KEY_WING_WIDTH, cap.wingWidthM.toFloat())
+            .putFloat(KEY_TOW_WIDTH, cap.towWidthM.toFloat())
             .putString(KEY_CALLSIGN, cap.callsign)
             .putString(KEY_VEHICLE_ID, cap.vehicleId)
             .putString(KEY_OBS_LABEL, cap.observerLabel)
@@ -75,6 +77,8 @@ class VehicleCapabilityStore(context: Context) {
             canSendDistress = prefs.getBoolean(KEY_CAN_DISTRESS, defaults.canSendDistress),
             publishPresence = prefs.getBoolean(KEY_PRESENCE, defaults.publishPresence),
             plowWidthM = prefs.getFloat(KEY_WIDTH, defaults.plowWidthM.toFloat()).toDouble(),
+            wingWidthM = prefs.getFloat(KEY_WING_WIDTH, 0f).toDouble(),
+            towWidthM = prefs.getFloat(KEY_TOW_WIDTH, 0f).toDouble(),
             callsign = prefs.getString(KEY_CALLSIGN, "") ?: "",
             vehicleId = prefs.getString(KEY_VEHICLE_ID, "") ?: "",
             observerLabel = prefs.getString(KEY_OBS_LABEL, "") ?: ""
@@ -92,6 +96,8 @@ class VehicleCapabilityStore(context: Context) {
         private const val KEY_CAN_DISTRESS = "ideaplow.cap.can_distress"
         private const val KEY_PRESENCE = "ideaplow.cap.publish_presence"
         private const val KEY_WIDTH = "ideaplow.cap.plow_width_m"
+        private const val KEY_WING_WIDTH = "ideaplow.cap.wing_width_m"
+        private const val KEY_TOW_WIDTH = "ideaplow.cap.tow_width_m"
         private const val KEY_CALLSIGN = "ideaplow.cap.callsign"
         private const val KEY_VEHICLE_ID = "ideaplow.cap.vehicle_id"
         private const val KEY_OBS_LABEL = "ideaplow.cap.observer_label"

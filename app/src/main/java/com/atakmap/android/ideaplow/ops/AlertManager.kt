@@ -24,6 +24,9 @@ class AlertManager {
     fun removeListener(l: Listener) { listeners.remove(l) }
 
     /** Alerts worth showing (active + acknowledged). */
+    /** Every alert this session, terminal states included (export). */
+    fun all(): List<AlertEvent> = alerts.values.toList()
+
     fun activeAlerts(): List<AlertEvent> =
         alerts.values.filter { it.state != AlertState.CLEARED }
 
