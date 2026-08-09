@@ -235,6 +235,63 @@
             android:textColor="@color/plowtak_text"
             android:textSize="16sp" />
 
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/setup_storm_section"
+            android:textColor="@color/plowtak_text"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/setup_storm_start"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="8dp"
+            android:backgroundTint="@color/plowtak_accent"
+            android:text="@string/sup_storm_start"
+            android:textSize="16sp" />
+
+        <Button
+            android:id="@+id/setup_storm_end"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="6dp"
+            android:backgroundTint="@color/plowtak_distress"
+            android:text="@string/sup_storm_end"
+            android:textColor="@color/plowtak_text"
+            android:textSize="16sp" />
+
+        <Button
+            android:id="@+id/setup_datasync_server"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="6dp"
+            android:backgroundTint="@color/plowtak_toggle_off"
+            android:text="@string/sup_datasync_server"
+            android:textSize="14sp" />
+
+        <EditText
+            android:id="@+id/setup_cycle_minutes"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="@string/setup_cycle_hint"
+            android:inputType="number"
+            android:textColor="@color/plowtak_text"
+            android:textColorHint="@color/plowtak_grey"
+            android:textSize="16sp" />
+
+        <Button
+            android:id="@+id/setup_cycle_apply"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="4dp"
+            android:backgroundTint="@color/plowtak_toggle_off"
+            android:text="@string/sup_cycle_time_apply"
+            android:textSize="14sp" />
+
         <Button
             android:id="@+id/setup_save"
             android:layout_width="match_parent"

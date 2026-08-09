@@ -20,7 +20,7 @@ class CapabilityRulesTest {
         assertFalse(saltOnly.hasBlade); assertTrue(saltOnly.hasSalt); assertTrue(saltOnly.canTreat)
         assertFalse(supervisor.canTreat); assertTrue(supervisor.canManageStorm)
         assertTrue(supervisor.publishPresence)
-        assertFalse(observer.canTreat); assertFalse(observer.canManageStorm)
+        assertFalse(observer.canTreat); assertTrue(observer.canManageStorm)
         assertFalse(observer.publishPresence)
     }
 
@@ -102,10 +102,11 @@ class CapabilityRulesTest {
             plowWidthM = 5.0
         )
         val fixed = VehicleCapability.sanitize(badObserver)
+        assertEquals(VehicleType.SUPERVISOR, fixed.type)
         assertFalse(fixed.hasBlade)
         assertFalse(fixed.hasSalt)
         assertFalse(fixed.canTreat)
-        assertFalse(fixed.canManageStorm)
+        assertTrue(fixed.canManageStorm)
         assertEquals(0.0, fixed.plowWidthM, 1e-9)
 
         val saltOnlyFixed = VehicleCapability.sanitize(

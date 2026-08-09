@@ -6,10 +6,12 @@
     <!-- First-run setup -->
     <string name="setup_title">Vehicle setup</string>
     <string name="setup_intro">What is this unit? Capabilities gate the controls, CoT publishing, and whether this vehicle paints road coverage.</string>
-    <string name="setup_type_plow">Plow (blade truck)</string>
-    <string name="setup_type_salt">Salt only (spreader / brine)</string>
-    <string name="setup_type_supervisor">Supervisor</string>
-    <string name="setup_type_observer">Observer (read-only)</string>
+    <string name="setup_type_plow">Plow (blade ± spreader)</string>
+    <string name="setup_type_salt">Spreader only (salt / sand / gravel)</string>
+    <string name="setup_type_supervisor">No treat equipment (command / viewer)</string>
+    <string name="setup_type_observer">No treat equipment (legacy observer)</string>
+    <string name="setup_storm_section">Storm / Data Sync</string>
+    <string name="setup_cycle_hint">Storm cycle minutes</string>
     <string name="setup_callsign_hint">Callsign (e.g. Plow-12)</string>
     <string name="setup_vehicle_id_hint">Vehicle ID (e.g. T-1042)</string>
     <string name="setup_has_salt">Has spreader (salt)</string>
@@ -37,6 +39,10 @@
     <string name="driver_blade_up">BLADE UP</string>
     <string name="driver_salt_on">SALT ON</string>
     <string name="driver_salt_off">SALT OFF</string>
+    <string name="driver_spread_on">SPREADING</string>
+    <string name="driver_spread_off">SPREAD OFF</string>
+    <string name="driver_storm_label">Storm</string>
+    <string name="driver_settings_label">Settings</string>
     <string name="driver_distress">MAYDAY / NEED ASSIST</string>
     <string name="driver_distress_clear">CLEAR MY MAYDAY</string>
     <string name="driver_status_driving">DRIVING</string>

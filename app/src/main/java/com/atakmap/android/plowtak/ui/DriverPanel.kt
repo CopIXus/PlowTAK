@@ -1,7 +1,11 @@
 package com.atakmap.android.plowtak.ui
 
 import android.app.AlertDialog
+import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.drawable.Drawable
+import android.util.TypedValue
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
@@ -19,16 +23,13 @@ import com.atakmap.android.plowtak.model.Material
 import com.atakmap.android.plowtak.model.RoadCondition
 import com.atakmap.android.plowtak.model.TaskEvent
 import com.atakmap.android.plowtak.model.VehicleStatus
-import com.atakmap.android.plowtak.model.WidthPreset
 import com.atakmap.android.plowtak.ops.TaskManager
 import com.atakmap.android.plowtak.ops.ToggleSanity
 import com.atakmap.android.plowtak.plugin.PluginLayoutInflater
 
 /**
- * Treating-unit panel: shift login, oversized blade/salt toggles (gated by
- * capability), material + width preset selectors, one-tap statuses, hazard
- * drops, road-condition quick reports, supervisor task Ack/Decline, night
- * palette, and the distress button.
+ * Ops panel: shift, plow/wings, spread + materials, status, hazards, Mayday.
+ * Storm join and vehicle setup live on the header Storm / Settings icons.
  */
 class DriverPanel(
     private val controller: PlowTakController,
@@ -41,20 +42,19 @@ class DriverPanel(
 
     private val header = view.findViewById<TextView>(R.id.driver_header)
     private val statusLine = view.findViewById<TextView>(R.id.driver_status_line)
+    private val paintLine = view.findViewById<TextView>(R.id.driver_paint_line)
     private val shiftForm = view.findViewById<View>(R.id.driver_shift_form)
     private val operatorName = view.findViewById<EditText>(R.id.driver_operator_name)
     private val operatorId = view.findViewById<EditText>(R.id.driver_operator_id)
     private val shiftButton = view.findViewById<Button>(R.id.driver_shift_button)
-    private val bladeToggle = view.findViewById<ToggleButton>(R.id.driver_blade_toggle)
-    private val saltToggle = view.findViewById<ToggleButton>(R.id.driver_salt_toggle)
+    private val plowControl = view.findViewById<PlowControlView>(R.id.driver_plow_control)
+    private val spreadToggle = view.findViewById<ToggleButton>(R.id.driver_spread_toggle)
     private val taskBar = view.findViewById<View>(R.id.driver_task_bar)
     private val taskText = view.findViewById<TextView>(R.id.driver_task_text)
     private val taskAck = view.findViewById<Button>(R.id.driver_task_ack)
     private val taskDecline = view.findViewById<Button>(R.id.driver_task_decline)
     private val materialTitle = view.findViewById<TextView>(R.id.driver_material_title)
     private val materialGrid = view.findViewById<GridLayout>(R.id.driver_material_grid)
-    private val widthTitle = view.findViewById<TextView>(R.id.driver_width_title)
-    private val widthGrid = view.findViewById<GridLayout>(R.id.driver_width_grid)
     private val statusGrid = view.findViewById<GridLayout>(R.id.driver_status_grid)
     private val hazardGrid = view.findViewById<GridLayout>(R.id.driver_hazard_grid)
     private val conditionGrid = view.findViewById<GridLayout>(R.id.driver_condition_grid)
@@ -62,7 +62,7 @@ class DriverPanel(
     private val nightToggle = view.findViewById<ToggleButton>(R.id.driver_night_toggle)
 
     private val materialButtons = HashMap<Material, Button>()
-    private val widthButtons = HashMap<WidthPreset, Button>()
+    private val statusButtons = HashMap<VehicleStatus?, Button>()
     private var currentTask: TaskEvent? = null
 
     private val statusListener = com.atakmap.android.plowtak.ops.StatusManager.Listener {
@@ -79,23 +79,35 @@ class DriverPanel(
     init {
         val cap = controller.capabilityStore.load()
 
-        // Capability gating: only equipped channels get a toggle.
-        bladeToggle.visibility = if (cap.hasBlade) View.VISIBLE else View.GONE
-        saltToggle.visibility = if (cap.hasSalt) View.VISIBLE else View.GONE
+        plowControl.visibility = if (cap.hasBlade) View.VISIBLE else View.GONE
+        spreadToggle.visibility = if (cap.hasSalt) View.VISIBLE else View.GONE
         distressButton.visibility = if (cap.canSendDistress) View.VISIBLE else View.GONE
 
-        bladeToggle.setOnCheckedChangeListener { _, checked ->
-            controller.equipment.setBladeDown(checked)
+        plowControl.onBladeToggle = { down ->
+            controller.equipment.setBladeDown(down)
             refresh()
         }
-        saltToggle.setOnCheckedChangeListener { _, checked ->
-            controller.equipment.setSaltOn(checked)
+        plowControl.onWingLeftToggle = { ext ->
+            controller.equipment.setWingLeft(ext)
+            refresh()
+        }
+        plowControl.onWingRightToggle = { ext ->
+            controller.equipment.setWingRight(ext)
+            refresh()
+        }
+        spreadToggle.setOnCheckedChangeListener { _, checked ->
+            controller.equipment.setSpreading(checked)
             refresh()
         }
 
         shiftButton.setOnClickListener { toggleShift() }
         distressButton.setOnClickListener { onDistress() }
-        view.findViewById<Button>(R.id.driver_settings).setOnClickListener { onOpenSettings() }
+        view.findViewById<View>(R.id.driver_settings_btn).setOnClickListener { onOpenSettings() }
+        view.findViewById<View>(R.id.driver_storm_btn).setOnClickListener {
+            StormServerDialogs.showJoinStormDialog(
+                controller, controller.mapView.context
+            ) { view.post { refresh() } }
+        }
 
         taskAck.setOnClickListener {
             currentTask?.let { controller.ackTask(it.uid) }
@@ -110,14 +122,12 @@ class DriverPanel(
             NightPalette.apply(view, checked)
             refresh()
         }
-        view.findViewById<Button>(R.id.driver_storm_join).setOnClickListener {
-            StormServerDialogs.showJoinStormDialog(
-                controller, controller.mapView.context
-            ) { view.post { refresh() } }
-        }
+
+        applyTopIcon(spreadToggle, R.drawable.ic_ops_spreading)
+        applyTopIcon(distressButton, R.drawable.ic_ops_mayday)
+        applyTopIcon(nightToggle, R.drawable.ic_ops_night_off)
 
         buildMaterialGrid(cap.hasSalt)
-        buildWidthGrid()
         buildStatusGrid()
         buildHazardGrid()
         buildConditionGrid()
@@ -134,8 +144,6 @@ class DriverPanel(
                     ).show()
                 }
             }
-        // Forgot-to-toggle prompts surface here as a dialog. Prompts only —
-        // the buttons below stay the single source of equipment truth.
         controller.sanityPromptListener = { prompt -> view.post { showSanityPrompt(prompt) } }
 
         if (controller.prefs.nightMode) NightPalette.apply(view, true)
@@ -152,12 +160,14 @@ class DriverPanel(
     fun refresh() {
         val cap = controller.capabilityStore.load()
         val shift = controller.shiftLog.currentShift
-        val widthM = cap.widthFor(controller.equipment.state.widthPreset)
+        val eq = controller.equipment.state
+        val widthM = cap.widthFor(eq.effectiveWidthPreset())
 
-        header.text = "${cap.callsign}  (${cap.type.wireName}, $widthM m)"
+        header.text = "${cap.callsign}  ($widthM m)"
         val storm = controller.stormManager.activeSession()
         statusLine.text = "Status: ${controller.statusManager.current.label}" +
                 (storm?.let { "  •  ${it.displayName()}" } ?: "  •  No storm selected")
+        paintLine.text = controller.currentPaintStatus().reason
 
         val onShift = shift != null
         shiftForm.visibility = if (onShift) View.GONE else View.VISIBLE
@@ -166,20 +176,19 @@ class DriverPanel(
         else
             view.context.getString(R.string.driver_shift_start)
 
-        // Toggles only matter on shift.
-        bladeToggle.isEnabled = onShift
-        saltToggle.isEnabled = onShift
-
-        bladeToggle.backgroundTintList = android.content.res.ColorStateList.valueOf(
-            if (bladeToggle.isChecked) TOGGLE_ON else TOGGLE_OFF
-        )
-        saltToggle.backgroundTintList = android.content.res.ColorStateList.valueOf(
-            if (saltToggle.isChecked) TOGGLE_ON else TOGGLE_OFF
+        plowControl.isEnabled = onShift
+        spreadToggle.isEnabled = onShift
+        plowControl.bind(eq)
+        if (spreadToggle.isChecked != eq.spreadingOn) {
+            spreadToggle.isChecked = eq.spreadingOn
+        }
+        spreadToggle.backgroundTintList = ColorStateList.valueOf(
+            if (eq.spreadingOn) TOGGLE_ON else TOGGLE_OFF
         )
 
         refreshTaskBar()
         refreshMaterialSelection()
-        refreshWidthSelection()
+        refreshStatusSelection()
 
         val myAlert = controller.alertManager
             .get(AlertEvent.makeUid(controller.selfUid()))
@@ -190,8 +199,6 @@ class DriverPanel(
                 R.string.driver_distress
         )
     }
-
-    // -------------------------------------------------------------- tasks
 
     private fun refreshTaskBar() {
         val pending = controller.taskManager
@@ -207,11 +214,7 @@ class DriverPanel(
                 pending.description.ifEmpty { pending.kind.label }
     }
 
-    // ---------------------------------------------------- sanity prompts
-
     private fun showSanityPrompt(prompt: ToggleSanity.Prompt) {
-        // SDK-fixup: AlertDialog over the map may need mapView.context and
-        // TYPE_APPLICATION_OVERLAY handling on some ATAK builds.
         AlertDialog.Builder(controller.mapView.context)
             .setTitle("PlowTAK check")
             .setMessage(prompt.message)
@@ -219,20 +222,14 @@ class DriverPanel(
             .show()
     }
 
-    // -------------------------------------------------------------- grids
-
     private fun buildMaterialGrid(hasSalt: Boolean) {
         materialGrid.removeAllViews()
         materialButtons.clear()
-        val show = hasSalt
-        materialTitle.visibility = if (show) View.VISIBLE else View.GONE
-        materialGrid.visibility = if (show) View.VISIBLE else View.GONE
-        if (!show) return
+        materialTitle.visibility = if (hasSalt) View.VISIBLE else View.GONE
+        materialGrid.visibility = if (hasSalt) View.VISIBLE else View.GONE
+        if (!hasSalt) return
         for (material in Material.entries) {
-            val button = Button(controller.pluginContext)
-            button.text = material.label
-            button.textSize = 14f
-            button.setTextColor(Color.WHITE)
+            val button = iconButton(material.label, materialIcon(material))
             button.setOnClickListener {
                 controller.equipment.setMaterial(material)
                 refresh()
@@ -245,74 +242,47 @@ class DriverPanel(
     private fun refreshMaterialSelection() {
         val selected = controller.equipment.state.material
         for ((material, button) in materialButtons) {
-            button.backgroundTintList = android.content.res.ColorStateList.valueOf(
+            button.backgroundTintList = ColorStateList.valueOf(
                 if (material == selected) TOGGLE_ON else TOGGLE_OFF
-            )
-        }
-    }
-
-    private fun buildWidthGrid() {
-        widthGrid.removeAllViews()
-        widthButtons.clear()
-        val cap = controller.capabilityStore.load()
-        val presets = cap.availablePresets()
-        val show = cap.canTreat && presets.size > 1
-        widthTitle.visibility = if (show) View.VISIBLE else View.GONE
-        widthGrid.visibility = if (show) View.VISIBLE else View.GONE
-        if (!show) return
-        for (preset in presets) {
-            val button = Button(controller.pluginContext)
-            button.text = "${preset.label}\n${cap.widthFor(preset)} m"
-            button.textSize = 14f
-            button.setTextColor(Color.WHITE)
-            button.setOnClickListener {
-                controller.equipment.setWidthPreset(preset)
-                refresh()
-            }
-            widthButtons[preset] = button
-            widthGrid.addView(button, gridCell())
-        }
-    }
-
-    private fun refreshWidthSelection() {
-        val selected = controller.equipment.state.widthPreset
-        for ((preset, button) in widthButtons) {
-            button.backgroundTintList = android.content.res.ColorStateList.valueOf(
-                if (preset == selected) TOGGLE_ON else TOGGLE_OFF
             )
         }
     }
 
     private fun buildStatusGrid() {
         statusGrid.removeAllViews()
+        statusButtons.clear()
         val options = VehicleStatus.MANUAL_OPTIONS + listOf<VehicleStatus?>(null)
         for (status in options) {
-            val button = Button(controller.pluginContext)
-            button.text = status?.label?.uppercase()
+            val label = status?.label?.uppercase()
                 ?: view.context.getString(R.string.driver_status_driving)
-            button.textSize = 16f
-            button.setTextColor(Color.WHITE)
-            button.backgroundTintList = android.content.res.ColorStateList.valueOf(
-                if (status == null) TOGGLE_ON else TOGGLE_OFF
-            )
+            val button = iconButton(label, statusIcon(status))
             button.setOnClickListener {
                 if (status == null) controller.statusManager.clearManual()
                 else controller.statusManager.setManual(status)
                 refresh()
             }
+            statusButtons[status] = button
             statusGrid.addView(button, gridCell())
+        }
+    }
+
+    private fun refreshStatusSelection() {
+        val current = controller.statusManager.current
+        val selectedKey: VehicleStatus? =
+            if (current in VehicleStatus.MANUAL_OPTIONS) current else null
+        for ((status, button) in statusButtons) {
+            val active = status == selectedKey
+            button.backgroundTintList = ColorStateList.valueOf(
+                if (active) TOGGLE_ON else TOGGLE_OFF
+            )
         }
     }
 
     private fun buildHazardGrid() {
         hazardGrid.removeAllViews()
         for (hazard in HazardType.entries) {
-            val button = Button(controller.pluginContext)
-            button.text = hazard.label
-            button.textSize = 14f
-            button.setTextColor(Color.WHITE)
-            button.backgroundTintList =
-                android.content.res.ColorStateList.valueOf(HAZARD_COLOR)
+            val button = iconButton(hazard.label, hazardIcon(hazard))
+            button.backgroundTintList = ColorStateList.valueOf(HAZARD_COLOR)
             button.setOnClickListener {
                 controller.reportHazard(hazard)
                 Toast.makeText(
@@ -328,7 +298,6 @@ class DriverPanel(
         }
     }
 
-    /** Long-press hazard: ATAK QuickPic -> publish with photo attachment. */
     private fun reportHazardWithPhoto(hazard: HazardType) {
         if (controller.lastPosition == null) {
             Toast.makeText(
@@ -347,12 +316,8 @@ class DriverPanel(
     private fun buildConditionGrid() {
         conditionGrid.removeAllViews()
         for (condition in RoadCondition.entries) {
-            val button = Button(controller.pluginContext)
-            button.text = condition.label
-            button.textSize = 14f
-            button.setTextColor(Color.WHITE)
-            button.backgroundTintList =
-                android.content.res.ColorStateList.valueOf(CONDITION_COLOR)
+            val button = iconButton(condition.label, conditionIcon(condition))
+            button.backgroundTintList = ColorStateList.valueOf(CONDITION_COLOR)
             button.setOnClickListener {
                 controller.reportRoadCondition(condition)
                 Toast.makeText(
@@ -366,9 +331,8 @@ class DriverPanel(
 
     private fun toggleShift() {
         if (controller.shiftLog.isOnShift) {
-            // Drop equipment to safe state on shift end.
-            bladeToggle.isChecked = false
-            saltToggle.isChecked = false
+            controller.equipment.setBladeDown(false)
+            controller.equipment.setSpreading(false)
             controller.shiftLog.endShift(System.currentTimeMillis())
         } else {
             val name = operatorName.text.toString().trim()
@@ -395,6 +359,66 @@ class DriverPanel(
         refresh()
     }
 
+    private fun iconButton(label: String, iconRes: Int): Button {
+        val button = Button(controller.pluginContext)
+        button.text = label
+        button.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+        button.setTextColor(Color.WHITE)
+        button.gravity = Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM
+        button.minHeight = dp(96)
+        button.setPadding(dp(6), dp(8), dp(6), dp(8))
+        button.isAllCaps = false
+        applyTopIcon(button, iconRes)
+        return button
+    }
+
+    private fun applyTopIcon(button: TextView, iconRes: Int) {
+        val d = scaledIcon(iconRes) ?: return
+        button.setCompoundDrawables(null, d, null, null)
+        button.compoundDrawablePadding = dp(6)
+    }
+
+    private fun scaledIcon(iconRes: Int): Drawable? {
+        val ctx = controller.pluginContext
+        val d = ctx.resources.getDrawable(iconRes, ctx.theme)?.mutate() ?: return null
+        val size = dp(40)
+        d.setBounds(0, 0, size, size)
+        return d
+    }
+
+    private fun materialIcon(material: Material): Int = when (material) {
+        Material.SALT -> R.drawable.ic_ops_salt
+        Material.SAND -> R.drawable.ic_ops_sand
+        Material.GRAVEL -> R.drawable.ic_ops_gravel
+        Material.BRINE -> R.drawable.ic_ops_brine
+        Material.PREWET -> R.drawable.ic_ops_prewet
+    }
+
+    private fun statusIcon(status: VehicleStatus?): Int = when (status) {
+        VehicleStatus.LOADING -> R.drawable.ic_ops_loading
+        VehicleStatus.REFUELING -> R.drawable.ic_ops_refueling
+        VehicleStatus.ON_BREAK -> R.drawable.ic_ops_on_break
+        VehicleStatus.OUT_OF_SERVICE -> R.drawable.ic_ops_oos
+        null -> R.drawable.ic_ops_driving
+        else -> R.drawable.ic_ops_driving
+    }
+
+    private fun hazardIcon(hazard: HazardType): Int = when (hazard) {
+        HazardType.STRANDED_VEHICLE -> R.drawable.ic_ops_stranded
+        HazardType.TREE_WIRES_DOWN -> R.drawable.ic_ops_tree_wires
+        HazardType.ABANDONED_CAR -> R.drawable.ic_ops_abandoned
+        HazardType.DRIFT_ICE -> R.drawable.ic_ops_drift_ice
+        HazardType.DAMAGE -> R.drawable.ic_ops_damage
+    }
+
+    private fun conditionIcon(condition: RoadCondition): Int = when (condition) {
+        RoadCondition.BARE -> R.drawable.ic_ops_bare
+        RoadCondition.WET -> R.drawable.ic_ops_wet
+        RoadCondition.SLUSH -> R.drawable.ic_ops_slush
+        RoadCondition.SNOW_COVERED -> R.drawable.ic_ops_snow
+        RoadCondition.ICE -> R.drawable.ic_ops_ice
+    }
+
     private fun gridCell(): GridLayout.LayoutParams {
         val lp = GridLayout.LayoutParams(
             GridLayout.spec(GridLayout.UNDEFINED, 1f),
@@ -405,6 +429,12 @@ class DriverPanel(
         lp.setMargins(4, 4, 4, 4)
         return lp
     }
+
+    private fun dp(v: Int): Int =
+        TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP, v.toFloat(),
+            controller.pluginContext.resources.displayMetrics
+        ).toInt()
 
     companion object {
         private const val TOGGLE_ON = 0xFF2E7D32.toInt()

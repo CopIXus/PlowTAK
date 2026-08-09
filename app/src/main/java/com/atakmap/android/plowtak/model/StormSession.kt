@@ -12,7 +12,7 @@ data class StormSession(
     val startTimeMs: Long,
     /** 0 while the storm is active. */
     val endTimeMs: Long = 0L,
-    /** Callsign of the supervisor that started it. */
+    /** Callsign of the unit that started it. */
     val startedBy: String = "",
     /** Human designator shown in pickers, e.g. "I-81 North overnight". */
     val label: String = "",
@@ -22,7 +22,11 @@ data class StormSession(
      * Optional Data Sync mission name override. Empty means the default
      * `plowtak-coverage-{id}` naming.
      */
-    val missionName: String = ""
+    val missionName: String = "",
+    /** CoT channel the Data Sync mission belongs to (access control). */
+    val channel: String = "",
+    /** Freshness cycle minutes for this storm (shared via storm-config.json). */
+    val cycleMinutes: Int = 45
 ) {
     val isActive: Boolean get() = endTimeMs == 0L
 

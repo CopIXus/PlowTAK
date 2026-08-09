@@ -26,6 +26,7 @@ import com.atakmap.android.plowtak.model.CapabilityRules
 import com.atakmap.android.plowtak.model.FacilityType
 import com.atakmap.android.plowtak.model.HazardEvent
 import com.atakmap.android.plowtak.model.HazardType
+import com.atakmap.android.plowtak.model.PaintStatus
 import com.atakmap.android.plowtak.model.RoadCondition
 import com.atakmap.android.plowtak.model.RoadConditionReport
 import com.atakmap.android.plowtak.model.RoutePriority
@@ -155,7 +156,14 @@ class PlowTakController(
         prefs = prefs,
         coverageStore = coverageStore,
         vehicleUid = { selfUid() },
-        activeStorm = { stormManager.activeSession() }
+        activeStorm = { stormManager.activeSession() },
+        hazards = { synchronized(hazardLog) { hazardLog.values.toList() } },
+        onStormConfigPulled = { cfg ->
+            if (cfg.cycleMinutes > 0) {
+                prefs.cycleTimeMinutes = cfg.cycleMinutes
+                stormManager.updateCycleMinutes(cfg.cycleMinutes)
+            }
+        }
     )
 
     /** Set by the driver panel to surface forgot-to-toggle prompts. */
@@ -338,7 +346,7 @@ class PlowTakController(
                 Log.e(TAG, "pulse tick failed", e)
             }
         }, 1, 1, TimeUnit.SECONDS)
-        // TAK Data Sync: replace this truck's live coverage GeoJSON every 5 min.
+        // TAK Data Sync: replace this truck's live coverage GeoJSON every 1 min.
         exec.scheduleWithFixedDelay({
             background.execute {
                 try {
@@ -487,30 +495,45 @@ class PlowTakController(
         cotPublisher.publishRoadCondition(report)
     }
 
-    /** Supervisor: start a storm session and broadcast it. */
+    /** Start a storm session, create its Data Sync mission, and broadcast it. */
     fun startStormSession(
         label: String = "",
         agency: String = "",
-        missionName: String = ""
+        missionName: String = "",
+        channel: String = "",
+        cycleMinutes: Int = prefs.cycleTimeMinutes
     ): StormSession? {
         val cap = capabilityStore.load()
-        if (!cap.canManageStorm) return null
         val session = stormManager.startSession(
             startedBy = cap.callsign,
             nowMs = System.currentTimeMillis(),
             label = label,
             agency = agency,
-            missionName = missionName
+            missionName = missionName,
+            channel = channel,
+            cycleMinutes = cycleMinutes
         )
+        prefs.cycleTimeMinutes = session.cycleMinutes
         broadcastStorm(session)
+        background.execute { missionCoverageSync.onStormStarted(session.id) }
         return session
     }
 
-    /** Supervisor: end the active storm session and broadcast it. */
+    /**
+     * End the joined storm: broadcast end, then **delete** the Data Sync
+     * mission so the fleet stops reporting into it.
+     */
     fun endStormSession(): StormSession? {
-        val cap = capabilityStore.load()
-        if (!cap.canManageStorm) return null
         val session = stormManager.endSession(System.currentTimeMillis()) ?: return null
+        broadcastStorm(session)
+        background.execute { missionCoverageSync.deleteMissionFor(session) }
+        return session
+    }
+
+    fun updateStormCycleMinutes(minutes: Int): StormSession? {
+        val session = stormManager.updateCycleMinutes(minutes) ?: return null
+        prefs.cycleTimeMinutes = session.cycleMinutes
+        background.execute { missionCoverageSync.onStormStarted(session.id) }
         broadcastStorm(session)
         return session
     }
@@ -692,8 +715,9 @@ class PlowTakController(
 
         val cap = capabilityStore.load()
         val shift = shiftLog.currentShift
-        // Gate on GPS quality AND movement: no swath blobs at red lights.
-        val treating = isTreatingNow() && sample.gpsOk && sample.moving
+        val paint = evaluatePaint(sample.gpsOk, sample.moving)
+        // Gate on storm + shift + equipment + GPS quality + movement.
+        val treating = paint.anyPainting
 
         // Optional road snap (cosmetic; fail-open to raw GPS).
         var lat = sample.lat
@@ -710,6 +734,8 @@ class PlowTakController(
             }
         }
 
+        val eq = equipment.state
+        val widthPreset = eq.effectiveWidthPreset()
         swathBuilder.setContext(
             SwathBuilder.Context(
                 vehicleUid = selfUid(),
@@ -725,11 +751,10 @@ class PlowTakController(
             timeMs = sample.timeMs,
             treating = treating,
             material = CapabilityRules.materialMode(
-                cap, equipment.state.bladeDown, equipment.state.saltOn
+                cap, paint.bladePainting, paint.spreadPainting
             ),
-            // Live effective width from the driver-selected preset.
-            widthM = cap.widthFor(equipment.state.widthPreset),
-            spreadMaterial = if (equipment.state.saltOn) equipment.state.material else null
+            widthM = cap.widthFor(widthPreset),
+            spreadMaterial = if (paint.spreadPainting) eq.material else null
         )
 
         facilityGeofences.update(
@@ -755,12 +780,48 @@ class PlowTakController(
         }
     }
 
-    /** The treating rule, evaluated against capability + equipment + shift. */
+    /**
+     * Legacy "treating" flag for status/voice: true when either blade or
+     * spread would paint under current storm/shift/equipment (motion ignored).
+     */
     fun isTreatingNow(): Boolean {
-        if (!shiftLog.isOnShift) return false
+        val p = evaluatePaint(gpsOk = true, moving = true)
+        return p.anyPainting
+    }
+
+    /** Operator-facing paint gate summary for the ops status line. */
+    fun currentPaintStatus(): PaintStatus {
+        val sample = lastPositionSample
+        return evaluatePaint(sample?.gpsOk == true, sample?.moving == true)
+    }
+
+    private fun evaluatePaint(gpsOk: Boolean, moving: Boolean): PaintStatus {
+        if (stormManager.activeStormId.isEmpty()) {
+            return PaintStatus.idle("Not painting: no storm selected")
+        }
+        if (!shiftLog.isOnShift) {
+            return PaintStatus.idle("Not painting: off shift")
+        }
         val cap = capabilityStore.load()
-        return CapabilityRules.isTreating(
-            cap, prefs.treatRule, equipment.state.bladeDown, equipment.state.saltOn
+        if (!CapabilityRules.paintsCoverage(cap.type) || !cap.canTreat) {
+            return PaintStatus.idle("Not painting: no treat equipment")
+        }
+        val eq = equipment.state
+        val bladeEq = CapabilityRules.bladeChannelActive(cap, eq.bladeDown)
+        val spreadEq = CapabilityRules.spreadChannelActive(cap, eq.spreadingOn)
+        if (!bladeEq && !spreadEq) {
+            return PaintStatus.idle("Not painting: blade up / spread off")
+        }
+        if (!gpsOk) return PaintStatus.idle("Not painting: GPS poor")
+        if (!moving) return PaintStatus.idle("Not painting: not moving")
+        return PaintStatus(
+            bladePainting = bladeEq,
+            spreadPainting = spreadEq,
+            reason = when {
+                bladeEq && spreadEq -> "Painting plow + spread"
+                bladeEq -> "Painting plow swath"
+                else -> "Painting spread track"
+            }
         )
     }
 
@@ -804,7 +865,7 @@ class PlowTakController(
     companion object {
         private const val TAG = "PlowTakController"
         private const val RECOLOR_PERIOD_S = 30L
-        private const val MISSION_COV_PERIOD_S = 5L * 60L
+        private const val MISSION_COV_PERIOD_S = 60L
         private const val MPS_PER_MPH = 0.44704
         private const val MOVING_SPEED_MPS = 2.0
     }

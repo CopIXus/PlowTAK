@@ -6,14 +6,12 @@ import android.view.View
 import com.atakmap.android.dropdown.DropDown.OnStateListener
 import com.atakmap.android.dropdown.DropDownReceiver
 import com.atakmap.android.plowtak.PlowTakController
-import com.atakmap.android.plowtak.model.VehicleType
 import com.atakmap.android.maps.MapView
 
 /**
- * Capability-aware drop-down. First run shows the vehicle setup flow; after
- * that the panel is selected from the stored capability at runtime:
- * Plow/SaltOnly → DriverPanel, Supervisor → SupervisorPanel,
- * Observer → ObserverPanel.
+ * Drop-down host. First run shows vehicle setup; afterward every role uses
+ * the unified ops panel (DriverPanel). Storm admin and vehicle config live
+ * under the header Settings gear.
  */
 class PlowTakDropDownReceiver(
     mapView: MapView,
@@ -21,9 +19,7 @@ class PlowTakDropDownReceiver(
     private val controller: PlowTakController
 ) : DropDownReceiver(mapView), OnStateListener {
 
-    private var driverPanel: DriverPanel? = null
-    private var supervisorPanel: SupervisorPanel? = null
-    private var observerPanel: ObserverPanel? = null
+    private var opsPanel: DriverPanel? = null
 
     override fun disposeImpl() {
         disposePanels()
@@ -48,20 +44,8 @@ class PlowTakDropDownReceiver(
         if (!controller.capabilityStore.isConfigured) {
             return SetupPanel(controller) { show(selectView()) }.view
         }
-        return when (controller.capabilityStore.load().type) {
-            VehicleType.PLOW, VehicleType.SALT_ONLY -> {
-                driverPanel?.dispose()
-                DriverPanel(controller, ::openSettings).also { driverPanel = it }.view
-            }
-            VehicleType.SUPERVISOR -> {
-                supervisorPanel?.dispose()
-                SupervisorPanel(controller, ::openSettings).also { supervisorPanel = it }.view
-            }
-            VehicleType.OBSERVER -> {
-                observerPanel?.dispose()
-                ObserverPanel(controller, ::openSettings).also { observerPanel = it }.view
-            }
-        }
+        opsPanel?.dispose()
+        return DriverPanel(controller, ::openSettings).also { opsPanel = it }.view
     }
 
     private fun openSettings() {
@@ -69,19 +53,14 @@ class PlowTakDropDownReceiver(
     }
 
     private fun disposePanels() {
-        driverPanel?.dispose(); driverPanel = null
-        supervisorPanel?.dispose(); supervisorPanel = null
-        observerPanel?.dispose(); observerPanel = null
+        opsPanel?.dispose()
+        opsPanel = null
     }
 
     override fun onDropDownSelectionRemoved() {}
 
     override fun onDropDownVisible(visible: Boolean) {
-        if (visible) {
-            driverPanel?.refresh()
-            supervisorPanel?.refresh()
-            observerPanel?.refresh()
-        }
+        if (visible) opsPanel?.refresh()
     }
 
     override fun onDropDownSizeChanged(width: Double, height: Double) {}

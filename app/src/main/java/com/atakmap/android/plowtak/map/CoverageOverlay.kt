@@ -5,6 +5,8 @@ import com.atakmap.android.plowtak.coverage.CoverageStore
 import com.atakmap.android.plowtak.coverage.DirectionStatus
 import com.atakmap.android.plowtak.coverage.Freshness
 import com.atakmap.android.plowtak.coverage.FreshnessModel
+import com.atakmap.android.plowtak.model.Material
+import com.atakmap.android.plowtak.model.MaterialMode
 import com.atakmap.android.plowtak.model.TreatSegment
 import com.atakmap.android.maps.MapGroup
 import com.atakmap.android.maps.MapView
@@ -14,16 +16,7 @@ import com.atakmap.coremap.maps.coords.GeoPointMetaData
 
 /**
  * Renders [TreatSegment]s as polylines in the "PlowTAK" MapGroup: stroke
- * width scaled from plow width, color from freshness. The shared recolor
- * tick re-classifies every segment periodically and removes expired ones
- * from the display (the store prunes them from persistence).
- *
- * Phase 2 hooks (both optional, injected by the controller):
- *  - [cycleMinutesHook]: per-segment effective cycle time (priority +
- *    special zones via CycleResolver) instead of the single global cycle;
- *  - [directionHook]: direction-pairing state — a segment treated in one
- *    direction only ("northbound done, southbound not") renders in the
- *    distinct half-treated style (dashed stroke) so the gap stays visible.
+ * width scaled from plow width, color from freshness / spread material.
  */
 class CoverageOverlay(
     private val mapView: MapView,
@@ -61,8 +54,6 @@ class CoverageOverlay(
         group = null
     }
 
-    // ------------------------------------------------- store callbacks
-
     override fun onSegmentAdded(segment: TreatSegment, local: Boolean) {
         mapView.post { render(segment) }
     }
@@ -77,7 +68,6 @@ class CoverageOverlay(
         }
     }
 
-    /** Shared recolor tick (call from the periodic UI timer). */
     fun recolorAll(nowMs: Long) {
         mapView.post {
             val g = group ?: return@post
@@ -88,7 +78,7 @@ class CoverageOverlay(
                 if (freshness == Freshness.EXPIRED) {
                     expired.add(id)
                 } else {
-                    line.strokeColor = colorFor(freshness)
+                    line.strokeColor = colorFor(freshness, segment)
                     applyDirectionStyle(line, segment, nowMs)
                 }
             }
@@ -98,8 +88,6 @@ class CoverageOverlay(
             }
         }
     }
-
-    // -------------------------------------------------------- rendering
 
     private fun classify(segment: TreatSegment, nowMs: Long): Freshness {
         val cycle = cycleMinutesHook?.invoke(segment)
@@ -121,9 +109,9 @@ class CoverageOverlay(
                 GeoPointMetaData.wrap(GeoPoint(p.lat, p.lon))
             }.toTypedArray()
             line.setPoints(pts)
-            line.strokeColor = colorFor(freshness)
-            line.strokeWeight = strokeWeightFor(segment.widthM)
-            line.setMetaBoolean("addToObjList", false) // not a user-manageable item
+            line.strokeColor = colorFor(freshness, segment)
+            line.strokeWeight = strokeWeightFor(segment)
+            line.setMetaBoolean("addToObjList", false)
             line.setMetaString("plowtak.segment", segment.id)
             applyDirectionStyle(line, segment, now)
 
@@ -135,21 +123,15 @@ class CoverageOverlay(
         }
     }
 
-    /**
-     * Half-treated style: a pass with no fresh opposite-direction companion
-     * renders dashed — the corridor still needs the other side.
-     */
     private fun applyDirectionStyle(line: Polyline, segment: TreatSegment, nowMs: Long) {
-        val hook = directionHook ?: return
         try {
-            val dashed = hook(segment, nowMs) == DirectionStatus.ONE_WAY_ONLY
-            // SDK-fixup: verify Polyline.setBasicLineStyle + constants exist
-            // with these names in the 5.8 main.jar (present in 4.x..5.x).
+            val spreadOnly = segment.material == MaterialMode.SALT
+            val half = directionHook?.invoke(segment, nowMs) == DirectionStatus.ONE_WAY_ONLY
             line.basicLineStyle =
-                if (dashed) Polyline.BASIC_LINE_STYLE_DASHED
+                if (spreadOnly || half) Polyline.BASIC_LINE_STYLE_DASHED
                 else Polyline.BASIC_LINE_STYLE_SOLID
-        } catch (e: Throwable) {
-            // Style is cosmetic — never let it break rendering.
+        } catch (_: Throwable) {
+            // Style is cosmetic.
         }
     }
 
@@ -166,23 +148,40 @@ class CoverageOverlay(
         const val GROUP_NAME = "PlowTAK"
         private const val ITEM_UID_PREFIX = "plowtak-cov-"
 
-        // ARGB stroke colors per freshness bucket.
         private const val COLOR_GREEN = 0xC02ECC40.toInt()
         private const val COLOR_YELLOW = 0xC0FFDC00.toInt()
         private const val COLOR_RED = 0xC0FF4136.toInt()
 
-        fun colorFor(freshness: Freshness): Int = when (freshness) {
-            Freshness.GREEN -> COLOR_GREEN
-            Freshness.YELLOW -> COLOR_YELLOW
-            Freshness.RED -> COLOR_RED
-            Freshness.EXPIRED -> 0x00000000
+        fun colorFor(freshness: Freshness, segment: TreatSegment? = null): Int {
+            val base = when (freshness) {
+                Freshness.GREEN -> COLOR_GREEN
+                Freshness.YELLOW -> COLOR_YELLOW
+                Freshness.RED -> COLOR_RED
+                Freshness.EXPIRED -> return 0x00000000
+            }
+            if (segment?.material == MaterialMode.SALT) {
+                val tint = when (segment.spreadMaterial) {
+                    Material.SAND -> 0xC0C2B280.toInt()
+                    Material.GRAVEL -> 0xC0888888.toInt()
+                    Material.BRINE, Material.PREWET -> 0xC04FC3F7.toInt()
+                    else -> 0xC064B5F6.toInt()
+                }
+                return when (freshness) {
+                    Freshness.GREEN -> tint
+                    Freshness.YELLOW -> 0xC0FFB74D.toInt()
+                    Freshness.RED -> COLOR_RED
+                    Freshness.EXPIRED -> 0
+                }
+            }
+            return base
         }
 
-        /**
-         * Screen stroke weight from physical plow width. True
-         * meters-on-ground stroking needs an AbstractLayer (Phase 3); this
-         * approximation keeps wide tow plows visually heavier.
-         */
+        fun strokeWeightFor(segment: TreatSegment): Double {
+            val base = (segment.widthM * 1.5).coerceIn(3.0, 12.0)
+            return if (segment.material == MaterialMode.SALT) (base * 0.55).coerceIn(2.0, 7.0)
+            else base
+        }
+
         fun strokeWeightFor(widthM: Double): Double =
             (widthM * 1.5).coerceIn(3.0, 12.0)
     }

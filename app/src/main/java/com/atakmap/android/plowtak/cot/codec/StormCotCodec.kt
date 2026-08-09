@@ -5,13 +5,7 @@ import com.atakmap.android.plowtak.model.StormSession
 /**
  * Detail codec for storm session start/end broadcasts.
  *
- * ```
- * <__plowtak>
- *   <storm id= start= end= startedBy= label= agency= mission=/>
- * </__plowtak>
- * ```
- *
- * Older peers omit label/agency/mission; decode tolerates missing attrs.
+ * Older peers omit optional attrs; decode tolerates missing fields.
  */
 object StormCotCodec {
 
@@ -27,6 +21,8 @@ object StormCotCodec {
         if (session.label.isNotEmpty()) attrs["label"] = session.label
         if (session.agency.isNotEmpty()) attrs["agency"] = session.agency
         if (session.missionName.isNotEmpty()) attrs["mission"] = session.missionName
+        if (session.channel.isNotEmpty()) attrs["channel"] = session.channel
+        if (session.cycleMinutes != 45) attrs["cycle"] = session.cycleMinutes.toString()
         return DetailNode(
             DetailNode.PLOWTAK, emptyMap(),
             listOf(DetailNode("storm", attrs))
@@ -45,7 +41,9 @@ object StormCotCodec {
             startedBy = storm.attr("startedBy") ?: "",
             label = storm.attr("label") ?: "",
             agency = storm.attr("agency") ?: "",
-            missionName = storm.attr("mission") ?: ""
+            missionName = storm.attr("mission") ?: "",
+            channel = storm.attr("channel") ?: "",
+            cycleMinutes = storm.attr("cycle")?.toIntOrNull() ?: 45
         )
     }
 }

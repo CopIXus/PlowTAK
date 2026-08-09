@@ -95,8 +95,7 @@ data class VehicleCapability(
             VehicleType.OBSERVER -> VehicleCapability(
                 type = type,
                 hasBlade = false, hasSalt = false,
-                canTreat = false, canManageStorm = false,
-                // Default on for field units per plan; configurable in setup.
+                canTreat = false, canManageStorm = true,
                 canSendDistress = true,
                 publishPresence = false,
                 plowWidthM = 0.0,
@@ -106,23 +105,30 @@ data class VehicleCapability(
 
         /**
          * Normalizes a user-edited capability so illegal combinations cannot
-         * be persisted (e.g. an observer with a blade, or a "treating"
-         * supervisor).
+         * be persisted. Anyone may manage storms; treat paint requires plow
+         * or spreader-only type with at least one equipped channel.
          */
         fun sanitize(cap: VehicleCapability): VehicleCapability {
-            val treatType = cap.type == VehicleType.PLOW || cap.type == VehicleType.SALT_ONLY
-            val hasBlade = cap.hasBlade && cap.type == VehicleType.PLOW
-            val hasSalt = cap.hasSalt && treatType
+            // Legacy OBSERVER → no-treat (supervisor wire role).
+            val type = if (cap.type == VehicleType.OBSERVER) VehicleType.SUPERVISOR else cap.type
+            val treatType = type == VehicleType.PLOW || type == VehicleType.SALT_ONLY
+            val hasBlade = cap.hasBlade && type == VehicleType.PLOW
+            val hasSalt = when (type) {
+                VehicleType.SALT_ONLY -> true
+                VehicleType.PLOW -> cap.hasSalt
+                else -> false
+            }
             return cap.copy(
+                type = type,
                 hasBlade = hasBlade,
-                hasSalt = hasSalt || cap.type == VehicleType.SALT_ONLY,
-                canTreat = treatType && (hasBlade || hasSalt || cap.type == VehicleType.SALT_ONLY),
-                canManageStorm = cap.canManageStorm && cap.type == VehicleType.SUPERVISOR,
+                hasSalt = hasSalt,
+                canTreat = treatType && (hasBlade || hasSalt),
+                // Storm start/end is available to every configured unit.
+                canManageStorm = true,
                 plowWidthM = if (treatType) cap.plowWidthM.coerceAtLeast(1.0) else 0.0,
                 wingWidthM = if (treatType) cap.wingWidthM.coerceAtLeast(0.0) else 0.0,
                 towWidthM = if (treatType) cap.towWidthM.coerceAtLeast(0.0) else 0.0,
-                observerLabel = if (cap.type == VehicleType.OBSERVER) cap.observerLabel else "",
-                // Only treat-capable trucks can be hired contractor units.
+                observerLabel = "",
                 contractor = cap.contractor && treatType
             )
         }

@@ -9,11 +9,19 @@ package com.atakmap.android.plowtak.model
 object CapabilityRules {
 
     /**
-     * Whether a unit of this type may ever contribute "treated" paint.
-     * Supervisors and observers never do, no matter how good their GPS is.
+     * Whether a unit of this type may ever contribute treated paint.
+     * Legacy SUPERVISOR/OBSERVER wire types never paint.
      */
     fun paintsCoverage(type: VehicleType): Boolean =
         type == VehicleType.PLOW || type == VehicleType.SALT_ONLY
+
+    /** Blade swath: equipment only (storm/shift/motion applied by controller). */
+    fun bladeChannelActive(cap: VehicleCapability, bladeDown: Boolean): Boolean =
+        cap.canTreat && paintsCoverage(cap.type) && cap.hasBlade && bladeDown
+
+    /** Spread track: equipment only. */
+    fun spreadChannelActive(cap: VehicleCapability, spreadingOn: Boolean): Boolean =
+        cap.canTreat && paintsCoverage(cap.type) && cap.hasSalt && spreadingOn
 
     /**
      * Evaluates the configurable treating rule against the current equipment
@@ -34,8 +42,6 @@ object CapabilityRules {
             TreatRule.SALT_ON_ONLY -> salt
             TreatRule.EITHER -> blade || salt
             TreatRule.BOTH ->
-                // A single-channel vehicle satisfies BOTH with its one channel;
-                // otherwise a salt-only truck could never treat under BOTH.
                 when {
                     cap.hasBlade && cap.hasSalt -> blade && salt
                     cap.hasBlade -> blade
@@ -59,7 +65,7 @@ object CapabilityRules {
 
     /**
      * Units pulled from "nearest available" suggestions. LOADING is also
-     * excluded (Phase 3): a truck at the salt dome can't respond promptly.
+     * excluded: a truck at the salt dome can't respond promptly.
      */
     fun isDispatchable(status: VehicleStatus): Boolean =
         status != VehicleStatus.OUT_OF_SERVICE &&

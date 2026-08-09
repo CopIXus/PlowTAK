@@ -51,13 +51,15 @@ class StormSessionManager(
         return active + ended
     }
 
-    /** Supervisor: start and join a new storm. */
+    /** Start and join a new storm (any unit). */
     fun startSession(
         startedBy: String,
         nowMs: Long,
         label: String = "",
         agency: String = "",
-        missionName: String = ""
+        missionName: String = "",
+        channel: String = "",
+        cycleMinutes: Int = 45
     ): StormSession {
         val s = StormSession(
             id = generateId(nowMs),
@@ -65,13 +67,26 @@ class StormSessionManager(
             startedBy = startedBy,
             label = label.trim(),
             agency = agency.trim(),
-            missionName = missionName.trim()
+            missionName = missionName.trim(),
+            channel = channel.trim(),
+            cycleMinutes = cycleMinutes.coerceIn(5, 24 * 60)
         )
         remember(s)
         session = s
         save()
         notifyChanged()
         return s
+    }
+
+    /** Update cycle minutes on the joined storm (persisted + catalogued). */
+    fun updateCycleMinutes(minutes: Int): StormSession? {
+        val active = session?.takeIf { it.isActive } ?: return null
+        val next = active.copy(cycleMinutes = minutes.coerceIn(5, 24 * 60))
+        remember(next)
+        session = next
+        save()
+        notifyChanged()
+        return next
     }
 
     /** Supervisor: end the storm this device started / is joined to. */
@@ -88,14 +103,7 @@ class StormSessionManager(
     /** Explicitly join [remote] as the reporting storm. */
     fun join(remote: StormSession): Boolean {
         remember(remote)
-        if (session?.id == remote.id &&
-            session?.endTimeMs == remote.endTimeMs &&
-            session?.label == remote.label &&
-            session?.agency == remote.agency &&
-            session?.missionName == remote.missionName
-        ) {
-            return false
-        }
+        if (session == remote) return false
         session = remote
         save()
         notifyChanged()
@@ -202,7 +210,9 @@ class StormSessionManager(
                 esc(s.startedBy),
                 esc(s.label),
                 esc(s.agency),
-                esc(s.missionName)
+                esc(s.missionName),
+                esc(s.channel),
+                s.cycleMinutes.toString()
             ).joinToString("|")
 
         fun decodeSession(line: String): StormSession? {
@@ -217,7 +227,9 @@ class StormSessionManager(
                 startedBy = unesc(f[3]),
                 label = if (f.size > 4) unesc(f[4]) else "",
                 agency = if (f.size > 5) unesc(f[5]) else "",
-                missionName = if (f.size > 6) unesc(f[6]) else ""
+                missionName = if (f.size > 6) unesc(f[6]) else "",
+                channel = if (f.size > 7) unesc(f[7]) else "",
+                cycleMinutes = if (f.size > 8) f[8].toIntOrNull() ?: 45 else 45
             )
         }
 

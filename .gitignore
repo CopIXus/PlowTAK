@@ -9,6 +9,7 @@ Maps/
 main.jar
 atak-gradle-takdev*.jar
 *.aar
+atak-sdk/
 
 # Gradle
 .gradle/

@@ -27,9 +27,28 @@ class ManualEquipmentProvider(
 
     fun setSaltOn(on: Boolean) = update(state.copy(saltOn = on))
 
+    /** Alias for [setSaltOn] — spreader / material applicator. */
+    fun setSpreading(on: Boolean) = setSaltOn(on)
+
     fun setMaterial(material: Material) = update(state.copy(material = material))
 
     fun setWidthPreset(preset: WidthPreset) = update(state.copy(widthPreset = preset))
+
+    fun setWingLeft(extended: Boolean) = update(
+        state.copy(
+            wingLeftExtended = extended,
+            widthPreset = if (extended || state.wingRightExtended) WidthPreset.WING
+            else WidthPreset.STANDARD
+        )
+    )
+
+    fun setWingRight(extended: Boolean) = update(
+        state.copy(
+            wingRightExtended = extended,
+            widthPreset = if (extended || state.wingLeftExtended) WidthPreset.WING
+            else WidthPreset.STANDARD
+        )
+    )
 
     /**
      * Merge a Bluetooth controller report (Phase 3). The hardware state

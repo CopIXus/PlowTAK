@@ -109,8 +109,26 @@ class SetupPanel(
         btEnabled.isChecked = controller.prefs.btEquipmentEnabled
         btAddress.setText(controller.prefs.btDeviceAddress)
         btBle.isChecked = controller.prefs.btUseBle
+        view.findViewById<EditText>(R.id.setup_cycle_minutes)
+            .setText(controller.prefs.cycleTimeMinutes.toString())
         applyVisibility()
 
+        view.findViewById<Button>(R.id.setup_storm_start).setOnClickListener {
+            StormServerDialogs.showStartStormDialog(controller, controller.mapView.context)
+        }
+        view.findViewById<Button>(R.id.setup_storm_end).setOnClickListener {
+            StormServerDialogs.showEndStormDialog(controller, controller.mapView.context)
+        }
+        view.findViewById<Button>(R.id.setup_datasync_server).setOnClickListener {
+            StormServerDialogs.showDataSyncServerPicker(controller, controller.mapView.context)
+        }
+        view.findViewById<Button>(R.id.setup_cycle_apply).setOnClickListener {
+            val mins = view.findViewById<EditText>(R.id.setup_cycle_minutes)
+                .text.toString().toIntOrNull()
+            if (mins == null || mins < 5) return@setOnClickListener
+            controller.prefs.cycleTimeMinutes = mins
+            controller.updateStormCycleMinutes(mins)
+        }
         view.findViewById<Button>(R.id.setup_save).setOnClickListener { save() }
     }
 
@@ -121,8 +139,7 @@ class SetupPanel(
 
     private fun selectedType(): VehicleType = when (typeGroup.checkedRadioButtonId) {
         R.id.setup_type_salt -> VehicleType.SALT_ONLY
-        R.id.setup_type_supervisor -> VehicleType.SUPERVISOR
-        R.id.setup_type_observer -> VehicleType.OBSERVER
+        R.id.setup_type_supervisor, R.id.setup_type_observer -> VehicleType.SUPERVISOR
         else -> VehicleType.PLOW
     }
 
@@ -133,8 +150,9 @@ class SetupPanel(
             else View.GONE
         // A salt-only truck always has a spreader; the checkbox is for plows.
         hasSalt.visibility = if (type == VehicleType.PLOW) View.VISIBLE else View.GONE
-        observerOptions.visibility =
-            if (type == VehicleType.OBSERVER) View.VISIBLE else View.GONE
+        // Legacy observer option folded into "no treat equipment".
+        observerOptions.visibility = View.GONE
+        view.findViewById<View>(R.id.setup_type_observer)?.visibility = View.GONE
     }
 
     private fun save() {
@@ -180,8 +198,8 @@ class SetupPanel(
 
     private fun defaultCallsign(type: VehicleType): String = when (type) {
         VehicleType.PLOW -> "Plow-1"
-        VehicleType.SALT_ONLY -> "Salt-1"
-        VehicleType.SUPERVISOR -> "Sup-1"
-        VehicleType.OBSERVER -> "Observer-1"
+        VehicleType.SALT_ONLY -> "Spread-1"
+        VehicleType.SUPERVISOR -> "Cmd-1"
+        VehicleType.OBSERVER -> "Cmd-1"
     }
 }
