@@ -3,10 +3,12 @@
 Handoff notes for PlowTAK so work can continue from any machine that has this
 repo (UNAS: `\\192.168.1.26\Working\TAK\IdeaPlowPlugin` or `T:\TAK\IdeaPlowPlugin`).
 
-**Last verified:** 2026-08-08 / 2026-08-09  
-**Successful TPP job:** `amos-halava1-leo-gov-20260808-205023`  
-**GitHub release:** https://github.com/CopIXus/PlowTAK/releases/tag/tpc-0.1.0  
-**Git commit with build fixes:** `8b89061`
+**Last verified:** 2026-08-09  
+**Successful TPP job:** `amos-halava1-leo-gov-20260809-161048`  
+  (APK `PlowTAK-26.0809.1611-ATAK-5.8.0-civ-release.apk`; prior good job
+  `amos-halava1-leo-gov-20260809-092536`)  
+**GitHub release:** https://github.com/CopIXus/PlowTAK/releases/tag/tpc-0.1.1  
+**Git commit:** `da02649` (storm join / Data Sync picker + applymapping)
 
 ---
 
@@ -230,13 +232,19 @@ Work around them with a local CORS bridge under `.tmp-apk/` (gitignored):
    assign via `DataTransfer` to `#user_build_upload_file`, then click Submit.
 
 2. **Download (no Save As dialog)**  
-   Run `python .tmp-apk/recv_server.py` (`127.0.0.1:8766`).  
-   From the page, `fetch(downloadUrl, { credentials: 'include' })`, then
-   `POST` the blob to `http://127.0.0.1:8766/?name=….zip` with header
-   `X-Filename`. The receiver writes into `.tmp-apk/` with no prompt.
+   Prefer clicking the Success **download** link while the Cursor browser has
+   downloads configured not to prompt. The file often appears under
+   `%USERPROFILE%\Downloads\` as a `*.tmp` that is already a valid zip — copy
+   it to `.tmp-apk/<job-id>.zip`.
 
-`Browser.setDownloadBehavior` is often blocked in this browser host; the
-fetch→localhost POST path is the reliable alternative.
+   Fallback if fetch works same-origin: run `python .tmp-apk/recv_server.py`
+   (`127.0.0.1:8766`), `fetch` the download with `credentials: 'include'`, and
+   `POST` the blob to localhost. Note: TPC download URLs currently **opaque-
+   redirect** off tak.gov, so in-page `fetch` usually fails; the click→Downloads
+   path is what works.
+
+`Browser.setDownloadBehavior` is **denied** in this browser host — do not rely
+on it.
 
 ---
 
