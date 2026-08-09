@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Plugin discovery: add the required fictitious `com.atakmap.app.component`
+  activity so ATAK 4.6.0.2+ can find and load the APK (was installing but not
+  appearing under Plugins).
 - CoT self-echo filter no longer uses bare `startsWith(selfUid)` (dropped peer
   units like `PLOWTAK-T-10` when self was `PLOWTAK-T-1`). Matching is exact PLI
   uid or `"$selfUid-"` derived events (`SelfCotFilter`).

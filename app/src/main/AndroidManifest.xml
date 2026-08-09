@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Foreground shift service (keeps recording alive through doze) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -9,7 +10,9 @@
     <application
         android:allowBackup="false"
         android:icon="@drawable/ic_plowtak"
-        android:label="@string/app_name">
+        android:label="@string/app_name"
+        android:description="@string/app_desc"
+        android:theme="@style/ATAKPluginTheme">
 
         <!-- ATAK plugin contract: host API version this plugin was built against -->
         <meta-data
@@ -19,6 +22,18 @@
         <meta-data
             android:name="app_desc"
             android:value="@string/app_desc" />
+
+        <!-- Required for ATAK 4.6.0.2+ plugin discovery. Without this activity,
+             the APK installs but never appears in Settings → Tool Preferences /
+             Plugins and cannot be loaded. Matches ATAK-CIV 5.8 SDK samples. -->
+        <activity
+            android:name="com.atakmap.app.component"
+            android:exported="true"
+            tools:ignore="MissingClass">
+            <intent-filter android:label="@string/app_name">
+                <action android:name="com.atakmap.app.component" />
+            </intent-filter>
+        </activity>
 
         <!-- Exported because plugin code runs in the ATAK host process and
              starts this service cross-package (see PlowTakShiftService). -->

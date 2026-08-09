@@ -8,6 +8,8 @@ determines what the operator sees and can do.
 
 - Install ATAK-CIV 5.8.x, the VNS 4.0 plugin (offline maps — see
   [vns-install.md](vns-install.md)), and the PlowTAK plugin APK from a GitHub Release.
+- In ATAK, open **Settings → Tool Preferences / Plugins**, enable **PlowTAK**, then
+  restart ATAK if prompted. The PlowTAK icon should appear on the toolbar.
 - Connect the device to your agency's TAK Server.
 - Open the PlowTAK toolbar tool. On first launch, pick your **vehicle type** and
   options (callsign, plow width presets, materials, contractor flag).
