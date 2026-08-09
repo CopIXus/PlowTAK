@@ -10,8 +10,8 @@ determines what the operator sees and can do.
   [vns-install.md](vns-install.md)), and the PlowTAK plugin APK from a GitHub Release.
 - In ATAK, open **Settings → Tool Preferences / Plugins**, enable **PlowTAK**, then
   restart ATAK if prompted. The PlowTAK icon should appear on the toolbar.
-- Connect the device to your agency's TAK Server (Data Sync / missions recommended
-  for late-join coverage catch-up).
+- Connect the device to your agency's TAK Server(s). Choose which server PlowTAK
+  uses for Data Sync from the PlowTAK panel (one selected server per device).
 - Open the PlowTAK toolbar tool. On first launch, pick your **vehicle type** and
   options (callsign, plow width presets, materials, contractor flag, optional
   Bluetooth equipment controller).
@@ -66,13 +66,29 @@ determines what the operator sees and can do.
 - Special zones (bridge / ramp / hill / school) tighten the cycle for segments inside
   them; priority classes (P1/P2/P3) can override the default cycle.
 
-## 4. Coverage sharing (CoT + Data Sync)
+## 4. Storms, agencies, and Data Sync
 
-- **Live CoT** — thinned coverage batches (~20s) keep the mesh usable in a storm.
-- **Data Sync** — while a storm is active, each treat-capable unit uploads
-  5-minute gzip GeoJSON chunks to mission `plowtak-coverage-{stormId}`. Late
-  joiners / supervisors can pull those mission files for catch-up. Uploads are
-  fail-open if Data Sync or the server is unavailable.
+Multiple agencies may start concurrent storms on the same mesh. PlowTAK **does
+not auto-join** remote storms — each device picks what it reports into.
+
+### Supervisor — start a storm
+1. Open PlowTAK → **Start storm session**.
+2. Enter **Agency** (e.g. VDOT) and a **designator** (e.g. I-81 North).
+3. Optional: **Mission override** (otherwise `plowtak-coverage-{stormId}`).
+4. Confirm the **Data Sync server** (button in the dialog or on the panel).
+   Uploads go to that one selected TAK server (not fan-out to every connection).
+
+### Every role — join a storm
+Use **Join / pick storm** (supervisor) or **Join storm** (driver / observer).
+Heard storms appear as `Agency · Designator · id`. Leave a storm to stop
+reporting without ending it for others.
+
+### Coverage sharing
+- **Live CoT** — thinned coverage batches (~20s) keep the mesh usable.
+- **Data Sync** — while you have **joined** a storm, treat-capable units upload
+  5-minute gzip GeoJSON chunks to that storm’s mission on the selected server.
+  Late joiners pull those mission files for catch-up. Uploads are fail-open if
+  Data Sync or the server is unavailable.
 
 ## 5. Distress alerts
 

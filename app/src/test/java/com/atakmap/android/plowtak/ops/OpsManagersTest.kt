@@ -185,18 +185,39 @@ class StormSessionManagerTest {
     }
 
     @Test
-    fun `remote newer session is adopted`() {
+    fun `remote storms are catalogued but not auto joined`() {
         val mgr = StormSessionManager(InMemoryPersistence())
-        mgr.startSession("Sup-1", 1000L)
+        mgr.startSession("Sup-1", 1000L, label = "Local", agency = "Us")
         val localId = mgr.activeStormId
 
-        // Older remote session — ignored.
-        assertFalse(mgr.adoptRemote(StormSession("old", 500L, 0L, "Sup-2")))
+        // Other agencies' storms are heard, never auto-joined.
+        assertFalse(mgr.noteRemote(StormSession("old", 500L, 0L, "Sup-2", label = "A", agency = "Them")))
+        assertFalse(mgr.noteRemote(StormSession("newer", 2000L, 0L, "Sup-2", label = "B", agency = "Them")))
         assertEquals(localId, mgr.activeStormId)
+        assertTrue(mgr.knownStorms().any { it.id == "newer" })
+        assertEquals("Them · B · newer", mgr.knownStorms().first { it.id == "newer" }.displayName())
+    }
 
-        // Newer remote session — adopted.
-        assertTrue(mgr.adoptRemote(StormSession("newer", 2000L, 0L, "Sup-2")))
-        assertEquals("newer", mgr.activeStormId)
+    @Test
+    fun `join selects reporting storm`() {
+        val mgr = StormSessionManager(InMemoryPersistence())
+        val a = StormSession("a", 1L, startedBy = "A", agency = "AgencyA")
+        val b = StormSession("b", 2L, startedBy = "B", agency = "AgencyB")
+        mgr.noteRemote(a)
+        mgr.noteRemote(b)
+        assertTrue(mgr.join(b))
+        assertEquals("b", mgr.activeStormId)
+        assertTrue(mgr.join(a))
+        assertEquals("a", mgr.activeStormId)
+    }
+
+    @Test
+    fun `leave stops reporting without ending catalog storm`() {
+        val mgr = StormSessionManager(InMemoryPersistence())
+        val s = mgr.startSession("Sup-1", 1000L, label = "X")
+        mgr.leave()
+        assertNull(mgr.current)
+        assertTrue(mgr.knownStorms().first { it.id == s.id }.isActive)
     }
 
     @Test
@@ -204,7 +225,7 @@ class StormSessionManagerTest {
         val mgr = StormSessionManager(InMemoryPersistence())
         val s = mgr.startSession("Sup-1", 1000L)
 
-        assertTrue(mgr.adoptRemote(StormSession(s.id, 1000L, 5000L, "Sup-1")))
+        assertTrue(mgr.noteRemote(StormSession(s.id, 1000L, 5000L, "Sup-1")))
         assertEquals("", mgr.activeStormId)
         assertEquals(5000L, mgr.current!!.endTimeMs)
     }
@@ -212,10 +233,15 @@ class StormSessionManagerTest {
     @Test
     fun `session persists across restart`() {
         val persistence = InMemoryPersistence()
-        val id = StormSessionManager(persistence).startSession("Sup-1", 1000L).id
+        val started = StormSessionManager(persistence).startSession(
+            "Sup-1", 1000L, label = "South", agency = "VDOT", missionName = "vdot-south"
+        )
 
         val reloaded = StormSessionManager(persistence)
-        assertEquals(id, reloaded.activeStormId)
+        assertEquals(started.id, reloaded.activeStormId)
+        assertEquals("VDOT", reloaded.activeSession()?.agency)
+        assertEquals("South", reloaded.activeSession()?.label)
+        assertEquals("vdot-south", reloaded.activeSession()?.missionName)
     }
 }
 

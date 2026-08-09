@@ -1,18 +1,33 @@
 name: Release
 
+# Hold GitHub Releases until a TPC-signed APK is downloaded from tak.gov.
+# Main pushes still build a CopIX-signed APK artifact for smoke tests.
+# Publish only via workflow_dispatch with publish_release=true (or a v* tag
+# after the tak.gov artifact is ready to attach).
 on:
   push:
     branches: [main]
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      publish_release:
+        description: "Create/update a GitHub Release (only after tak.gov TPC APK is ready)"
+        required: false
+        type: boolean
+        default: false
+      plugin_version:
+        description: "Override PLUGIN_VERSION (yy.mmdd.HHmm UTC). Empty = build time UTC."
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: write
 
 jobs:
   build-and-release:
-    name: Build CIV APK and publish Release
+    name: Build CIV APK and optionally publish Release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -36,29 +51,37 @@ jobs:
         run: |
           REF="${{ github.ref }}"
           SHA="${GITHUB_SHA:0:7}"
-          RUN="${{ github.run_number }}"
-          if [[ "$REF" =~ ^refs/tags/v([0-9]+\.[0-9]+\.[0-9]+([.-].+)?)$ ]]; then
+          OVERRIDE="${{ github.event.inputs.plugin_version }}"
+          if [[ -n "$OVERRIDE" ]]; then
+            VERSION="$OVERRIDE"
+          elif [[ "$REF" =~ ^refs/tags/v(.+)$ ]]; then
             VERSION="${BASH_REMATCH[1]}"
-            TAG="${{ github.ref_name }}"
-            NAME="PlowTAK $VERSION"
-            KIND="tag"
-          elif [[ "$REF" == "refs/heads/main" ]] || [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            VERSION="0.1.$RUN"
-            TAG="build-$VERSION"
-            NAME="PlowTAK $VERSION (main @$SHA)"
-            KIND="push"
           else
-            echo "Unsupported ref $REF" >&2
-            exit 1
+            # yy.mmdd.HHmm in UTC (24z), e.g. 26.0809.0935
+            VERSION="$(date -u +'%y.%m%d.%H%M')"
+          fi
+          TAG="build-$VERSION"
+          if [[ "$REF" =~ ^refs/tags/v ]]; then
+            TAG="${{ github.ref_name }}"
+          fi
+          NAME="PlowTAK $VERSION"
+          if [[ "$REF" == "refs/heads/main" ]]; then
+            NAME="PlowTAK $VERSION (main @$SHA)"
+          fi
+          PUBLISH="false"
+          if [[ "$REF" =~ ^refs/tags/v ]]; then
+            PUBLISH="true"
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.publish_release }}" == "true" ]]; then
+            PUBLISH="true"
           fi
           {
             echo "tag=$TAG"
             echo "version=$VERSION"
             echo "name=$NAME"
-            echo "kind=$KIND"
             echo "sha=$SHA"
+            echo "publish=$PUBLISH"
           } >> "$GITHUB_OUTPUT"
-          echo "kind=$KIND tag=$TAG version=$VERSION"
+          echo "tag=$TAG version=$VERSION publish=$PUBLISH"
 
       - name: Download ATAK-CIV SDK jars from private cache
         env:
@@ -139,7 +162,7 @@ jobs:
           case "$SRC" in
             *unsigned*) echo "Refusing to publish unsigned APK: $SRC"; exit 1 ;;
           esac
-          OUT="dist/ATAK-Plugin-PlowTAK-${{ steps.ver.outputs.version }}-5.8.0-civ-release.apk"
+          OUT="dist/PlowTAK-${{ steps.ver.outputs.version }}-ATAK-5.8.0-civ-release.apk"
           cp "$SRC" "$OUT"
           (cd dist && sha256sum "$(basename "$OUT")" | awk '{print $1 "  " $2}' > "$(basename "$OUT").sha256")
           echo "apk=$(basename "$OUT")" >> "$GITHUB_OUTPUT"
@@ -153,6 +176,7 @@ jobs:
           path: dist/*
 
       - name: Create GitHub Release
+        if: steps.ver.outputs.publish == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.ver.outputs.tag }}
@@ -161,10 +185,14 @@ jobs:
           files: |
             dist/*
           body: |
-            Continuous build of **PlowTAK** (ATAK-CIV 5.8 plugin, signed release APK).
+            **PlowTAK** build `${{ steps.ver.outputs.version }}` (ATAK-CIV 5.8 plugin).
 
             Install `${{ steps.pkg.outputs.apk }}` on a device running **ATAK-CIV 5.8.x**,
             then enable the plugin in ATAK → Settings → Tool Preferences / Plugins.
+
+            Field devices on release ATAK need the **TPC-signed** APK from
+            [tak.gov](https://tak.gov) user_builds — CopIX CI signatures will show
+            “signature INVALID” on Load.
 
             Peer dependency: **VNS 4.0** from [tak.gov](https://tak.gov) for offline maps.
             Verify the APK with the matching `.sha256` sidecar.
@@ -172,3 +200,9 @@ jobs:
             Licensed under the [PlowTAK Free Application License 1.0](LICENSE).
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Skip GitHub Release (waiting on tak.gov)
+        if: steps.ver.outputs.publish != 'true'
+        run: |
+          echo "Built ${{ steps.pkg.outputs.apk }} but did not publish a GitHub Release."
+          echo "Re-run with workflow_dispatch publish_release=true after the TPC APK is available from tak.gov."

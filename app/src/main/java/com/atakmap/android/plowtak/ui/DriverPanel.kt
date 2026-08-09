@@ -110,6 +110,11 @@ class DriverPanel(
             NightPalette.apply(view, checked)
             refresh()
         }
+        view.findViewById<Button>(R.id.driver_storm_join).setOnClickListener {
+            StormServerDialogs.showJoinStormDialog(
+                controller, controller.mapView.context
+            ) { view.post { refresh() } }
+        }
 
         buildMaterialGrid(cap.hasSalt)
         buildWidthGrid()
@@ -150,9 +155,9 @@ class DriverPanel(
         val widthM = cap.widthFor(controller.equipment.state.widthPreset)
 
         header.text = "${cap.callsign}  (${cap.type.wireName}, $widthM m)"
+        val storm = controller.stormManager.activeSession()
         statusLine.text = "Status: ${controller.statusManager.current.label}" +
-                (controller.stormManager.activeStormId
-                    .takeIf { it.isNotEmpty() }?.let { "  •  Storm $it" } ?: "  •  No storm session")
+                (storm?.let { "  •  ${it.displayName()}" } ?: "  •  No storm selected")
 
         val onShift = shift != null
         shiftForm.visibility = if (onShift) View.GONE else View.VISIBLE

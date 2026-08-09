@@ -26,35 +26,40 @@ class PlowTakMapComponent : DropDownMapComponent() {
         context.setTheme(R.style.ATAKPluginTheme)
         super.onCreate(context, intent, view)
 
-        Log.d(TAG, "creating the PlowTak map component")
+        try {
+            Log.d(TAG, "creating the PlowTak map component")
 
-        val handler = PlowTakDetailHandler()
-        detailHandler = handler
-        CotDetailManager.getInstance().registerHandler(PlowTakDetailHandler.ELEMENT, handler)
+            val handler = PlowTakDetailHandler()
+            detailHandler = handler
+            CotDetailManager.getInstance().registerHandler(PlowTakDetailHandler.ELEMENT, handler)
 
-        ToolsPreferenceFragment.register(
-            ToolsPreferenceFragment.ToolPreference(
-                "PlowTAK Preferences",
-                "Winter ops coverage, voice alerts, Bluetooth, Data Sync",
-                PlowTakPreferenceFragment.KEY,
-                context.resources.getDrawable(R.drawable.ic_plowtak, null),
-                PlowTakPreferenceFragment(context)
+            ToolsPreferenceFragment.register(
+                ToolsPreferenceFragment.ToolPreference(
+                    "PlowTAK Preferences",
+                    "Winter ops coverage, voice alerts, Bluetooth, Data Sync",
+                    PlowTakPreferenceFragment.KEY,
+                    context.resources.getDrawable(R.drawable.ic_plowtak, null),
+                    PlowTakPreferenceFragment(context)
+                )
             )
-        )
 
-        val engine = PlowTakController(context, view)
-        controller = engine
-        engine.start()
+            val engine = PlowTakController(context, view)
+            controller = engine
+            engine.start()
 
-        val receiver = PlowTakDropDownReceiver(view, context, engine)
-        dropDownReceiver = receiver
+            val receiver = PlowTakDropDownReceiver(view, context, engine)
+            dropDownReceiver = receiver
 
-        val filter = DocumentedIntentFilter()
-        filter.addAction(
-            PlowTakDropDownReceiver.SHOW_PLUGIN,
-            "Show the PlowTAK drop-down"
-        )
-        registerDropDownReceiver(receiver, filter)
+            val filter = DocumentedIntentFilter()
+            filter.addAction(
+                PlowTakDropDownReceiver.SHOW_PLUGIN,
+                "Show the PlowTAK drop-down"
+            )
+            registerDropDownReceiver(receiver, filter)
+        } catch (t: Throwable) {
+            Log.e(TAG, "PlowTakMapComponent.onCreate failed", t)
+            throw t
+        }
     }
 
     override fun onDestroyImpl(context: Context, view: MapView) {

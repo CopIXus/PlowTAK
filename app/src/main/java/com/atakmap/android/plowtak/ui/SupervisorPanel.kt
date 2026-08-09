@@ -42,6 +42,7 @@ class SupervisorPanel(
     private val header = view.findViewById<TextView>(R.id.sup_header)
     private val stormLine = view.findViewById<TextView>(R.id.sup_storm_line)
     private val stormButton = view.findViewById<Button>(R.id.sup_storm_button)
+    private val dataSyncLine = view.findViewById<TextView>(R.id.sup_datasync_line)
     private val cycleTime = view.findViewById<EditText>(R.id.sup_cycle_time)
     private val cycleP1 = view.findViewById<EditText>(R.id.sup_cycle_p1)
     private val cycleP2 = view.findViewById<EditText>(R.id.sup_cycle_p2)
@@ -102,6 +103,16 @@ class SupervisorPanel(
         if (cycles.p3Minutes > 0) cycleP3.setText(cycles.p3Minutes.toString())
 
         stormButton.setOnClickListener { toggleStorm() }
+        view.findViewById<Button>(R.id.sup_storm_join).setOnClickListener {
+            StormServerDialogs.showJoinStormDialog(
+                controller, controller.mapView.context
+            ) { view.post { refresh() } }
+        }
+        view.findViewById<Button>(R.id.sup_datasync_server).setOnClickListener {
+            StormServerDialogs.showDataSyncServerPicker(
+                controller, controller.mapView.context
+            ) { view.post { refresh() } }
+        }
         view.findViewById<Button>(R.id.sup_cycle_apply).setOnClickListener { applyCycleTime() }
         view.findViewById<Button>(R.id.sup_zone_add).setOnClickListener { addZone() }
         view.findViewById<Button>(R.id.sup_facility_add).setOnClickListener { addFacility() }
@@ -159,14 +170,21 @@ class SupervisorPanel(
         val cap = controller.capabilityStore.load()
         header.text = "${cap.callsign}  (supervisor)"
 
-        val session = controller.stormManager.current
-        if (session != null && session.isActive) {
-            stormLine.text = "Storm ${session.id} active (started by ${session.startedBy})"
+        val session = controller.stormManager.activeSession()
+        if (session != null) {
+            stormLine.text =
+                "Reporting: ${session.displayName()} (by ${session.startedBy.ifBlank { "?" }})"
             stormButton.text = view.context.getString(R.string.sup_storm_end)
         } else {
-            stormLine.text = "No active storm session"
+            val heard = controller.stormManager.knownStorms().count { it.isActive }
+            stormLine.text = if (heard == 0) {
+                "No storm selected — start or join one"
+            } else {
+                "No storm selected — $heard active storm(s) available to join"
+            }
             stormButton.text = view.context.getString(R.string.sup_storm_start)
         }
+        dataSyncLine.text = StormServerDialogs.currentServerSummary(controller)
 
         val now = System.currentTimeMillis()
         val staleAfter = controller.fleetManager.staleAfterMs
@@ -210,13 +228,30 @@ class SupervisorPanel(
     }
 
     private fun toggleStorm() {
-        val session = controller.stormManager.current
-        if (session != null && session.isActive) {
-            controller.endStormSession()
+        val session = controller.stormManager.activeSession()
+        if (session != null) {
+            AlertDialog.Builder(controller.mapView.context)
+                .setTitle("End storm?")
+                .setMessage(
+                    "Ends ${session.displayName()} for the fleet and stops Data Sync " +
+                        "uploads for that mission."
+                )
+                .setPositiveButton("End storm") { _, _ ->
+                    controller.endStormSession()
+                    refresh()
+                }
+                .setNeutralButton("Leave only") { _, _ ->
+                    controller.leaveStormSession()
+                    refresh()
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
         } else {
-            controller.startStormSession()
+            StormServerDialogs.showStartStormDialog(
+                controller, controller.mapView.context
+            )
+            view.post { refresh() }
         }
-        refresh()
     }
 
     private fun applyCycleTime() {

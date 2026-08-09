@@ -203,7 +203,8 @@ class PlowCotListener(
     private fun handleStorm(event: CotEvent) {
         val node = CotDetailAdapter.findPlowTakNode(event.detail) ?: return
         val session = StormCotCodec.decode(node) ?: return
-        stormManager.adoptRemote(session)
+        // Catalog for picker; do not auto-join other agencies' storms.
+        stormManager.noteRemote(session)
     }
 
     companion object {

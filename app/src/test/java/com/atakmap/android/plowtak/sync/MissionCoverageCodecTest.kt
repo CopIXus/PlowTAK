@@ -47,6 +47,18 @@ class MissionCoverageCodecTest {
     }
 
     @Test
+    fun effectiveMissionNamePrefersOverride() {
+        assertEquals(
+            "plowtak-coverage-storm-A",
+            MissionCoverageCodec.effectiveMissionName("storm-A", "")
+        )
+        assertEquals(
+            "VDOT-I-81",
+            MissionCoverageCodec.effectiveMissionName("storm-A", "VDOT I-81")
+        )
+    }
+
+    @Test
     fun liveFilenameUsesUtcHour() {
         // 2025-01-01T00:30:00Z → hour 2025010100
         val name = MissionCoverageCodec.liveFilename("PLOWTAK-T-1", 1_735_689_780_000L, gzip = true)

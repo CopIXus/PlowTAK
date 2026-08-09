@@ -113,6 +113,7 @@ Portal: https://tak.gov/user_builds (must be logged in).
 | `assembleCivRelease` defined | yes |
 | `atak-gradle-takdev` used for SDK | yes (`3.+` when takrepo on) |
 | `-repackageclasses atakplugin.PlowTAK` | yes (`app/proguard-gradle.txt`) |
+| `-applymapping <atak.proguard.mapping>` | **required** — without it, release Load fails with `ClassNotFoundException: IServiceController` (SDK names never remapped to host `gov.tak.api.plugin.a`) |
 | `com.atakmap.app.component` discovery activity | yes (`AndroidManifest.xml`) |
 | `bundle { storeArchive { enable = false } }` | yes (`app/build.gradle`) |
 | POSIX `/` paths in zip (not Windows `\`) | **required** — see below |
@@ -150,9 +151,12 @@ Exclude: `.git`, `build/`, `.gradle/`, `Maps/`, `local.properties`, `*.jks`,
 | 1 | Failed in ~2s, download empty | Windows `\` zip paths | Rebuild zip with POSIX `/` |
 | 2 | `compileCivReleaseKotlin` — missing `atak-sdk/main.jar` | `compileOnly files(.../main.jar)` always on | Only when `!isDevKitEnabled()` |
 | 3 | `packageCivRelease` — `SigningConfig "release" missing storeFile` | No keystore on TPP when local.properties absent | Fallback to `${buildDir}/android_keystore` + `tnttnt` / `wintec_mapping` |
-| 4 | **Success** | — | Also added `bundle.storeArchive.enable = false` |
+| 4 | **Success** (signed) but Fold8 Load toast “Failed to load PlowTAK” | APK still referenced `IServiceController`; release ATAK only has obfuscated `gov.tak.api.plugin.a` | Add HelloWorld’s `-applymapping <atak.proguard.mapping>` to `app/proguard-gradle.txt` |
+| 5 | **Success** | — | Also added `bundle.storeArchive.enable = false` |
 
-Relevant file: `app/build.gradle` (signingConfigs, bundle block, dependencies).
+Relevant files: `app/build.gradle` (signingConfigs, bundle block, dependencies), `app/proguard-gradle.txt` (`-applymapping`).
+
+After a TPP build, verify the signed APK dex has **zero** `IServiceController` strings and a non-zero `Lgov/tak/api/plugin/a;` count before installing on release ATAK.
 
 Failure zips from the portal contain `build.log` (Gradle) plus Fortify /
 dependency-check reports — not a signed APK. Read `build.log` first.

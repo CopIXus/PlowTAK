@@ -186,11 +186,42 @@ class CotCodecTest {
 
     @Test
     fun `storm session round-trips`() {
-        val session = StormSession("2026-01-15-1736951234", 1_736_951_234_000L, 0L, "Sup-1")
+        val session = StormSession(
+            id = "2026-01-15-1736951234",
+            startTimeMs = 1_736_951_234_000L,
+            endTimeMs = 0L,
+            startedBy = "Sup-1",
+            label = "I-81 North",
+            agency = "VDOT",
+            missionName = "vdot-i81-north"
+        )
         assertEquals(session, StormCotCodec.decode(StormCotCodec.encode(session)))
 
         val ended = session.copy(endTimeMs = 1_736_999_999_000L)
         assertEquals(ended, StormCotCodec.decode(StormCotCodec.encode(ended)))
+    }
+
+    @Test
+    fun `legacy storm without designators still decodes`() {
+        val node = DetailNode(
+            DetailNode.PLOWTAK, emptyMap(),
+            listOf(
+                DetailNode(
+                    "storm",
+                    mapOf(
+                        "id" to "legacy-1",
+                        "start" to "10",
+                        "end" to "0",
+                        "startedBy" to "OldSup"
+                    )
+                )
+            )
+        )
+        val decoded = StormCotCodec.decode(node)!!
+        assertEquals("legacy-1", decoded.id)
+        assertEquals("", decoded.label)
+        assertEquals("", decoded.agency)
+        assertEquals("", decoded.missionName)
     }
 
     // ------------------------------------------------------ HazardCotCodec

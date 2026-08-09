@@ -3,33 +3,35 @@ package com.atakmap.android.plowtak.cot.codec
 import com.atakmap.android.plowtak.model.StormSession
 
 /**
- * Detail codec for storm session start/end broadcasts so the whole fleet
- * converges on one session without a server-side authority.
+ * Detail codec for storm session start/end broadcasts.
  *
  * ```
  * <__plowtak>
- *   <storm id= start= end= startedBy=/>
+ *   <storm id= start= end= startedBy= label= agency= mission=/>
  * </__plowtak>
  * ```
+ *
+ * Older peers omit label/agency/mission; decode tolerates missing attrs.
  */
 object StormCotCodec {
 
     const val STORM_EVENT_TYPE = "b-i-x-plowtak-storm"
 
-    fun encode(session: StormSession): DetailNode =
-        DetailNode(
-            DetailNode.PLOWTAK, emptyMap(),
-            listOf(
-                DetailNode(
-                    "storm", mapOf(
-                        "id" to session.id,
-                        "start" to session.startTimeMs.toString(),
-                        "end" to session.endTimeMs.toString(),
-                        "startedBy" to session.startedBy
-                    )
-                )
-            )
+    fun encode(session: StormSession): DetailNode {
+        val attrs = linkedMapOf(
+            "id" to session.id,
+            "start" to session.startTimeMs.toString(),
+            "end" to session.endTimeMs.toString(),
+            "startedBy" to session.startedBy
         )
+        if (session.label.isNotEmpty()) attrs["label"] = session.label
+        if (session.agency.isNotEmpty()) attrs["agency"] = session.agency
+        if (session.missionName.isNotEmpty()) attrs["mission"] = session.missionName
+        return DetailNode(
+            DetailNode.PLOWTAK, emptyMap(),
+            listOf(DetailNode("storm", attrs))
+        )
+    }
 
     fun decode(node: DetailNode): StormSession? {
         val plowtak = if (node.name == DetailNode.PLOWTAK) node
@@ -40,7 +42,10 @@ object StormCotCodec {
             id = id,
             startTimeMs = storm.attrLong("start"),
             endTimeMs = storm.attrLong("end"),
-            startedBy = storm.attr("startedBy") ?: ""
+            startedBy = storm.attr("startedBy") ?: "",
+            label = storm.attr("label") ?: "",
+            agency = storm.attr("agency") ?: "",
+            missionName = storm.attr("mission") ?: ""
         )
     }
 }

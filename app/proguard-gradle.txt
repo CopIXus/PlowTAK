@@ -1,34 +1,99 @@
-# ATAK plugin proguard configuration (release builds).
-# System-style keeps mirror ATAK-CIV 5.8 SDK samples/helloworld/proguard-gradle.txt.
+######################################################################
+## Skip down to the 'User Section'
+## Messing with any items in the 'System Section' will void the warranty
+######################################################################
+
+
+######################################################################
+######################################################################
+## System Section
+######################################################################
+######################################################################
+
+
 -dontskipnonpubliclibraryclasses
 -dontshrink
 -dontoptimize
 
--keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod
+# Line numbers in stack traces
+-renamesourcefileattribute SourceFile
+-keepattributes SourceFile,LineNumberTable
 
-# Keep every IPlugin / AbstractPluginTool entry (plugin.xml + toolbar tools).
+# CRITICAL for release ATAK-CIV: remap compiled SDK API names (e.g.
+# gov.tak.api.plugin.IServiceController) to the obfuscated host names
+# (e.g. gov.tak.api.plugin.a). Without this, Load fails with
+# NoClassDefFoundError / ClassNotFoundException for IServiceController.
+# Placeholder is filled by atak-takdev-plugin from the ODK/mapping artifact.
+-applymapping <atak.proguard.mapping>
+
+-keepattributes *Annotation*
+-keepattributes Signature, InnerClasses, EnclosingMethod
+
+
+-keep class * implements android.os.Parcelable {
+  public static final android.os.Parcelable$Creator *;
+}
+
+-keepclassmembers class **.R$* {
+    public static <fields>;
+}
+
+-keepclassmembers enum * {
+    public static **[] values();
+    public static ** valueOf(java.lang.String);
+}
+
+-keepclasseswithmembernames class * {
+    native <methods>;
+}
+
+-keepclassmembers class * {
+    @org.simpleframework.xml.* *;
+}
+
 -keep class * implements gov.tak.api.plugin.IPlugin {
 }
 -keep class * extends com.atak.plugins.impl.AbstractPluginTool {
 }
 
-# Explicit entry points for clarity / older loaders.
+# overcome an existing bug in the gradle subsystem (3.5.x)
+-keep class module-info
+
+-keep,allowobfuscation @interface gov.tak.api.annotation.DontObfuscate
+
+-keep @gov.tak.api.annotation.DontObfuscate class * {*;}
+-keepclassmembers class * {
+    @gov.tak.api.annotation.DontObfuscate *;
+}
+
+
+######################################################################
+## Messing with any settings above this line will void the Warranty
+######################################################################
+
+
+
+######################################################################
+######################################################################
+## User Section
+######################################################################
+######################################################################
+
+# Unique repackage namespace so plugin classes do not collide with other
+# plugins loaded into the ATAK process (SDK sample convention).
+-repackageclasses atakplugin.PlowTAK
+
+# Explicit entry points (plugin.xml + toolbar + map component + FGS).
 -keep class com.atakmap.android.plowtak.plugin.PlowTakLifecycle { *; }
 -keep class com.atakmap.android.plowtak.plugin.PlowTakTool { *; }
 -keep class com.atakmap.android.plowtak.PlowTakMapComponent { *; }
-
-# Manifest-declared foreground service (must keep the class name).
 -keep class com.atakmap.android.plowtak.service.PlowTakShiftService { *; }
 
 # Kotlin
 -dontwarn kotlin.**
 -keep class kotlin.Metadata { *; }
 
-# ATAK API is provided by the host — never warn about it
+# ATAK API is provided by the host
 -dontwarn com.atakmap.**
 -dontwarn gov.tak.**
 -dontwarn transapps.**
-
-# Repackage plugin classes under a unique namespace to avoid collisions with
-# other plugins loaded into the ATAK process (SDK sample convention).
--repackageclasses atakplugin.PlowTAK

@@ -1,5 +1,6 @@
 package com.atakmap.android.plowtak.plugin
 
+import android.util.Log
 import com.atak.plugins.impl.AbstractPlugin
 import com.atak.plugins.impl.PluginContextProvider
 import com.atakmap.android.plowtak.PlowTakMapComponent
@@ -11,8 +12,24 @@ import gov.tak.api.plugin.IServiceController
  */
 class PlowTakLifecycle(serviceController: IServiceController) : AbstractPlugin(
     serviceController,
-    PlowTakTool(
-        serviceController.getService(PluginContextProvider::class.java).pluginContext
-    ),
+    createTool(serviceController),
     PlowTakMapComponent()
-)
+) {
+    companion object {
+        private const val TAG = "PlowTakLifecycle"
+
+        private fun createTool(serviceController: IServiceController): PlowTakTool {
+            return try {
+                val provider = serviceController.getService(PluginContextProvider::class.java)
+                    ?: throw IllegalStateException("PluginContextProvider service is null")
+                val context = provider.pluginContext
+                    ?: throw IllegalStateException("pluginContext is null")
+                Log.i(TAG, "creating PlowTakTool with plugin context=$context")
+                PlowTakTool(context)
+            } catch (t: Throwable) {
+                Log.e(TAG, "Failed to construct PlowTakTool / resolve plugin context", t)
+                throw t
+            }
+        }
+    }
+}

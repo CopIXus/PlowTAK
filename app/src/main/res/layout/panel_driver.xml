@@ -27,6 +27,14 @@
             android:textSize="18sp"
             android:textStyle="bold" />
 
+        <Button
+            android:id="@+id/driver_storm_join"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="6dp"
+            android:text="@string/driver_storm_join"
+            android:textSize="16sp" />
+
         <!-- Shift login -->
         <LinearLayout
             android:id="@+id/driver_shift_form"

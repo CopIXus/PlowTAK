@@ -1,40 +1,40 @@
 package com.atakmap.android.plowtak.sync
 
 import android.content.Context
-import android.preference.PreferenceManager
 import android.util.Log
-import com.atakmap.android.cot.CotMapComponent
 import com.atakmap.android.plowtak.coverage.CoverageStore
+import com.atakmap.android.plowtak.model.StormSession
 import com.atakmap.android.plowtak.ops.KeyValuePersistence
-import com.atakmap.comms.TAKServer
 import com.atakmap.comms.http.TakHttpClient2
 import com.atakmap.comms.http.TakHttpResponse
 import java.net.URLEncoder
 
 /**
  * Best-effort TAK Data Sync uploader: every 5 minutes while a storm is
- * active, replace this truck's live GeoJSON chunk on a per-storm mission
- * (`plowtak-coverage-{stormId}`).
+ * joined, replace this truck's live GeoJSON chunk on the storm's mission
+ * (default `plowtak-coverage-{stormId}`, or an explicit mission override).
+ *
+ * Uploads go to the **user-selected** TAK server (see
+ * [KEY_DATASYNC_SERVER]); if that server is down, the first connected
+ * server is used as a soft fallback. Multi-server fan-out is intentionally
+ * out of scope for now.
  *
  * Fail-open — any server / mission API failure is logged and ignored so
- * local coverage recording never crashes. Uses ATAK's certificate-aware
- * [TakHttpClient2] (same GetHttpClient factory family as TakHttpClient;
- * Client2 exposes put/post/delete without Apache HttpClient on the
- * plugin compile classpath).
+ * local coverage recording never crashes.
  */
 class MissionCoverageSync(
     private val appContext: Context,
     private val prefs: KeyValuePersistence,
     private val coverageStore: CoverageStore,
     private val vehicleUid: () -> String,
-    private val activeStormId: () -> String
+    private val activeStorm: () -> StormSession?
 ) {
 
     /** Ensure mission exists and push the current hour chunk (fail-open). */
     fun onStormStarted(stormId: String) {
         if (stormId.isBlank()) return
         try {
-            syncOnce(stormId)
+            syncOnce()
         } catch (t: Throwable) {
             Log.w(TAG, "onStormStarted sync failed (fail-open)", t)
         }
@@ -42,10 +42,8 @@ class MissionCoverageSync(
 
     /** Periodic tick from the controller timer — no-op without an active storm. */
     fun tick() {
-        val stormId = activeStormId()
-        if (stormId.isBlank()) return
         try {
-            syncOnce(stormId)
+            syncOnce()
         } catch (t: Throwable) {
             Log.w(TAG, "mission coverage tick failed (fail-open)", t)
         }
@@ -54,18 +52,29 @@ class MissionCoverageSync(
     /** Optional final attempt; never throws. */
     fun dispose() {
         try {
-            val stormId = activeStormId()
-            if (stormId.isNotBlank()) syncOnce(stormId)
+            syncOnce()
         } catch (t: Throwable) {
             Log.w(TAG, "dispose sync failed (fail-open)", t)
         }
     }
 
-    private fun syncOnce(stormId: String) {
-        val baseUrl = connectedServerBaseUrl() ?: run {
+    private fun syncOnce() {
+        val session = activeStorm() ?: return
+        val stormId = session.id
+        if (stormId.isBlank()) return
+
+        val preferred = prefs.getString(KEY_DATASYNC_SERVER).orEmpty()
+        val resolved = TakServerTargets.resolveApiBaseUrl(appContext, preferred) ?: run {
             Log.w(TAG, "no connected TAK server; skipping mission coverage upload")
             return
         }
+        if (resolved.usedFallback) {
+            Log.w(
+                TAG,
+                "preferred Data Sync server not connected; using ${resolved.label}"
+            )
+        }
+        val baseUrl = resolved.apiBaseUrl
         val uid = vehicleUid().ifBlank { return }
         val now = System.currentTimeMillis()
         val hourSegs = MissionCoverageCodec.segmentsInCurrentHour(coverageStore.all(), now)
@@ -81,7 +90,7 @@ class MissionCoverageSync(
             return
         }
 
-        val mission = MissionCoverageCodec.missionName(stormId)
+        val mission = MissionCoverageCodec.effectiveMissionName(stormId, session.missionName)
         val client = TakHttpClient2.GetHttpClient(baseUrl)
         if (!ensureMission(client, mission)) return
         if (!uploadContent(client, filename, hash, uid, bytes)) return
@@ -96,7 +105,8 @@ class MissionCoverageSync(
         prefs.putString(KEY_LAST_MISSION, mission)
         Log.i(
             TAG,
-            "uploaded mission coverage $filename (${bytes.size} B, ${hourSegs.size} segs) → $mission"
+            "uploaded mission coverage $filename (${bytes.size} B, ${hourSegs.size} segs) → " +
+                "$mission @ ${resolved.label}"
         )
     }
 
@@ -180,30 +190,6 @@ class MissionCoverageSync(
         }
     }
 
-    /**
-     * First connected TAK server HTTPS/HTTP API base (`scheme://host:apiPort`).
-     * Streaming CoT port from the connect string is replaced with the Marti
-     * API port from ATAK prefs (`apiSecureServerPort` / `apiUnsecureServerPort`).
-     */
-    private fun connectedServerBaseUrl(): String? {
-        return try {
-            val servers: Array<TAKServer>? = CotMapComponent.getInstance()?.servers
-            val server = servers?.firstOrNull { it.isConnected } ?: return null
-            val hostBase = server.getURL(false) ?: return null
-            val https = hostBase.startsWith("https", ignoreCase = true)
-            val atakPrefs = PreferenceManager.getDefaultSharedPreferences(appContext)
-            val port = if (https) {
-                atakPrefs.getString(CotMapComponent.PREF_API_SECURE_PORT, "8443") ?: "8443"
-            } else {
-                atakPrefs.getString(CotMapComponent.PREF_API_UNSECURE_PORT, "8080") ?: "8080"
-            }
-            "$hostBase:$port"
-        } catch (t: Throwable) {
-            Log.w(TAG, "resolve server base URL failed", t)
-            null
-        }
-    }
-
     private fun enc(s: String): String =
         URLEncoder.encode(s, "UTF-8").replace("+", "%20")
 
@@ -219,6 +205,8 @@ class MissionCoverageSync(
         const val KEY_LAST_HASH = "plowtak.mission_cov.last_hash"
         const val KEY_LAST_FILENAME = "plowtak.mission_cov.last_filename"
         const val KEY_LAST_MISSION = "plowtak.mission_cov.last_mission"
+        /** ATAK connect string of the preferred Data Sync server (empty = first connected). */
+        const val KEY_DATASYNC_SERVER = "plowtak.datasync.server"
         const val PERIOD_MS = 5L * 60_000L
     }
 }

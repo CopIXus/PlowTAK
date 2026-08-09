@@ -57,6 +57,9 @@
     <!-- Supervisor panel -->
     <string name="sup_storm_start">Start storm session</string>
     <string name="sup_storm_end">End storm session</string>
+    <string name="sup_storm_join">Join / pick storm</string>
+    <string name="sup_datasync_server">Data Sync server</string>
+    <string name="driver_storm_join">Join storm</string>
     <string name="sup_cycle_time_hint">Cycle time (min)</string>
     <string name="sup_cycle_time_apply">Apply</string>
     <string name="sup_fleet_title">Fleet</string>

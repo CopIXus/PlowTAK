@@ -144,7 +144,8 @@ The ATAK SDK is required and is **not** included in this repository.
    ```
 
    Release APK name:
-   `ATAK-Plugin-PlowTAK-<version>--5.8.0-civ-release.apk`
+   `PlowTAK-<yy.mmdd.HHmm>-ATAK-5.8.0-civ-release.apk`
+   (UTC build stamp, e.g. `PlowTAK-26.0809.0935-ATAK-5.8.0-civ-release.apk`)
 
 4. Install a **TAK Product Center–signed** APK (from a GitHub Release marked
    TPC/user_builds, or your own takrepo-signed `assembleCivRelease`), then
@@ -179,7 +180,9 @@ Release assets**. Device install steps: [docs/vns-install.md](docs/vns-install.m
 ## CI / Releases
 
 Push to `main` runs engine tests and, when secrets are configured, builds a signed
-CIV release APK and publishes a GitHub Release (`build-0.1.<n>`). Setup guide:
+CIV release APK artifact (`PlowTAK-<yy.mmdd.HHmm>-ATAK-5.8.0-…`). GitHub Releases
+stay unpublished until a TPC-signed APK is available from tak.gov — then publish
+via workflow_dispatch (`publish_release=true`). Setup guide:
 [docs/ci-build.md](docs/ci-build.md).
 
 ## License

@@ -6,8 +6,8 @@
 
 buildscript {
 
-    // CI can override with -PPLUGIN_VERSION=0.1.<run>
-    ext.PLUGIN_VERSION = project.findProperty('PLUGIN_VERSION') ?: "0.1"
+    // Build-time stamp yy.mmdd.HHmm in UTC (24z). CI can override with -PPLUGIN_VERSION=...
+    ext.PLUGIN_VERSION = project.findProperty('PLUGIN_VERSION') ?: new Date().format("yy.MMdd.HHmm", TimeZone.getTimeZone("UTC"))
     ext.ATAK_VERSION = "5.8.0"
 
     def takdevVersion = '3.+'
@@ -82,7 +82,7 @@ apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 apply plugin: 'atak-takdev-plugin'
 
-def getVersionName() {
+def getGitShortSha() {
     try {
         def stdout = new ByteArrayOutputStream()
         exec {
@@ -95,6 +95,18 @@ def getVersionName() {
     } catch (Exception ignored) {
         return ""
     }
+}
+
+// Android versionCode from yy.mmdd.HHmm (UTC), fits in signed 32-bit int through ~2041.
+def getVersionCodeFromPluginVersion(String ver) {
+    def m = (ver =~ /^(\d{2})\.(\d{4})\.(\d{4})$/)
+    if (m.matches()) {
+        int yy = m[0][1] as int
+        int mmdd = m[0][2] as int
+        int hhmm = m[0][3] as int
+        return ((yy - 20) * 100000000) + (mmdd * 10000) + hhmm
+    }
+    return 1
 }
 
 def getValueFromPropertiesFile = { propFile, key ->
@@ -124,8 +136,8 @@ android {
         applicationId "com.atakmap.android.plowtak.plugin"
         minSdk 26
         targetSdk 34
-        versionCode 1
-        versionName PLUGIN_VERSION + " (" + getVersionName() + ") - [" + ATAK_VERSION + "]"
+        versionCode getVersionCodeFromPluginVersion(PLUGIN_VERSION as String)
+        versionName PLUGIN_VERSION + " (" + getGitShortSha() + ") - [" + ATAK_VERSION + "]"
     }
 
     compileOptions {
@@ -217,18 +229,19 @@ android {
 
     sourceSets {
         main {
-            setProperty("archivesBaseName", "ATAK-Plugin-" + rootProject.name + "-" + PLUGIN_VERSION)
-            defaultConfig.versionCode = 1
+            // PlowTAK-26.0809.0935-ATAK-5.8.0
+            setProperty("archivesBaseName",
+                    rootProject.name + "-" + PLUGIN_VERSION + "-ATAK-" + ATAK_VERSION)
+            defaultConfig.versionCode = getVersionCodeFromPluginVersion(PLUGIN_VERSION as String)
         }
     }
 
-    // ATAK plugin naming convention, matching e.g.
-    // ATAK-Plugin-PlowTAK-0.1--5.8.0-civ-release.apk
+    // Descriptive APK names, e.g.
+    // PlowTAK-26.0809.0935-ATAK-5.8.0-civ-release.apk
     applicationVariants.all { variant ->
         variant.outputs.all { output ->
             output.outputFileName =
-                    "ATAK-Plugin-" + rootProject.name + "-" + PLUGIN_VERSION + "-" +
-                    getVersionName() + "-" + ATAK_VERSION + "-" +
+                    rootProject.name + "-" + PLUGIN_VERSION + "-ATAK-" + ATAK_VERSION + "-" +
                     variant.flavorName + "-" + variant.buildType.name + ".apk"
         }
     }

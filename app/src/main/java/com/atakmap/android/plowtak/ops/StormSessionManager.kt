@@ -3,14 +3,17 @@ package com.atakmap.android.plowtak.ops
 import com.atakmap.android.plowtak.model.StormSession
 import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.LinkedHashMap
 import java.util.Locale
 import java.util.TimeZone
 
 /**
- * Tracks the active [StormSession]. Supervisors start/end sessions; every
- * client adopts sessions seen over CoT so the fleet converges without a
- * server-side authority. Convergence rule: a remote session with a *newer*
- * start time wins; an end broadcast for the current id ends it everywhere.
+ * Tracks the storm this device is **reporting into**, plus a catalog of
+ * storms heard over CoT so operators can pick among concurrent agency sessions.
+ *
+ * Remote storms are catalogued but not auto-joined (multi-agency safe).
+ * Ending a remote session updates the catalog and ends the local join when
+ * ids match.
  */
 class StormSessionManager(
     private val persistence: KeyValuePersistence
@@ -21,7 +24,10 @@ class StormSessionManager(
     }
 
     private val listeners = mutableListOf<Listener>()
+    /** Storm this unit is tagging coverage / Data Sync against. */
     private var session: StormSession? = null
+    /** Heard storms keyed by id (insertion order; capped). */
+    private val catalog = LinkedHashMap<String, StormSession>()
 
     init {
         load()
@@ -34,54 +40,120 @@ class StormSessionManager(
 
     val activeStormId: String get() = session?.takeIf { it.isActive }?.id ?: ""
 
-    /** Supervisor action. Returns the new session. */
-    fun startSession(startedBy: String, nowMs: Long): StormSession {
+    /** Active joined session, or null. */
+    fun activeSession(): StormSession? = session?.takeIf { it.isActive }
+
+    /** Catalog for pickers: active storms first, then recently ended. */
+    fun knownStorms(): List<StormSession> {
+        val values = catalog.values.toList()
+        val active = values.filter { it.isActive }.sortedByDescending { it.startTimeMs }
+        val ended = values.filter { !it.isActive }.sortedByDescending { it.startTimeMs }
+        return active + ended
+    }
+
+    /** Supervisor: start and join a new storm. */
+    fun startSession(
+        startedBy: String,
+        nowMs: Long,
+        label: String = "",
+        agency: String = "",
+        missionName: String = ""
+    ): StormSession {
         val s = StormSession(
             id = generateId(nowMs),
             startTimeMs = nowMs,
-            startedBy = startedBy
+            startedBy = startedBy,
+            label = label.trim(),
+            agency = agency.trim(),
+            missionName = missionName.trim()
         )
+        remember(s)
         session = s
         save()
         notifyChanged()
         return s
     }
 
-    /** Supervisor action. Returns the ended session for broadcast, or null. */
+    /** Supervisor: end the storm this device started / is joined to. */
     fun endSession(nowMs: Long): StormSession? {
         val active = session?.takeIf { it.isActive } ?: return null
         val ended = active.copy(endTimeMs = nowMs)
+        remember(ended)
         session = ended
         save()
         notifyChanged()
         return ended
     }
 
+    /** Explicitly join [remote] as the reporting storm. */
+    fun join(remote: StormSession): Boolean {
+        remember(remote)
+        if (session?.id == remote.id &&
+            session?.endTimeMs == remote.endTimeMs &&
+            session?.label == remote.label &&
+            session?.agency == remote.agency &&
+            session?.missionName == remote.missionName
+        ) {
+            return false
+        }
+        session = remote
+        save()
+        notifyChanged()
+        return true
+    }
+
+    fun joinById(id: String): Boolean {
+        val s = catalog[id] ?: return false
+        return join(s)
+    }
+
+    /** Stop reporting into a storm without ending it for the fleet. */
+    fun leave() {
+        if (session == null) return
+        session = null
+        save()
+        notifyChanged()
+    }
+
     /**
-     * Adopt a session announced by another unit. Returns true if local state
-     * changed (caller should re-scope coverage).
+     * Catalog a remote storm announcement. Updates the joined session only when
+     * the same id ends (or metadata refreshes for the joined id). Does **not**
+     * auto-join a different agency’s storm.
      */
-    fun adoptRemote(remote: StormSession): Boolean {
+    fun noteRemote(remote: StormSession): Boolean {
+        remember(remote)
         val local = session
-        val changed: Boolean = when {
-            // End broadcast for the session we're in.
-            local != null && remote.id == local.id ->
-                if (!remote.isActive && local.isActive) {
-                    session = local.copy(endTimeMs = remote.endTimeMs)
+        val changed = when {
+            local != null && remote.id == local.id -> {
+                // Same storm: adopt end / refreshed metadata.
+                if (local != remote) {
+                    session = remote
                     true
                 } else false
-            // A different active session that started later wins.
-            remote.isActive && (local == null || remote.startTimeMs > local.startTimeMs) -> {
-                session = remote
-                true
             }
             else -> false
         }
-        if (changed) {
-            save()
-            notifyChanged()
-        }
+        save()
+        if (changed) notifyChanged()
         return changed
+    }
+
+    /** @deprecated Use [noteRemote]; kept for call-site clarity during transition. */
+    fun adoptRemote(remote: StormSession): Boolean = noteRemote(remote)
+
+    private fun remember(s: StormSession) {
+        catalog.remove(s.id)
+        catalog[s.id] = s
+        while (catalog.size > MAX_CATALOG) {
+            val oldest = catalog.keys.firstOrNull() ?: break
+            // Prefer dropping ended entries first.
+            val drop = catalog.entries.firstOrNull { !it.value.isActive }?.key ?: oldest
+            if (drop == session?.id) {
+                // Never drop the joined storm from the map; stop trimming.
+                break
+            }
+            catalog.remove(drop)
+        }
     }
 
     private fun notifyChanged() {
@@ -91,33 +163,65 @@ class StormSessionManager(
     // ------------------------------------------------------- persistence
 
     private fun save() {
-        val s = session ?: run { persistence.remove(KEY_SESSION); return }
-        persistence.putString(
-            KEY_SESSION,
-            listOf(esc(s.id), s.startTimeMs, s.endTimeMs, esc(s.startedBy)).joinToString("|")
-        )
+        val s = session
+        if (s == null) persistence.remove(KEY_SESSION)
+        else persistence.putString(KEY_SESSION, encodeSession(s))
+
+        val catalogBlob = catalog.values.joinToString("\n") { encodeSession(it) }
+        if (catalogBlob.isEmpty()) persistence.remove(KEY_CATALOG)
+        else persistence.putString(KEY_CATALOG, catalogBlob)
     }
 
     private fun load() {
-        val f = persistence.getString(KEY_SESSION)?.split("|") ?: return
-        if (f.size == 4) {
-            val start = f[1].toLongOrNull() ?: return
-            val end = f[2].toLongOrNull() ?: return
-            session = StormSession(unesc(f[0]), start, end, unesc(f[3]))
+        persistence.getString(KEY_CATALOG)?.lineSequence()?.forEach { line ->
+            if (line.isNotBlank()) decodeSession(line)?.let { remember(it) }
+        }
+        val joined = persistence.getString(KEY_SESSION)?.let { decodeSession(it) }
+        if (joined != null) {
+            remember(joined)
+            session = joined
         }
     }
 
-    private fun esc(s: String) = s.replace("|", "&#124;")
-    private fun unesc(s: String) = s.replace("&#124;", "|")
-
     companion object {
         const val KEY_SESSION = "plowtak.storm_session"
+        const val KEY_CATALOG = "plowtak.storm_catalog"
+        private const val MAX_CATALOG = 32
 
-        /** e.g. "2026-01-15-1736951234" — readable date + epoch uniqueness. */
         fun generateId(nowMs: Long): String {
             val fmt = SimpleDateFormat("yyyy-MM-dd", Locale.US)
             fmt.timeZone = TimeZone.getDefault()
             return "${fmt.format(Date(nowMs))}-${nowMs / 1000}"
         }
+
+        fun encodeSession(s: StormSession): String =
+            listOf(
+                esc(s.id),
+                s.startTimeMs.toString(),
+                s.endTimeMs.toString(),
+                esc(s.startedBy),
+                esc(s.label),
+                esc(s.agency),
+                esc(s.missionName)
+            ).joinToString("|")
+
+        fun decodeSession(line: String): StormSession? {
+            val f = line.split("|")
+            if (f.size < 4) return null
+            val start = f[1].toLongOrNull() ?: return null
+            val end = f[2].toLongOrNull() ?: return null
+            return StormSession(
+                id = unesc(f[0]),
+                startTimeMs = start,
+                endTimeMs = end,
+                startedBy = unesc(f[3]),
+                label = if (f.size > 4) unesc(f[4]) else "",
+                agency = if (f.size > 5) unesc(f[5]) else "",
+                missionName = if (f.size > 6) unesc(f[6]) else ""
+            )
+        }
+
+        private fun esc(s: String) = s.replace("|", "&#124;").replace("\n", "&#10;")
+        private fun unesc(s: String) = s.replace("&#124;", "|").replace("&#10;", "\n")
     }
 }

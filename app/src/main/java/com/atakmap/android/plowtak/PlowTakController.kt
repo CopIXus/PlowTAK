@@ -155,7 +155,7 @@ class PlowTakController(
         prefs = prefs,
         coverageStore = coverageStore,
         vehicleUid = { selfUid() },
-        activeStormId = { stormManager.activeStormId }
+        activeStorm = { stormManager.activeSession() }
     )
 
     /** Set by the driver panel to surface forgot-to-toggle prompts. */
@@ -488,10 +488,20 @@ class PlowTakController(
     }
 
     /** Supervisor: start a storm session and broadcast it. */
-    fun startStormSession(): StormSession? {
+    fun startStormSession(
+        label: String = "",
+        agency: String = "",
+        missionName: String = ""
+    ): StormSession? {
         val cap = capabilityStore.load()
         if (!cap.canManageStorm) return null
-        val session = stormManager.startSession(cap.callsign, System.currentTimeMillis())
+        val session = stormManager.startSession(
+            startedBy = cap.callsign,
+            nowMs = System.currentTimeMillis(),
+            label = label,
+            agency = agency,
+            missionName = missionName
+        )
         broadcastStorm(session)
         return session
     }
@@ -503,6 +513,20 @@ class PlowTakController(
         val session = stormManager.endSession(System.currentTimeMillis()) ?: return null
         broadcastStorm(session)
         return session
+    }
+
+    /** Join a catalogued / announced storm for coverage + Data Sync reporting. */
+    fun joinStormSession(session: StormSession): Boolean {
+        val changed = stormManager.join(session)
+        if (changed && session.isActive) {
+            background.execute { missionCoverageSync.onStormStarted(session.id) }
+        }
+        return changed
+    }
+
+    /** Stop reporting into a storm without ending it for other units. */
+    fun leaveStormSession() {
+        stormManager.leave()
     }
 
     // ------------------------------------------------------ Phase 2 actions

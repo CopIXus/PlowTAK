@@ -22,6 +22,16 @@ object MissionCoverageCodec {
     fun missionName(stormId: String): String =
         "plowtak-coverage-${sanitizeStormId(stormId)}"
 
+    /**
+     * Prefer an explicit mission override from the storm session; otherwise
+     * the default per-storm mission name.
+     */
+    fun effectiveMissionName(stormId: String, missionOverride: String = ""): String {
+        val override = missionOverride.trim()
+        if (override.isNotEmpty()) return sanitizeStormId(override)
+        return missionName(stormId)
+    }
+
     /** URL-safe storm id fragment (alphanumeric, dash, underscore). */
     fun sanitizeStormId(stormId: String): String {
         val cleaned = stormId.trim().replace(Regex("[^A-Za-z0-9._-]"), "-")

@@ -1,17 +1,20 @@
 # PlowTAK CI / GitHub Releases
 
 GitHub Actions builds a signed **ATAK-CIV 5.8** plugin APK on every push to
-`main` (and on `v*` tags / manual **Run workflow**) and publishes it as a
-GitHub Release.
+`main` (and on `v*` tags / manual **Run workflow**). GitHub Releases are **not**
+auto-published from `main` while waiting on a TPC-signed APK from tak.gov —
+use **Run workflow** with `publish_release=true` (or a `v*` tag) after that
+download is in hand.
 
 ## Workflows
 
 | Workflow | Trigger | What it does |
 |----------|---------|--------------|
 | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | push / PR to `main` | Engine unit tests (`coretests`) — no ATAK SDK required |
-| [`.github/workflows/release.yml`](../.github/workflows/release.yml) | push to `main`, tags `v*`, `workflow_dispatch` | Downloads SDK jars, assembles `assembleCivRelease`, publishes Release |
+| [`.github/workflows/release.yml`](../.github/workflows/release.yml) | push to `main`, tags `v*`, `workflow_dispatch` | Downloads SDK jars, assembles `assembleCivRelease`; publishes a Release only on `v*` tags or when `publish_release=true` |
 
-Continuous build tags look like `build-0.1.<run_number>`.
+Versions use **yy.mmdd.HHmm** UTC (24z), e.g. `26.0809.0935`. APK names look like
+`PlowTAK-26.0809.0935-ATAK-5.8.0-civ-release.apk`.
 
 ## Why a private SDK cache repo?
 
@@ -81,7 +84,12 @@ copy local.properties.example local.properties
 ## TAK Product Center signing (release ATAK Load)
 
 Play Store / release ATAK-CIV rejects plugins signed only with a private CopIX
-or Android debug keystore (“The signature for the plugin is INVALID”). A
+or Android debug keystore (“The signature for the plugin is INVALID”). Release
+builds must also keep `-applymapping <atak.proguard.mapping>` in
+`app/proguard-gradle.txt` (HelloWorld template) so host API symbols such as
+`IServiceController` remap to release ATAK’s obfuscated names; otherwise Load
+fails with `ClassNotFoundException: IServiceController` even when the signature
+is VALID. A
 Load-able CIV release APK must be signed with the **TAK Product Center**
 third-party plugin key.
 

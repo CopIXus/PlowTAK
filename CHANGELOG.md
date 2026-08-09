@@ -2,16 +2,37 @@
 
 All notable changes to PlowTAK will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+Plugin versions use **yy.mmdd.HHmm** UTC (build timestamp), e.g. `26.0809.0935`.
 
 ## [Unreleased]
+
+### Added
+- **Storm catalog + join** — remote storms are heard but not auto-joined; each
+  device picks which agency storm to report into (agency · designator · id).
+- **Supervisor start dialog** — agency, storm designator, optional mission
+  override, and per-device Data Sync server picker.
+- **Per-user Data Sync server preference** (`plowtak.datasync.server`) — coverage
+  uploads target the selected TAK server while a storm is joined.
+
+### Changed
+- Versioning is now **yy.mmdd.HHmm** UTC (e.g. `26.0809.0935`); APK files are
+  named `PlowTAK-<version>-ATAK-5.8.0-<flavor>-<type>.apk`.
+- GitHub Releases are no longer auto-published on every `main` push — publish
+  manually after the TPC-signed APK is downloaded from tak.gov.
+- ATAK toolbar / settings icon replaced with the plow-truck graphic
+  (`ic_plowtak`).
+- Release ProGuard restores HelloWorld `-applymapping <atak.proguard.mapping>`
+  so TPC-signed APKs Load on obfuscated release ATAK (`IServiceController` →
+  `gov.tak.api.plugin.a`).
 
 ### Fixed
 - Third Party Pipeline (`tak.gov/user_builds`) build fixes so TPC can produce a
   Load-able release APK: skip local `main.jar` when takrepo is enabled; fall back
   to takdev `${buildDir}/android_keystore` when no local keystore is configured;
   set `bundle.storeArchive.enable = false` per the ATAK plugin template.
+- Load failure on release ATAK-CIV when TPC minify left unmapped SDK plugin API
+  names in the dex.
 
 ### Added
 - **QuickPic hazard photos** — long-press a driver-panel hazard button to launch

@@ -14,7 +14,8 @@ import com.atakmap.android.plowtak.plugin.PluginLayoutInflater
 
 /**
  * Read-only observer view: live fleet list and active alerts. Coverage and
- * alert markers render on the map; no treat controls, no storm controls.
+ * alert markers render on the map; can join a storm for map context but has
+ * no treat controls.
  */
 class ObserverPanel(
     private val controller: PlowTakController,
@@ -47,6 +48,11 @@ class ObserverPanel(
         view.findViewById<ListView>(R.id.obs_alert_list).adapter = alertAdapter
         view.findViewById<ListView>(R.id.obs_fleet_list).adapter = fleetAdapter
         view.findViewById<Button>(R.id.obs_settings).setOnClickListener { onOpenSettings() }
+        view.findViewById<Button>(R.id.obs_storm_join).setOnClickListener {
+            StormServerDialogs.showJoinStormDialog(
+                controller, controller.mapView.context
+            ) { view.post { refresh() } }
+        }
 
         controller.fleetManager.addListener(fleetListener)
         controller.alertManager.addListener(alertListener)
@@ -63,8 +69,9 @@ class ObserverPanel(
         val label = cap.observerLabel.takeIf { it.isNotEmpty() }?.let { " — $it" } ?: ""
         header.text = view.context.getString(R.string.obs_title) + label
 
-        stormLine.text = controller.stormManager.activeStormId
-            .takeIf { it.isNotEmpty() }?.let { "Storm $it active" } ?: "No active storm session"
+        val storm = controller.stormManager.activeSession()
+        stormLine.text = storm?.let { "Reporting: ${it.displayName()}" }
+            ?: "No storm selected"
 
         val now = System.currentTimeMillis()
         val staleAfter = controller.fleetManager.staleAfterMs

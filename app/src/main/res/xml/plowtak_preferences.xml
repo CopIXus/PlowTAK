@@ -30,6 +30,6 @@
     <com.atakmap.android.gui.PanPreference
         android:key="plowtak_datasync_info"
         android:title="Mission coverage chunks"
-        android:summary="While a storm is active, PlowTAK uploads 5-minute GeoJSON coverage chunks to a TAK Server mission (plowtak-coverage-{stormId})." />
+        android:summary="While you have joined a storm, PlowTAK uploads 5-minute GeoJSON coverage chunks to that storm’s Data Sync mission (default plowtak-coverage-{stormId}). Pick the TAK server and storm from the PlowTAK panel — remote storms are listed but not auto-joined." />
 
 </PreferenceScreen>
