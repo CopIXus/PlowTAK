@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **QuickPic hazard photos** — long-press a driver-panel hazard button to launch
+  ATAK QuickPic; captured image attaches to the hazard marker for TAK sync
+  (`QuickPicHazardCapture`).
+- **Data Sync 5-minute coverage chunks** — while a storm is active, upload gzip
+  GeoJSON to mission `plowtak-coverage-{stormId}` (`MissionCoverageSync` /
+  `MissionCoverageCodec`); fail-open if Data Sync is unavailable.
+- **Bluetooth equipment wiring** — optional paired plow/spreader controller
+  (setup + Tool Preferences) feeds blade/salt via `BluetoothEquipmentProvider`.
+- **Task GeoChat ping** — `publishTask` also sends a GeoChat message to the
+  target contact when known (fail-open).
+- **Durable outbound CoT queue** — disk-backed queue survives process death;
+  local coverage re-queued for share on controller start.
+- **`<__plowtak>` MarkerDetailHandler** — registers with CotDetailManager for
+  marker detail round-trip.
+- **ATAK Tool Preferences** — PlowTAK screen for TTS, direction-aware coverage,
+  Bluetooth, and Data Sync info.
+- **Supervisor route UI** — long-press fleet truck → Task / Assign route /
+  Clear route; route id shown in the fleet list.
+
 ### Fixed
 - Plugin discovery: add the required fictitious `com.atakmap.app.component`
   activity so ATAK 4.6.0.2+ can find and load the APK (was installing but not
@@ -23,8 +43,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `AbstractPluginTool`, shift service, map component).
 
 ### Changed
-- Docs: ops guide rewritten for shipped Phase 1/2 behavior; README clarifies CoT
-  batching vs planned Data Sync 5-minute chunks.
+- Docs: README + diagrams updated for shipped QuickPic, Data Sync, Bluetooth,
+  durable queue, Tool Preferences, and supervisor route UI.
 - Relicensed under **PlowTAK Free Application License 1.0** (CopIX LLC), matching
   WinTAKTracker: free to use, source available, do not sell the application.
   Prior MIT snapshots remain under MIT (see LICENSE §8).

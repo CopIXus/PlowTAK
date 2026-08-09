@@ -161,6 +161,18 @@ class PlowTakPreferences(context: Context) : KeyValuePersistence {
         get() = prefs.getBoolean(KEY_BT_BLE, false)
         set(v) = prefs.edit().putBoolean(KEY_BT_BLE, v).apply()
 
+    // ----------------------------------------------- mission coverage sync
+
+    /** SHA-256 of the last uploaded live coverage chunk (Data Sync). */
+    var missionCoverageLastHash: String
+        get() = prefs.getString(KEY_MISSION_COV_HASH, "") ?: ""
+        set(v) = prefs.edit().putString(KEY_MISSION_COV_HASH, v).apply()
+
+    /** Filename of the last uploaded live coverage chunk. */
+    var missionCoverageLastFilename: String
+        get() = prefs.getString(KEY_MISSION_COV_FILENAME, "") ?: ""
+        set(v) = prefs.edit().putString(KEY_MISSION_COV_FILENAME, v).apply()
+
     companion object {
         const val PREFS_NAME = "plowtak_prefs"
         private const val KEY_REPORT_MOVING = "plowtak.report_interval_moving_s"
@@ -187,5 +199,8 @@ class PlowTakPreferences(context: Context) : KeyValuePersistence {
         private const val KEY_BT_ADDRESS = "plowtak.bt_address"
         private const val KEY_BT_NAME = "plowtak.bt_name"
         private const val KEY_BT_BLE = "plowtak.bt_use_ble"
+        // Keep in sync with MissionCoverageSync.KEY_LAST_* (KeyValuePersistence).
+        private const val KEY_MISSION_COV_HASH = "plowtak.mission_cov.last_hash"
+        private const val KEY_MISSION_COV_FILENAME = "plowtak.mission_cov.last_filename"
     }
 }

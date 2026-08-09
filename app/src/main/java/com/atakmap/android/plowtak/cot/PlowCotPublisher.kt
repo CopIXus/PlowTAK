@@ -1,6 +1,8 @@
 package com.atakmap.android.plowtak.cot
 
 import android.util.Log
+import com.atakmap.android.chat.ChatManagerMapComponent
+import com.atakmap.android.contact.Contacts
 import com.atakmap.android.plowtak.cot.codec.AlertCotCodec
 import com.atakmap.android.plowtak.cot.codec.CoverageCotCodec
 import com.atakmap.android.plowtak.cot.codec.PlowTakDetail
@@ -226,12 +228,23 @@ class PlowCotPublisher(
         root.addChild(CotDetailAdapter.toCotDetail(TaskCotCodec.encode(task)))
         event.detail = root
         queue.send(event, alsoInternal = false)
+        sendTaskGeoChat(task)
+    }
 
-        // SDK-fixup: GeoChat companion message so the tasked driver also gets
-        // a chat ping. The 5.8 chat API surface (ChatManagerMapComponent /
-        // GeoChatService) needs verification against the real main.jar before
-        // enabling; the task CoT + panel + TTS already cover the alerting.
-        // ChatManagerMapComponent.getInstance().sendMessage(...)
+    /** Best-effort GeoChat ping alongside the task CoT (fail-open). */
+    private fun sendTaskGeoChat(task: TaskEvent) {
+        try {
+            val desc = task.description.ifEmpty { task.kind.name }
+            val text = "PlowTAK task: " + desc + " -> " + task.targetCallsign
+            val contact = Contacts.getInstance()?.getContactByUuid(task.targetVehicleUid)
+            if (contact != null) {
+                ChatManagerMapComponent.getInstance()?.sendMessage(text, listOf(contact))
+            } else {
+                ChatManagerMapComponent.getInstance()?.sendMessage(text)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "GeoChat task ping failed (fail-open)", e)
+        }
     }
 
     // ---------------------------------------------------- route assignment

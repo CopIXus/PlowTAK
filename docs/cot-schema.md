@@ -288,3 +288,17 @@ externally through a best-effort queue (`cot/OutboundCotQueue`):
   remain available locally; re-share after restart is a Phase 2 enhancement.
 - Server connectivity detection uses the CotMapComponent server status surface and
   is optimistic when undetectable (ATAK's own comms layer also buffers briefly).
+
+## TAK Data Sync — mission coverage chunks
+
+In addition to CoT coverage batches, each truck uploads a **live GeoJSON chunk** to a
+TAK Server mission while a storm is active (`sync/MissionCoverageSync`):
+
+- One mission per storm: `plowtak-coverage-{stormId}` (storm id sanitized for URLs).
+- Filename: `{vehicleUid}-{yyyyMMddHH}-live.geojson.gz` (current UTC hour window).
+- Replaced every **5 minutes** (and on storm start); prior content hash is DELETEd
+  when the new upload succeeds. Last hash/filename persist in prefs.
+- Endpoints (best-effort, fail-open): `PUT/GET /Marti/api/missions/{name}`,
+  `PUT /Marti/sync/missionupload?hash=&filename=`, then mission `contents` associate.
+- Encoding is framework-free (`MissionCoverageCodec`); HTTP uses ATAK
+  `TakHttpClient2.GetHttpClient(baseUrl)` against the connected server's Marti API port.

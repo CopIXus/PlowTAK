@@ -208,15 +208,32 @@
             android:textSize="14sp"
             android:visibility="gone" />
 
-        <TextView
-            android:id="@+id/setup_bt_placeholder"
+        <CheckBox
+            android:id="@+id/setup_bt_enabled"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="8dp"
+            android:text="@string/setup_bt_enabled"
+            android:textColor="@color/plowtak_text"
+            android:textSize="16sp" />
+
+        <EditText
+            android:id="@+id/setup_bt_address"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:alpha="0.5"
-            android:text="@string/setup_bluetooth_placeholder"
-            android:textColor="@color/plowtak_grey"
+            android:hint="@string/setup_bt_address_hint"
+            android:inputType="text"
+            android:textColor="@color/plowtak_text"
+            android:textColorHint="@color/plowtak_grey"
             android:textSize="14sp" />
+
+        <CheckBox
+            android:id="@+id/setup_bt_ble"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="@string/setup_bt_ble"
+            android:textColor="@color/plowtak_text"
+            android:textSize="16sp" />
 
         <Button
             android:id="@+id/setup_save"

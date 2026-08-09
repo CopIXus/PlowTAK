@@ -17,7 +17,13 @@
     <string name="setup_observer_label_hint">Observer label (Fire / EMS / Traffic / EOC)</string>
     <string name="setup_publish_presence">Publish presence (my marker on the fleet map)</string>
     <string name="setup_distress_enabled">Enable distress button</string>
-    <string name="setup_bluetooth_placeholder">Bluetooth equipment (plow/spreader controllers) — coming in a later phase</string>
+    <string name="setup_bluetooth_placeholder">Bluetooth equipment</string>
+    <string name="setup_bt_enabled">Bluetooth plow/spreader controller</string>
+    <string name="setup_bt_address_hint">Controller MAC (AA:BB:CC:DD:EE:FF)</string>
+    <string name="setup_bt_ble">Use BLE (GATT) instead of classic SPP</string>
+    <string name="sup_assign_route">Assign route…</string>
+    <string name="sup_route_id_hint">Route ID (GIS route_id or drawn name)</string>
+    <string name="sup_unassign_route">Clear route assignment</string>
     <string name="setup_save">Save and continue</string>
     <string name="setup_wing_width">Wing width (when extended)</string>
     <string name="setup_tow_width">Tow plow width (when deployed)</string>

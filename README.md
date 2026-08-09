@@ -27,16 +27,19 @@ flowchart LR
     Swath["SwathBuilder + CoverageStore"]
     CotPub["PlowCotPublisher"]
     CotLis["PlowCotListener"]
+    Sync["MissionCoverageSync"]
     Overlay["CoverageOverlay + Fleet markers"]
     UI --> Ctrl
     Ctrl --> Swath
     Ctrl --> CotPub
+    Ctrl --> Sync
     CotLis --> Ctrl
     Swath --> Overlay
     Ctrl --> Overlay
   end
   CotPub <-->|"CoT / TAK"| TAK["TAK Server"]
   CotLis <-->|"CoT / TAK"| TAK
+  Sync -->|"Data Sync mission<br/>5-min GeoJSON"| TAK
   VNS["VNS plugin<br/>offline maps & routing"] -.-> Device
 ```
 
@@ -58,8 +61,9 @@ One APK, four per-device roles (chosen in settings on first run):
 Coverage and ops events ride standard TAK Cursor-on-Target with a `<__plowtak>`
 detail namespace (double-underscore custom detail per TAK CoT guidance). Live PLI
 stays frequent; **coverage is batched and thinned over CoT** (~20s drain from the
-local store) so the mesh stays usable in a storm. **TAK Data Sync 5-minute mission
-chunks** are planned next — not shipped yet.
+local store). While a storm is active, **TAK Data Sync** also uploads **5-minute
+GeoJSON mission chunks** to `plowtak-coverage-{stormId}` so late-joining
+supervisors can catch up without replaying every live CoT.
 
 ![PlowTAK Data Sync batching](docs/images/plowtak-datasync.png)
 
@@ -72,7 +76,9 @@ flowchart TB
   Store --> Batch["Coverage batch / thin (CoT)"]
   Batch --> Queue["OutboundCotQueue<br/>dispatchToBroadcast"]
   Queue --> TAK["TAK Server"]
-  Store -.->|planned| DataSync["Data Sync 5-min chunks"]
+  Store --> DataSync["Data Sync 5-min GeoJSON chunks"]
+  DataSync --> Mission["Mission plowtak-coverage-{stormId}"]
+  Mission --> TAK
   TAK --> In["PlowCotListener"]
   In --> Merge["Merge treat-capable paint only"]
   Merge --> Store
@@ -82,18 +88,30 @@ flowchart TB
 ## Feature summary
 
 - **Capability-gated UI** — glove-friendly Blade/Salt toggles, distress, hazards,
-  road conditions; supervisor storm session, cycle times, zones, tasking, export;
-  observer read-only fleet/alerts.
+  road conditions; supervisor storm session, cycle times, zones, tasking, route
+  assign/clear, export; observer read-only fleet/alerts.
 - **Swath recording** — treat-rule gated segments with heading, material, width;
   GPS quality gate, thinning, optional GraphHopper road-snap.
 - **Freshness map** — "PlowTAK" map group colored by age vs cycle time (green /
   yellow / red), direction-aware half-treated rendering, priority/zone overrides.
-- **Fleet CoT** — PLI with `<__plowtak>`, batched coverage (`b-i-x-plowtak-*`),
-  storm sessions, distress (911-alert convention), tasks, zones, conditions.
+- **Fleet CoT** — PLI with `<__plowtak>` (MarkerDetailHandler), batched coverage
+  (`b-i-x-plowtak-*`), storm sessions, distress (911-alert convention), tasks,
+  zones, conditions.
+- **Hazard photos** — long-press a hazard button to capture via ATAK **QuickPic**;
+  photo attaches to the hazard marker for TAK attachment sync.
+- **Data Sync** — 5-minute gzip GeoJSON coverage uploads to a per-storm mission
+  while the storm is active (fail-open if Data Sync / server unavailable).
+- **Bluetooth equipment** — optional paired plow/spreader controller (MAC + BLE
+  flag in Vehicle setup / Tool Preferences) drives blade/salt state.
+- **Task GeoChat** — supervisor tasking also pings the target contact via ATAK
+  GeoChat when the contact is known.
 - **Ops hardening** — forgot-to-toggle nudges, voice alerts, night palette, shift
   login, facility geofences, post-storm GeoJSON/CSV export, live metrics.
-- **Offline continuity** — local coverage store + outbound queue through doze via
-  foreground shift service; VNS for offline basemap/routing.
+- **Offline continuity** — durable outbound CoT queue (disk-backed) + local
+  coverage re-share after restart; foreground shift service through doze; VNS for
+  offline basemap/routing.
+- **Tool Preferences** — ATAK Tools → PlowTAK for TTS, direction-aware coverage,
+  and Bluetooth toggles.
 
 See [docs/ops-guide.md](docs/ops-guide.md) and
 [docs/cot-schema.md](docs/cot-schema.md) (`<__plowtak>` schema).
@@ -106,7 +124,8 @@ See [docs/ops-guide.md](docs/ops-guide.md) and
   basemaps/routing. Download from [tak.gov](https://tak.gov) — not redistributed
   here. PlowTAK does not call private VNS APIs.
 - **TAK Server** connectivity for fleet sharing (PlowTAK keeps recording offline and
-  syncs when connectivity returns).
+  syncs when connectivity returns). Data Sync mission chunks require a server with
+  Data Sync / mission support enabled.
 
 ## Building
 

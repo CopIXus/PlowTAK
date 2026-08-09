@@ -26,6 +26,8 @@ class CoverageStore(
     private val listeners = mutableListOf<Listener>()
     /** Local segments not yet shared over CoT; drained by the publisher. */
     private val pendingShare = ArrayDeque<TreatSegment>()
+    /** Ids recorded on this device (not remote merges) — used for re-share. */
+    private val localIds = HashSet<String>()
     /** Grid spatial index kept in lockstep with [segments]. */
     private val index = SegmentIndex()
 
@@ -45,8 +47,13 @@ class CoverageStore(
             segments.clear()
             index.clear()
             pendingShare.clear()
+            localIds.clear()
             loadFromDisk(stormId)
-            segments.values.forEach { index.add(it) }
+            // Persisted segments are treated as local for re-share after restart.
+            segments.values.forEach {
+                index.add(it)
+                localIds.add(it.id)
+            }
         }
         if (removed.isNotEmpty()) notifyRemoved(removed)
     }
@@ -58,6 +65,7 @@ class CoverageStore(
             added = segments.put(segment.id, segment) == null
             if (added) {
                 index.add(segment)
+                localIds.add(segment.id)
                 pendingShare.addLast(segment)
                 appendToDisk(segment)
             }
@@ -109,6 +117,16 @@ class CoverageStore(
     /** Re-queue segments whose share attempt failed. */
     fun requeueForShare(segs: List<TreatSegment>) = synchronized(this) {
         segs.asReversed().forEach { pendingShare.addFirst(it) }
+    }
+
+    /**
+     * After process restart, re-queue every locally recorded segment so peers
+     * that missed in-memory outbound shares can catch up. Remote merges are
+     * not re-broadcast.
+     */
+    fun queueLocalForShare() = synchronized(this) {
+        pendingShare.clear()
+        segments.values.filter { it.id in localIds }.forEach { pendingShare.addLast(it) }
     }
 
     /** Drop segments older than the retention window; compacts the file. */

@@ -36,3 +36,4 @@ Thumbs.db
 *.ap_
 *.dex
 output-metadata.json
+.tmp-apk/

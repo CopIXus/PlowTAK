@@ -54,10 +54,12 @@ import com.atakmap.android.plowtak.prefs.PlowTakPreferences
 import com.atakmap.android.plowtak.prefs.VehicleCapabilityStore
 import com.atakmap.android.plowtak.report.ExportManager
 import com.atakmap.android.plowtak.report.HazardReporter
+import com.atakmap.android.plowtak.report.QuickPicHazardCapture
 import com.atakmap.android.plowtak.report.MetricsCalculator
 import com.atakmap.android.plowtak.report.StormExportData
 import com.atakmap.android.plowtak.report.StormReplay
 import com.atakmap.android.plowtak.service.PlowTakShiftService
+import com.atakmap.android.plowtak.sync.MissionCoverageSync
 import com.atakmap.android.plowtak.tracking.SelfTracker
 import com.atakmap.android.plowtak.ui.VoiceAlerts
 import com.atakmap.android.maps.MapView
@@ -111,7 +113,9 @@ class PlowTakController(
     private var roadSnapper: RoadSnapper? = null
 
     // ---------------------------------------------------------------- cot
-    private val cotQueue = OutboundCotQueue()
+    private val cotQueue = OutboundCotQueue(
+        persistFile = File(pluginContext.filesDir, "plowtak/outbound-cot.queue")
+    )
     val cotPublisher = PlowCotPublisher(
         capabilityStore, prefs, statusManager, equipment,
         shiftLog, stormManager, coverageStore, cotQueue,
@@ -142,6 +146,17 @@ class PlowTakController(
     val hazardReporter = HazardReporter(cotQueue)
     val exportManager = ExportManager(pluginContext)
     val voiceAlerts = VoiceAlerts(mapView.context) { prefs.ttsEnabled }
+    private var btProvider: BluetoothEquipmentProvider? = null
+    val quickPicHazards = QuickPicHazardCapture { type, photoName ->
+        reportHazard(type, photoName, attachQuickPic = true)
+    }
+    val missionCoverageSync = MissionCoverageSync(
+        appContext = mapView.context,
+        prefs = prefs,
+        coverageStore = coverageStore,
+        vehicleUid = { selfUid() },
+        activeStormId = { stormManager.activeStormId }
+    )
 
     /** Set by the driver panel to surface forgot-to-toggle prompts. */
     @Volatile
@@ -178,6 +193,11 @@ class PlowTakController(
         alertOverlay.start()
         cotListener.start()
         equipment.start()
+        reloadBluetoothLink()
+        quickPicHazards.start()
+        // After restart, re-queue persisted local segments that may not have
+        // been shared before process death.
+        coverageStore.queueLocalForShare()
         reloadRoadSnapper()
 
         // GPS fan-out: swath recording, geofences, publisher pacing.
@@ -211,10 +231,14 @@ class PlowTakController(
             }
         }
 
-        // Storm changes re-scope coverage.
+        // Storm changes re-scope coverage; kick Data Sync mission upload.
         stormManager.addListener { session ->
             swathBuilder.flush()
             coverageStore.setStorm(session?.takeIf { it.isActive }?.id ?: "")
+            val activeId = session?.takeIf { it.isActive }?.id
+            if (activeId != null) {
+                background.execute { missionCoverageSync.onStormStarted(activeId) }
+            }
         }
 
         // Facility transitions: suggest LOADING at salt domes.
@@ -314,6 +338,16 @@ class PlowTakController(
                 Log.e(TAG, "pulse tick failed", e)
             }
         }, 1, 1, TimeUnit.SECONDS)
+        // TAK Data Sync: replace this truck's live coverage GeoJSON every 5 min.
+        exec.scheduleWithFixedDelay({
+            background.execute {
+                try {
+                    missionCoverageSync.tick()
+                } catch (e: Exception) {
+                    Log.w(TAG, "mission coverage tick failed", e)
+                }
+            }
+        }, MISSION_COV_PERIOD_S, MISSION_COV_PERIOD_S, TimeUnit.SECONDS)
     }
 
     fun dispose() {
@@ -323,17 +357,39 @@ class PlowTakController(
         } catch (e: Exception) {
             Log.w(TAG, "flush on dispose failed", e)
         }
+        try {
+            missionCoverageSync.dispose()
+        } catch (e: Exception) {
+            Log.w(TAG, "mission coverage dispose failed", e)
+        }
         tracker.stop()
         timers?.shutdownNow()
         timers = null
         background.shutdownNow()
         cotListener.stop()
+        quickPicHazards.stop()
+        btProvider?.stop()
+        btProvider = null
         equipment.stop()
         coverageOverlay.dispose()
         fleetMarkers.dispose()
         alertOverlay.dispose()
         voiceAlerts.shutdown()
         PlowTakShiftService.stop(mapView.context)
+    }
+
+    /**
+     * Manual / test trigger for TAK Data Sync mission coverage upload.
+     * Prefer the 5-minute timer; this runs immediately on the background executor.
+     */
+    fun syncMissionCoverageNow() {
+        background.execute {
+            try {
+                missionCoverageSync.tick()
+            } catch (e: Exception) {
+                Log.w(TAG, "syncMissionCoverageNow failed", e)
+            }
+        }
     }
 
     // ------------------------------------------------------------ actions
@@ -368,8 +424,15 @@ class PlowTakController(
         alertManager.clear(uid, capabilityStore.load().callsign)
     }
 
-    /** One-tap hazard drop at the current position (optional photo file). */
-    fun reportHazard(type: HazardType, photoFile: String = "") {
+    /**
+     * One-tap hazard drop at the current position. Pass [photoFile] when the
+     * image is already known; for camera capture use [requestHazardWithQuickPic].
+     */
+    fun reportHazard(
+        type: HazardType,
+        photoFile: String = "",
+        attachQuickPic: Boolean = false
+    ) {
         val pos = lastPositionSample ?: return
         val cap = capabilityStore.load()
         val hazard = hazardReporter.report(
@@ -377,7 +440,32 @@ class PlowTakController(
             selfUid(), cap.callsign, stormManager.activeStormId,
             photoFile
         )
+        if (attachQuickPic && photoFile.isNotEmpty()) {
+            quickPicHazards.attachToHazard(hazard.uid)
+        }
         synchronized(hazardLog) { hazardLog[hazard.uid] = hazard }
+    }
+
+    /** Long-press hazard: open ATAK QuickPic, then publish with the photo. */
+    fun requestHazardWithQuickPic(type: HazardType) {
+        if (lastPositionSample == null) return
+        quickPicHazards.request(type)
+    }
+
+    /** (Re)connect the Bluetooth plow/spreader controller from settings. */
+    fun reloadBluetoothLink() {
+        btProvider?.stop()
+        btProvider = null
+        if (!prefs.btEquipmentEnabled) return
+        val addr = prefs.btDeviceAddress.trim()
+        if (addr.isEmpty()) return
+        val link = BluetoothEquipmentProvider(
+            mapView.context, addr, prefs.btUseBle
+        )
+        link.addListener { hw -> equipment.applyHardware(hw) }
+        btProvider = link
+        link.start()
+        Log.i(TAG, "Bluetooth equipment link starting ($addr, ble=${prefs.btUseBle})")
     }
 
     /** Quick road-condition report at the current position. */
@@ -692,6 +780,7 @@ class PlowTakController(
     companion object {
         private const val TAG = "PlowTakController"
         private const val RECOLOR_PERIOD_S = 30L
+        private const val MISSION_COV_PERIOD_S = 5L * 60L
         private const val MPS_PER_MPH = 0.44704
         private const val MOVING_SPEED_MPS = 2.0
     }

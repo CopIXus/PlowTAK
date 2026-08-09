@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <PreferenceCategory
+        android:key="plowtak_cat_ops"
+        android:title="PlowTAK operations" />
+
+    <com.atakmap.android.gui.PanCheckBoxPreference
+        android:key="plowtak.tts_enabled"
+        android:title="Voice alerts"
+        android:summary="TTS for tasks, overdue routes, and nearby distress"
+        android:defaultValue="true" />
+
+    <com.atakmap.android.gui.PanCheckBoxPreference
+        android:key="plowtak.direction_split"
+        android:title="Direction-aware coverage"
+        android:summary="Show half-treated corridors when only one direction is painted"
+        android:defaultValue="true" />
+
+    <com.atakmap.android.gui.PanCheckBoxPreference
+        android:key="plowtak.bt_enabled"
+        android:title="Bluetooth equipment"
+        android:summary="Read blade/spreader state from a paired controller (set MAC in Vehicle setup)"
+        android:defaultValue="false" />
+
+    <PreferenceCategory
+        android:key="plowtak_cat_sync"
+        android:title="Data Sync" />
+
+    <com.atakmap.android.gui.PanPreference
+        android:key="plowtak_datasync_info"
+        android:title="Mission coverage chunks"
+        android:summary="While a storm is active, PlowTAK uploads 5-minute GeoJSON coverage chunks to a TAK Server mission (plowtak-coverage-{stormId})." />
+
+</PreferenceScreen>

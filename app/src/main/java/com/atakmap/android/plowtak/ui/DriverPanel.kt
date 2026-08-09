@@ -323,25 +323,18 @@ class DriverPanel(
         }
     }
 
-    /**
-     * Long-press hazard: capture a photo first, then drop the hazard with
-     * the photo attached (ATAK attachment convention).
-     *
-     * SDK-fixup: launching MediaStore.ACTION_IMAGE_CAPTURE from a plugin
-     * context and round-tripping the result needs ATAK's
-     * ActivityResultListener / DropDownReceiver plumbing (plugins have no
-     * Activity of their own). Until that is wired, we drop the hazard with
-     * a reserved attachment path so the CoT schema and supervisor side are
-     * exercised end-to-end.
-     */
+    /** Long-press hazard: ATAK QuickPic -> publish with photo attachment. */
     private fun reportHazardWithPhoto(hazard: HazardType) {
-        val photoName = "hazard-${System.currentTimeMillis()}.jpg"
-        // SDK-fixup: real path should come from
-        // AttachmentManager.getAttachmentDir(uid) after camera capture.
-        controller.reportHazard(hazard, photoName)
+        if (controller.lastPosition == null) {
+            Toast.makeText(
+                controller.mapView.context, "No GPS position yet", Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+        controller.requestHazardWithQuickPic(hazard)
         Toast.makeText(
             controller.mapView.context,
-            "${hazard.label} reported (photo pending camera integration)",
+            "QuickPic: capture a photo for ${hazard.label}",
             Toast.LENGTH_LONG
         ).show()
     }

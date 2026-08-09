@@ -19,11 +19,8 @@ import com.atakmap.coremap.maps.time.CoordinatedTime
  * Photo attachments follow the ATAK attachment convention: the image lives
  * at `atak/attachments/<marker uid>/<photoFile>` and TAK attachment sync
  * carries it alongside the marker; the file *name* rides in the hazard
- * detail. SDK-fixup: capture flow — fire
- * `MediaStore.ACTION_IMAGE_CAPTURE` with EXTRA_OUTPUT pointed at that
- * attachment path, then re-send the hazard with [report] passing
- * `photoFile`. Verify the ImageDropDownReceiver / AttachmentManager surface
- * against the real 5.8 main.jar before wiring the capture button.
+ * detail. Capture uses ATAK QuickPic via [QuickPicHazardCapture] (long-press
+ * a hazard button in the driver panel).
  */
 class HazardReporter(
     private val queue: OutboundCotQueue

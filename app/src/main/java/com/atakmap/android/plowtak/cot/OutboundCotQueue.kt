@@ -3,29 +3,31 @@ package com.atakmap.android.plowtak.cot
 import android.util.Log
 import com.atakmap.android.cot.CotMapComponent
 import com.atakmap.coremap.cot.event.CotEvent
+import java.io.File
 
 /**
  * Best-effort offline queue for outbound CoT.
  *
  * Every event is dispatched *internally* immediately (local map always
  * reflects reality). External dispatch goes straight out when the TAK
- * connection looks up; otherwise events queue in memory and flush on
- * reconnect (drainable by a periodic tick).
+ * connection looks up; otherwise events queue and flush on reconnect.
  *
- * Documented limitations (see docs/cot-schema.md):
- *  - The queue is in-memory only; events pending at process death are lost.
- *    Coverage is safe regardless — segments persist in CoverageStore and can
- *    be re-shared — but a missed PLI is simply stale by then anyway.
- *  - "Connected" is inferred from CotMapComponent server status via
- *    reflection-tolerant best effort; when undetectable we optimistically
- *    dispatch (ATAK's own comms layer also buffers briefly).
+ * When [persistFile] is set, the pending external queue is rewritten as
+ * CotEvent XML lines so a process death does not drop ops events. Coverage
+ * is still primarily protected by [com.atakmap.android.plowtak.coverage.CoverageStore]
+ * re-share; this file covers alerts/tasks/storms that were waiting for uplink.
  */
 class OutboundCotQueue(
-    private val maxQueued: Int = 500
+    private val maxQueued: Int = 500,
+    private val persistFile: File? = null
 ) {
 
     private val queue = ArrayDeque<CotEvent>()
     private var lastConnected = true
+
+    init {
+        loadPersisted()
+    }
 
     /** Dispatch internally now; externally now or when connectivity returns. */
     @Synchronized
@@ -42,6 +44,7 @@ class OutboundCotQueue(
             dispatchExternal(event)
         } else {
             enqueue(event)
+            persistLocked()
         }
     }
 
@@ -52,7 +55,10 @@ class OutboundCotQueue(
         if (connected && !lastConnected) {
             Log.i(TAG, "TAK connection restored; flushing ${queue.size} queued events")
         }
-        if (connected) flushLocked()
+        if (connected) {
+            flushLocked()
+            persistLocked()
+        }
         lastConnected = connected
     }
 
@@ -76,25 +82,48 @@ class OutboundCotQueue(
 
     private fun dispatchExternal(event: CotEvent) {
         try {
-            // Match ATAK SDK samples (helloworld / cotinjector): broadcast to
-            // configured streaming outputs rather than a bare dispatch().
             CotMapComponent.getExternalDispatcher()?.dispatchToBroadcast(event)
         } catch (e: Exception) {
             Log.w(TAG, "external dispatch failed for ${event.uid}", e)
         }
     }
 
-    /**
-     * Best-effort TAK server connectivity probe. SDK-fixup point: verify the
-     * server-status API surface against the real 5.8 main.jar.
-     */
+    private fun persistLocked() {
+        val file = persistFile ?: return
+        try {
+            file.parentFile?.mkdirs()
+            if (queue.isEmpty()) {
+                if (file.exists()) file.delete()
+                return
+            }
+            file.writeText(queue.joinToString("\n") { it.toString().replace("\n", " ") })
+        } catch (e: Exception) {
+            Log.w(TAG, "persist outbound queue failed", e)
+        }
+    }
+
+    private fun loadPersisted() {
+        val file = persistFile ?: return
+        if (!file.isFile) return
+        try {
+            for (line in file.readLines()) {
+                if (line.isBlank()) continue
+                val event = CotEvent.parse(line) ?: continue
+                if (event.isValid) queue.addLast(event)
+            }
+            Log.i(TAG, "restored ${queue.size} queued CoT events from disk")
+        } catch (e: Exception) {
+            Log.w(TAG, "load outbound queue failed", e)
+        }
+    }
+
     private fun isConnected(): Boolean {
         return try {
             val servers = CotMapComponent.getInstance()?.servers ?: return true
-            if (servers.isEmpty()) return true // no server configured — don't queue forever
+            if (servers.isEmpty()) return true
             servers.any { it.isConnected }
         } catch (e: Throwable) {
-            true // undetectable — be optimistic
+            true
         }
     }
 

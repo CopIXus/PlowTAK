@@ -19,6 +19,7 @@ import com.atakmap.android.plowtak.model.SpecialZone
 import com.atakmap.android.plowtak.model.TaskKind
 import com.atakmap.android.plowtak.model.ZoneType
 import com.atakmap.android.plowtak.ops.AlertManager
+import com.atakmap.android.plowtak.ops.RouteAssignment
 import com.atakmap.android.plowtak.ops.FleetManager
 import com.atakmap.android.plowtak.ops.ZoneManager
 import com.atakmap.android.plowtak.plugin.PluginLayoutInflater
@@ -138,7 +139,7 @@ class SupervisorPanel(
         }
 
         fleetList.setOnItemLongClickListener { _, _, position, _ ->
-            currentFleet.getOrNull(position)?.let { taskTruckDialog(it) }
+            currentFleet.getOrNull(position)?.let { fleetTruckDialog(it) }
             true
         }
 
@@ -185,7 +186,11 @@ class SupervisorPanel(
         currentFleet = controller.fleetManager.all().sortedBy { it.callsign }
         fleetAdapter.clear()
         fleetAdapter.addAll(
-            currentFleet.map { v: PlowVehicle -> FleetListFormatter.vehicleLine(v, now, staleAfter) }
+            currentFleet.map { v: PlowVehicle ->
+                val base = FleetListFormatter.vehicleLine(v, now, staleAfter)
+                val route = controller.routeAssignments.assignmentFor(v.uid)?.routeId
+                if (route.isNullOrEmpty()) base else "$base  [$route]"
+            }
         )
         fleetAdapter.notifyDataSetChanged()
 
@@ -268,7 +273,54 @@ class SupervisorPanel(
         ).show()
     }
 
-    /** Long-press a truck: send it a task at its suggested target. */
+    /** Long-press a truck: task it or assign a route. */
+    private fun fleetTruckDialog(vehicle: PlowVehicle) {
+        val assignment = controller.routeAssignments.assignmentFor(vehicle.uid)
+        val routeLine = assignment?.let { "Route: ${it.routeId}" } ?: "No route assigned"
+        AlertDialog.Builder(controller.mapView.context)
+            .setTitle(vehicle.callsign)
+            .setMessage(routeLine)
+            .setPositiveButton("Task") { _, _ -> taskTruckDialog(vehicle) }
+            .setNeutralButton("Assign route") { _, _ -> assignRouteDialog(vehicle) }
+            .setNegativeButton("Clear route") { _, _ ->
+                controller.unassignRoute(vehicle.uid)
+                Toast.makeText(
+                    controller.mapView.context,
+                    "Cleared route for ${vehicle.callsign}", Toast.LENGTH_SHORT
+                ).show()
+                refresh()
+            }
+            .show()
+    }
+
+    private fun assignRouteDialog(vehicle: PlowVehicle) {
+        val input = EditText(controller.mapView.context)
+        input.hint = view.context.getString(R.string.sup_route_id_hint)
+        AlertDialog.Builder(controller.mapView.context)
+            .setTitle("Assign route to ${vehicle.callsign}")
+            .setView(input)
+            .setPositiveButton("Assign") { _, _ ->
+                val routeId = input.text.toString().trim()
+                if (routeId.isEmpty()) {
+                    Toast.makeText(
+                        controller.mapView.context, "Enter a route id", Toast.LENGTH_SHORT
+                    ).show()
+                    return@setPositiveButton
+                }
+                controller.assignRoute(
+                    vehicle.uid, vehicle.callsign, routeId, RouteAssignment.Source.GIS
+                )
+                Toast.makeText(
+                    controller.mapView.context,
+                    "Assigned $routeId to ${vehicle.callsign}", Toast.LENGTH_SHORT
+                ).show()
+                refresh()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    /** Send a task at the supervisor or truck position. */
     private fun taskTruckDialog(vehicle: PlowVehicle) {
         val pos = controller.lastPosition
         val input = EditText(controller.mapView.context)

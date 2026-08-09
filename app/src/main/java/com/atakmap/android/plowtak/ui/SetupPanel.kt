@@ -42,6 +42,9 @@ class SetupPanel(
     private val ttsEnabled = view.findViewById<CheckBox>(R.id.setup_tts)
     private val roadSnap = view.findViewById<CheckBox>(R.id.setup_roadsnap)
     private val roadSnapDir = view.findViewById<EditText>(R.id.setup_roadsnap_dir)
+    private val btEnabled = view.findViewById<CheckBox>(R.id.setup_bt_enabled)
+    private val btAddress = view.findViewById<EditText>(R.id.setup_bt_address)
+    private val btBle = view.findViewById<CheckBox>(R.id.setup_bt_ble)
 
     private val widthLabels = listOf(
         "8 ft (2.4 m)", "10 ft (3.0 m)", "12 ft (3.7 m)",
@@ -103,6 +106,9 @@ class SetupPanel(
         roadSnap.isChecked = controller.prefs.roadSnapEnabled
         roadSnapDir.setText(controller.prefs.roadSnapDir)
         roadSnapDir.visibility = if (roadSnap.isChecked) View.VISIBLE else View.GONE
+        btEnabled.isChecked = controller.prefs.btEquipmentEnabled
+        btAddress.setText(controller.prefs.btDeviceAddress)
+        btBle.isChecked = controller.prefs.btUseBle
         applyVisibility()
 
         view.findViewById<Button>(R.id.setup_save).setOnClickListener { save() }
@@ -164,7 +170,11 @@ class SetupPanel(
         controller.prefs.ttsEnabled = ttsEnabled.isChecked
         controller.prefs.roadSnapEnabled = roadSnap.isChecked
         controller.prefs.roadSnapDir = roadSnapDir.text.toString().trim()
+        controller.prefs.btEquipmentEnabled = btEnabled.isChecked
+        controller.prefs.btDeviceAddress = btAddress.text.toString().trim()
+        controller.prefs.btUseBle = btBle.isChecked
         controller.reloadRoadSnapper()
+        controller.reloadBluetoothLink()
         onSaved()
     }
 
