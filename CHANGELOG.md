@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Third Party Pipeline (`tak.gov/user_builds`) build fixes so TPC can produce a
+  Load-able release APK: skip local `main.jar` when takrepo is enabled; fall back
+  to takdev `${buildDir}/android_keystore` when no local keystore is configured;
+  set `bundle.storeArchive.enable = false` per the ATAK plugin template.
+
 ### Added
 - **QuickPic hazard photos** — long-press a driver-panel hazard button to launch
   ATAK QuickPic; captured image attaches to the hazard marker for TAK sync

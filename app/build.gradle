@@ -137,9 +137,20 @@ android {
         jvmTarget = '17'
     }
 
+    // Required by the TAK plugin template: without this the TAK inner signing
+    // check fails and the plugin will not load.
+    bundle {
+        storeArchive {
+            enable = false
+        }
+    }
+
     signingConfigs {
         debug {
-            // Prefer local.properties; fall back to ANDROID_* env (GitHub Actions).
+            // Precedence: local.properties -> ANDROID_* env (GitHub Actions) ->
+            // takdev-provided keystore (tak.gov Third Party Pipeline). The takdev
+            // plugin downloads the keystore artifact to ${buildDir}/android_keystore
+            // with the template's fixed credentials.
             def kf = getProperty('takDebugKeyFile', System.getenv('ANDROID_KEYSTORE_FILE'))
             if (kf != null) {
                 storeFile file(kf)
@@ -149,6 +160,11 @@ android {
                         System.getenv('ANDROID_KEY_ALIAS') ?: '')
                 keyPassword getProperty('takDebugKeyPassword',
                         System.getenv('ANDROID_KEY_PASSWORD') ?: '')
+            } else {
+                storeFile file("${buildDir}/android_keystore")
+                storePassword "tnttnt"
+                keyAlias "wintec_mapping"
+                keyPassword "tnttnt"
             }
         }
         release {
@@ -161,6 +177,11 @@ android {
                         System.getenv('ANDROID_KEY_ALIAS') ?: '')
                 keyPassword getProperty('takReleaseKeyPassword',
                         System.getenv('ANDROID_KEY_PASSWORD') ?: '')
+            } else {
+                storeFile file("${buildDir}/android_keystore")
+                storePassword "tnttnt"
+                keyAlias "wintec_mapping"
+                keyPassword "tnttnt"
             }
         }
     }
@@ -220,8 +241,13 @@ android {
 
 dependencies {
     implementation 'org.jetbrains.kotlin:kotlin-stdlib:2.2.0'
-    // Wired by atak-takdev-plugin from sdk.path; explicit fallback for CI when
-    // jars are staged under <root>/atak-sdk/.
-    def sdkPath = getProperty('sdk.path', "${rootProject.projectDir}/atak-sdk")
-    compileOnly files("${sdkPath}/main.jar")
+    // When takrepo.url is set (tak.gov Third Party Pipeline / artifacts.tak.gov),
+    // atak-takdev-plugin already resolves the ATAK API from Maven. An extra
+    // compileOnly on a local main.jar breaks TPP because that path does not exist
+    // (/app/plugin-src/.../atak-sdk/main.jar). Use the local jar only for offline
+    // builds (GitHub Actions / local SDK extract).
+    if (!isDevKitEnabled()) {
+        def sdkPath = getProperty('sdk.path', "${rootProject.projectDir}/atak-sdk")
+        compileOnly files("${sdkPath}/main.jar")
+    }
 }

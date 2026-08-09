@@ -146,7 +146,10 @@ The ATAK SDK is required and is **not** included in this repository.
    Release APK name:
    `ATAK-Plugin-PlowTAK-<version>--5.8.0-civ-release.apk`
 
-4. Install the APK, then enable it in ATAK's Plugins manager.
+4. Install a **TAK Product Center–signed** APK (from a GitHub Release marked
+   TPC/user_builds, or your own takrepo-signed `assembleCivRelease`), then
+   enable it in ATAK's Plugins manager. A CopIX-only CI signature will show
+   “signature INVALID” on release ATAK-CIV — see [docs/ci-build.md](docs/ci-build.md).
 
 Framework-free engine tests (no ATAK SDK):
 

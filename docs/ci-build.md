@@ -78,6 +78,50 @@ copy local.properties.example local.properties
 .\gradlew.bat -p coretests test
 ```
 
+## TAK Product Center signing (release ATAK Load)
+
+Play Store / release ATAK-CIV rejects plugins signed only with a private CopIX
+or Android debug keystore (“The signature for the plugin is INVALID”). A
+Load-able CIV release APK must be signed with the **TAK Product Center**
+third-party plugin key.
+
+### What TPP actually does
+
+On [tak.gov/user_builds](https://tak.gov/user_builds), takdev downloads Maven
+artifact `com.atakmap.app.civ.release:keystore` (e.g. `keystore-5.8.0.1.jks`)
+into `app/build/android_keystore`, then Gradle `signingConfigs.release` signs
+the APK/AAB. The resulting cert is:
+
+```text
+CN=TAK Product Center ATAK Untrusted Plugin Release,
+OU=Product Center, O=TAK, L=Fort Belvoir, ST=Virginia, C=US
+SHA-256: F2:4A:38:05:72:75:FC:EC:F6:7B:E9:75:AB:80:3D:12:F7:5D:C2:35:81:BE:F6:9C:BA:9E:B0:3A:15:BB:8C:17
+```
+
+There is no separate post-build “magic” resign step beyond that keystore —
+the trusted signature **is** the Gradle release signing with the takrepo
+keystore (template alias/password `wintec_mapping` / `tnttnt`).
+
+### Can we sign ourselves later?
+
+**Yes, with tak.gov developer credentials** — not by copying a private key into
+GitHub. Locally (or in CI with secrets):
+
+1. Set `takrepo.url`, `takrepo.user`, `takrepo.password` in `local.properties`
+   (or CI env) so `isDevKitEnabled()` is true.
+2. Build `assembleCivRelease` **without** overriding `takReleaseKeyFile`, so
+   signing falls back to `${buildDir}/android_keystore` after takdev copies the
+   release keystore artifact.
+3. Do **not** commit or redistributing that `.jks` — pull it from artifactory
+   each build.
+
+GitHub Actions today still produces a CopIX-signed APK (useful for smoke tests
+against developer ATAK). For devices running **release** ATAK-CIV, publish the
+TPC/user_builds APK (or a local takrepo-signed twin) on the GitHub Release.
+
+Submission zip tips: use POSIX `/` paths inside the zip (not PowerShell
+`Compress-Archive` backslashes); single root folder `PlowTAK/`.
+
 ## Notes
 
 - Plugin APKs are **version-locked** to ATAK-CIV 5.8.x.
