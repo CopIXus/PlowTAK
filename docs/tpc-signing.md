@@ -219,6 +219,25 @@ Practical workflow:
 
 Do not scrape tak.gov sessions in Actions.
 
+### Cursor browser: upload + save without dialogs
+
+Native file-picker / Save-As dialogs cannot be driven reliably from automation.
+Work around them with a local CORS bridge under `.tmp-apk/` (gitignored):
+
+1. **Upload (no Choose File dialog)**  
+   Serve the zip: `python .tmp-apk/cors_server.py` (`127.0.0.1:8765`).  
+   On the logged-in `user_builds` page, `fetch` the zip, wrap it in a `File`,
+   assign via `DataTransfer` to `#user_build_upload_file`, then click Submit.
+
+2. **Download (no Save As dialog)**  
+   Run `python .tmp-apk/recv_server.py` (`127.0.0.1:8766`).  
+   From the page, `fetch(downloadUrl, { credentials: 'include' })`, then
+   `POST` the blob to `http://127.0.0.1:8766/?name=….zip` with header
+   `X-Filename`. The receiver writes into `.tmp-apk/` with no prompt.
+
+`Browser.setDownloadBehavior` is often blocked in this browser host; the
+fetch→localhost POST path is the reliable alternative.
+
 ---
 
 ## Related docs
