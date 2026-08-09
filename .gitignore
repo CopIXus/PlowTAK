@@ -33,7 +33,12 @@ Thumbs.db
 
 # APK / build outputs
 *.apk
+*.aab
 *.ap_
 *.dex
 output-metadata.json
 .tmp-apk/
+
+# Local UNAS mirrors of TPC/GitHub release binaries (see docs/tpc-signing.md).
+# Docs stay in git; binaries stay on the share only.
+Releases/

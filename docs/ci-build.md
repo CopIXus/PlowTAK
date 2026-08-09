@@ -122,6 +122,9 @@ TPC/user_builds APK (or a local takrepo-signed twin) on the GitHub Release.
 Submission zip tips: use POSIX `/` paths inside the zip (not PowerShell
 `Compress-Archive` backslashes); single root folder `PlowTAK/`.
 
+Full handoff (failures, cert fingerprints, UNAS `Releases/` mirror, resume on
+another PC): [tpc-signing.md](tpc-signing.md).
+
 ## Notes
 
 - Plugin APKs are **version-locked** to ATAK-CIV 5.8.x.

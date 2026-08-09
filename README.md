@@ -173,6 +173,7 @@ Release assets**. Device install steps: [docs/vns-install.md](docs/vns-install.m
 | [docs/cot-schema.md](docs/cot-schema.md) | `<__plowtak>` CoT detail schema |
 | [docs/vns-install.md](docs/vns-install.md) | VNS / GraphHopper pack install |
 | [docs/ci-build.md](docs/ci-build.md) | GitHub Actions APK build + required secrets |
+| [docs/tpc-signing.md](docs/tpc-signing.md) | TAK Product Center / user_builds signing handoff |
 | [CHANGELOG.md](CHANGELOG.md) | Release history |
 
 ## CI / Releases
