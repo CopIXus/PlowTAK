@@ -1,16 +1,12 @@
 package com.atakmap.android.plowtak.ui
 
 import android.app.AlertDialog
-import android.content.res.ColorStateList
-import android.graphics.Color
 import android.graphics.drawable.Drawable
 import android.util.TypedValue
-import android.view.Gravity
 import android.view.View
-import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
-import android.widget.GridLayout
+import android.widget.FrameLayout
 import android.widget.TextView
 import android.widget.Toast
 import android.widget.ToggleButton
@@ -28,12 +24,16 @@ import com.atakmap.android.plowtak.ops.ToggleSanity
 import com.atakmap.android.plowtak.plugin.PluginLayoutInflater
 
 /**
- * Ops panel: shift, plow/wings, spread + materials, status, hazards, Mayday.
- * Storm join and vehicle setup live on the header Storm / Settings icons.
+ * Ops panel: shift, plow/wings/spreader, materials, status, hazards, Mayday.
+ * Storm join/start and vehicle setup live on the header icons.
+ *
+ * Action grids use [OpsTileGrid] so tiles stay equal-sized and reflow like
+ * ATAK Tools when the panel width changes (fold / rotation).
  */
 class DriverPanel(
     private val controller: PlowTakController,
-    private val onOpenSettings: () -> Unit
+    private val onOpenSettings: () -> Unit,
+    private val onOpenStorm: () -> Unit
 ) {
 
     val view: View = PluginLayoutInflater.inflate(
@@ -48,21 +48,20 @@ class DriverPanel(
     private val operatorId = view.findViewById<EditText>(R.id.driver_operator_id)
     private val shiftButton = view.findViewById<Button>(R.id.driver_shift_button)
     private val plowControl = view.findViewById<PlowControlView>(R.id.driver_plow_control)
-    private val spreadToggle = view.findViewById<ToggleButton>(R.id.driver_spread_toggle)
     private val taskBar = view.findViewById<View>(R.id.driver_task_bar)
     private val taskText = view.findViewById<TextView>(R.id.driver_task_text)
     private val taskAck = view.findViewById<Button>(R.id.driver_task_ack)
     private val taskDecline = view.findViewById<Button>(R.id.driver_task_decline)
     private val materialTitle = view.findViewById<TextView>(R.id.driver_material_title)
-    private val materialGrid = view.findViewById<GridLayout>(R.id.driver_material_grid)
-    private val statusGrid = view.findViewById<GridLayout>(R.id.driver_status_grid)
-    private val hazardGrid = view.findViewById<GridLayout>(R.id.driver_hazard_grid)
-    private val conditionGrid = view.findViewById<GridLayout>(R.id.driver_condition_grid)
+    private val materialGrid = view.findViewById<OpsTileGrid>(R.id.driver_material_grid)
+    private val statusGrid = view.findViewById<OpsTileGrid>(R.id.driver_status_grid)
+    private val hazardGrid = view.findViewById<OpsTileGrid>(R.id.driver_hazard_grid)
+    private val conditionGrid = view.findViewById<OpsTileGrid>(R.id.driver_condition_grid)
     private val distressButton = view.findViewById<Button>(R.id.driver_distress)
     private val nightToggle = view.findViewById<ToggleButton>(R.id.driver_night_toggle)
 
-    private val materialButtons = HashMap<Material, Button>()
-    private val statusButtons = HashMap<VehicleStatus?, Button>()
+    private val materialButtons = HashMap<Material, FrameLayout>()
+    private val statusButtons = HashMap<VehicleStatus?, FrameLayout>()
     private var currentTask: TaskEvent? = null
 
     private val statusListener = com.atakmap.android.plowtak.ops.StatusManager.Listener {
@@ -79,8 +78,9 @@ class DriverPanel(
     init {
         val cap = controller.capabilityStore.load()
 
-        plowControl.visibility = if (cap.hasBlade) View.VISIBLE else View.GONE
-        spreadToggle.visibility = if (cap.hasSalt) View.VISIBLE else View.GONE
+        plowControl.visibility =
+            if (cap.hasBlade || cap.hasSalt) View.VISIBLE else View.GONE
+        plowControl.spreaderEnabled = cap.hasSalt
         distressButton.visibility = if (cap.canSendDistress) View.VISIBLE else View.GONE
 
         plowControl.onBladeToggle = { down ->
@@ -95,19 +95,18 @@ class DriverPanel(
             controller.equipment.setWingRight(ext)
             refresh()
         }
-        spreadToggle.setOnCheckedChangeListener { _, checked ->
-            controller.equipment.setSpreading(checked)
+        plowControl.onSpreaderToggle = { on ->
+            controller.equipment.setSpreading(on)
             refresh()
         }
+
+        operatorName.setText(controller.prefs.lastOperatorName)
+        operatorId.setText(controller.prefs.lastOperatorId)
 
         shiftButton.setOnClickListener { toggleShift() }
         distressButton.setOnClickListener { onDistress() }
         view.findViewById<View>(R.id.driver_settings_btn).setOnClickListener { onOpenSettings() }
-        view.findViewById<View>(R.id.driver_storm_btn).setOnClickListener {
-            StormServerDialogs.showJoinStormDialog(
-                controller, controller.mapView.context
-            ) { view.post { refresh() } }
-        }
+        view.findViewById<View>(R.id.driver_storm_btn).setOnClickListener { onOpenStorm() }
 
         taskAck.setOnClickListener {
             currentTask?.let { controller.ackTask(it.uid) }
@@ -122,10 +121,25 @@ class DriverPanel(
             NightPalette.apply(view, checked)
             refresh()
         }
+        applyTopIcon(nightToggle, R.drawable.ic_ops_night_off, dp(22))
+        nightToggle.compoundDrawablePadding = dp(1)
 
-        applyTopIcon(spreadToggle, R.drawable.ic_ops_spreading)
-        applyTopIcon(distressButton, R.drawable.ic_ops_mayday)
-        applyTopIcon(nightToggle, R.drawable.ic_ops_night_off)
+        applyTopIcon(distressButton, R.drawable.ic_ops_mayday, dp(24))
+        distressButton.compoundDrawablePadding = dp(4)
+
+        // ATAK Loadout Tools: 80dp cells, zero gutters, width-driven columns.
+        val opsGrids = listOf(materialGrid, statusGrid, hazardGrid, conditionGrid)
+        for (grid in opsGrids) {
+            grid.cellDp = 80
+        }
+        // Fold / dropdown width changes: force every ops grid to reflow together.
+        view.addOnLayoutChangeListener { _, left, _, right, _, oldLeft, _, oldRight, _ ->
+            val w = right - left
+            val oldW = oldRight - oldLeft
+            if (w > 0 && w != oldW) {
+                for (grid in opsGrids) grid.requestLayout()
+            }
+        }
 
         buildMaterialGrid(cap.hasSalt)
         buildStatusGrid()
@@ -163,7 +177,13 @@ class DriverPanel(
         val eq = controller.equipment.state
         val widthM = cap.widthFor(eq.effectiveWidthPreset())
 
-        header.text = "${cap.callsign}  ($widthM m)"
+        val unit = cap.callsign.ifBlank { "Unit ?" }
+        val truck = cap.vehicleId.ifBlank { "Truck ?" }
+        header.text = "$unit  ·  $truck  ($widthM m)"
+        plowControl.spreaderEnabled = cap.hasSalt
+        plowControl.visibility =
+            if (cap.hasBlade || cap.hasSalt) View.VISIBLE else View.GONE
+
         val storm = controller.stormManager.activeSession()
         statusLine.text = "Status: ${controller.statusManager.current.label}" +
                 (storm?.let { "  •  ${it.displayName()}" } ?: "  •  No storm selected")
@@ -177,14 +197,7 @@ class DriverPanel(
             view.context.getString(R.string.driver_shift_start)
 
         plowControl.isEnabled = onShift
-        spreadToggle.isEnabled = onShift
         plowControl.bind(eq)
-        if (spreadToggle.isChecked != eq.spreadingOn) {
-            spreadToggle.isChecked = eq.spreadingOn
-        }
-        spreadToggle.backgroundTintList = ColorStateList.valueOf(
-            if (eq.spreadingOn) TOGGLE_ON else TOGGLE_OFF
-        )
 
         refreshTaskBar()
         refreshMaterialSelection()
@@ -215,6 +228,8 @@ class DriverPanel(
     }
 
     private fun showSanityPrompt(prompt: ToggleSanity.Prompt) {
+        // Overspeed uses map HUD flash + TTS only (handled in controller).
+        if (prompt.type == ToggleSanity.PromptType.CONFIRM_SPEED) return
         AlertDialog.Builder(controller.mapView.context)
             .setTitle("PlowTAK check")
             .setMessage(prompt.message)
@@ -229,21 +244,26 @@ class DriverPanel(
         materialGrid.visibility = if (hasSalt) View.VISIBLE else View.GONE
         if (!hasSalt) return
         for (material in Material.entries) {
-            val button = iconButton(material.label, materialIcon(material))
-            button.setOnClickListener {
+            val tile = OpsTileGrid.createTile(
+                controller.pluginContext,
+                material.label,
+                materialIcon(material),
+                OpsTileGrid.FILL_IDLE
+            ) {
                 controller.equipment.setMaterial(material)
                 refresh()
             }
-            materialButtons[material] = button
-            materialGrid.addView(button, gridCell())
+            materialButtons[material] = tile
+            materialGrid.addView(tile)
         }
     }
 
     private fun refreshMaterialSelection() {
         val selected = controller.equipment.state.material
-        for ((material, button) in materialButtons) {
-            button.backgroundTintList = ColorStateList.valueOf(
-                if (material == selected) TOGGLE_ON else TOGGLE_OFF
+        for ((material, tile) in materialButtons) {
+            OpsTileGrid.tintTile(
+                tile,
+                if (material == selected) OpsTileGrid.FILL_SELECTED else OpsTileGrid.FILL_IDLE
             )
         }
     }
@@ -255,14 +275,18 @@ class DriverPanel(
         for (status in options) {
             val label = status?.label?.uppercase()
                 ?: view.context.getString(R.string.driver_status_driving)
-            val button = iconButton(label, statusIcon(status))
-            button.setOnClickListener {
+            val tile = OpsTileGrid.createTile(
+                controller.pluginContext,
+                label,
+                statusIcon(status),
+                OpsTileGrid.FILL_IDLE
+            ) {
                 if (status == null) controller.statusManager.clearManual()
                 else controller.statusManager.setManual(status)
                 refresh()
             }
-            statusButtons[status] = button
-            statusGrid.addView(button, gridCell())
+            statusButtons[status] = tile
+            statusGrid.addView(tile)
         }
     }
 
@@ -270,10 +294,10 @@ class DriverPanel(
         val current = controller.statusManager.current
         val selectedKey: VehicleStatus? =
             if (current in VehicleStatus.MANUAL_OPTIONS) current else null
-        for ((status, button) in statusButtons) {
-            val active = status == selectedKey
-            button.backgroundTintList = ColorStateList.valueOf(
-                if (active) TOGGLE_ON else TOGGLE_OFF
+        for ((status, tile) in statusButtons) {
+            OpsTileGrid.tintTile(
+                tile,
+                if (status == selectedKey) OpsTileGrid.FILL_SELECTED else OpsTileGrid.FILL_IDLE
             )
         }
     }
@@ -281,20 +305,23 @@ class DriverPanel(
     private fun buildHazardGrid() {
         hazardGrid.removeAllViews()
         for (hazard in HazardType.entries) {
-            val button = iconButton(hazard.label, hazardIcon(hazard))
-            button.backgroundTintList = ColorStateList.valueOf(HAZARD_COLOR)
-            button.setOnClickListener {
+            val tile = OpsTileGrid.createTile(
+                controller.pluginContext,
+                hazard.label,
+                hazardIcon(hazard),
+                OpsTileGrid.FILL_HAZARD
+            ) {
                 controller.reportHazard(hazard)
                 Toast.makeText(
                     controller.mapView.context,
                     "${hazard.label} reported", Toast.LENGTH_SHORT
                 ).show()
             }
-            button.setOnLongClickListener {
+            tile.setOnLongClickListener {
                 reportHazardWithPhoto(hazard)
                 true
             }
-            hazardGrid.addView(button, gridCell())
+            hazardGrid.addView(tile)
         }
     }
 
@@ -316,16 +343,19 @@ class DriverPanel(
     private fun buildConditionGrid() {
         conditionGrid.removeAllViews()
         for (condition in RoadCondition.entries) {
-            val button = iconButton(condition.label, conditionIcon(condition))
-            button.backgroundTintList = ColorStateList.valueOf(CONDITION_COLOR)
-            button.setOnClickListener {
+            val tile = OpsTileGrid.createTile(
+                controller.pluginContext,
+                condition.label,
+                conditionIcon(condition),
+                OpsTileGrid.FILL_CONDITION
+            ) {
                 controller.reportRoadCondition(condition)
                 Toast.makeText(
                     controller.mapView.context,
                     "Road condition: ${condition.label}", Toast.LENGTH_SHORT
                 ).show()
             }
-            conditionGrid.addView(button, gridCell())
+            conditionGrid.addView(tile)
         }
     }
 
@@ -343,6 +373,8 @@ class DriverPanel(
                 ).show()
                 return
             }
+            controller.prefs.lastOperatorName = name
+            controller.prefs.lastOperatorId = id
             controller.shiftLog.startShift(name, id.ifEmpty { name }, System.currentTimeMillis())
         }
         refresh()
@@ -359,30 +391,15 @@ class DriverPanel(
         refresh()
     }
 
-    private fun iconButton(label: String, iconRes: Int): Button {
-        val button = Button(controller.pluginContext)
-        button.text = label
-        button.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-        button.setTextColor(Color.WHITE)
-        button.gravity = Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM
-        button.minHeight = dp(96)
-        button.setPadding(dp(6), dp(8), dp(6), dp(8))
-        button.isAllCaps = false
-        applyTopIcon(button, iconRes)
-        return button
-    }
-
-    private fun applyTopIcon(button: TextView, iconRes: Int) {
-        val d = scaledIcon(iconRes) ?: return
+    private fun applyTopIcon(button: TextView, iconRes: Int, sizePx: Int = dp(28)) {
+        val d = scaledIcon(iconRes, sizePx) ?: return
         button.setCompoundDrawables(null, d, null, null)
-        button.compoundDrawablePadding = dp(6)
     }
 
-    private fun scaledIcon(iconRes: Int): Drawable? {
+    private fun scaledIcon(iconRes: Int, sizePx: Int): Drawable? {
         val ctx = controller.pluginContext
         val d = ctx.resources.getDrawable(iconRes, ctx.theme)?.mutate() ?: return null
-        val size = dp(40)
-        d.setBounds(0, 0, size, size)
+        d.setBounds(0, 0, sizePx, sizePx)
         return d
     }
 
@@ -419,27 +436,10 @@ class DriverPanel(
         RoadCondition.ICE -> R.drawable.ic_ops_ice
     }
 
-    private fun gridCell(): GridLayout.LayoutParams {
-        val lp = GridLayout.LayoutParams(
-            GridLayout.spec(GridLayout.UNDEFINED, 1f),
-            GridLayout.spec(GridLayout.UNDEFINED, 1f)
-        )
-        lp.width = 0
-        lp.height = ViewGroup.LayoutParams.WRAP_CONTENT
-        lp.setMargins(4, 4, 4, 4)
-        return lp
-    }
-
     private fun dp(v: Int): Int =
         TypedValue.applyDimension(
             TypedValue.COMPLEX_UNIT_DIP, v.toFloat(),
             controller.pluginContext.resources.displayMetrics
         ).toInt()
 
-    companion object {
-        private const val TOGGLE_ON = 0xFF2E7D32.toInt()
-        private const val TOGGLE_OFF = 0xFF455A64.toInt()
-        private const val HAZARD_COLOR = 0xFF6D4C41.toInt()
-        private const val CONDITION_COLOR = 0xFF37474F.toInt()
-    }
 }

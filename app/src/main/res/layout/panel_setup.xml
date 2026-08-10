@@ -1,8 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/plowtak_bg">
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -13,6 +17,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginEnd="112dp"
             android:text="@string/setup_title"
             android:textColor="@color/plowtak_text"
             android:textSize="24sp"
@@ -47,22 +52,6 @@
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
                 android:text="@string/setup_type_salt"
-                android:textColor="@color/plowtak_text"
-                android:textSize="18sp" />
-
-            <RadioButton
-                android:id="@+id/setup_type_supervisor"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:text="@string/setup_type_supervisor"
-                android:textColor="@color/plowtak_text"
-                android:textSize="18sp" />
-
-            <RadioButton
-                android:id="@+id/setup_type_observer"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:text="@string/setup_type_observer"
                 android:textColor="@color/plowtak_text"
                 android:textSize="18sp" />
         </RadioGroup>
@@ -190,6 +179,34 @@
             android:textSize="16sp" />
 
         <CheckBox
+            android:id="@+id/setup_map_hud"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:checked="true"
+            android:text="@string/setup_map_hud_enabled"
+            android:textColor="@color/plowtak_text"
+            android:textSize="16sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/setup_condition_stale_label"
+            android:textColor="@color/plowtak_grey"
+            android:textSize="13sp" />
+
+        <EditText
+            android:id="@+id/setup_condition_stale"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/setup_condition_stale_hint"
+            android:inputType="number"
+            android:maxLines="1"
+            android:textColor="@color/plowtak_text"
+            android:textColorHint="@color/plowtak_grey"
+            android:textSize="16sp" />
+
+        <CheckBox
             android:id="@+id/setup_roadsnap"
             android:layout_width="match_parent"
             android:layout_height="48dp"
@@ -239,67 +256,51 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="@string/setup_storm_section"
+            android:text="@string/setup_demo_section"
             android:textColor="@color/plowtak_text"
             android:textSize="18sp"
             android:textStyle="bold" />
 
-        <Button
-            android:id="@+id/setup_storm_start"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:layout_marginTop="8dp"
-            android:backgroundTint="@color/plowtak_accent"
-            android:text="@string/sup_storm_start"
-            android:textSize="16sp" />
-
-        <Button
-            android:id="@+id/setup_storm_end"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:layout_marginTop="6dp"
-            android:backgroundTint="@color/plowtak_distress"
-            android:text="@string/sup_storm_end"
-            android:textColor="@color/plowtak_text"
-            android:textSize="16sp" />
-
-        <Button
-            android:id="@+id/setup_datasync_server"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginTop="6dp"
-            android:backgroundTint="@color/plowtak_toggle_off"
-            android:text="@string/sup_datasync_server"
-            android:textSize="14sp" />
-
-        <EditText
-            android:id="@+id/setup_cycle_minutes"
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:hint="@string/setup_cycle_hint"
-            android:inputType="number"
-            android:textColor="@color/plowtak_text"
-            android:textColorHint="@color/plowtak_grey"
-            android:textSize="16sp" />
-
-        <Button
-            android:id="@+id/setup_cycle_apply"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
             android:layout_marginTop="4dp"
-            android:backgroundTint="@color/plowtak_toggle_off"
-            android:text="@string/sup_cycle_time_apply"
-            android:textSize="14sp" />
+            android:text="@string/setup_demo_intro"
+            android:textColor="@color/plowtak_grey"
+            android:textSize="13sp" />
 
         <Button
-            android:id="@+id/setup_save"
+            android:id="@+id/setup_demo_btn"
             android:layout_width="match_parent"
-            android:layout_height="64dp"
-            android:layout_marginTop="16dp"
+            android:layout_height="56dp"
+            android:layout_marginTop="8dp"
             android:backgroundTint="@color/plowtak_accent"
-            android:text="@string/setup_save"
-            android:textSize="20sp"
+            android:text="@string/setup_demo_start"
+            android:textSize="16sp"
             android:textStyle="bold" />
+
+        <!-- Bottom spacer so the last controls clear the floating pill. -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="24dp" />
     </LinearLayout>
-</ScrollView>
+    </ScrollView>
+
+    <!-- Floating save pill: fixed top-right, never scrolls away. -->
+    <Button
+        android:id="@+id/setup_save"
+        android:layout_width="wrap_content"
+        android:layout_height="38dp"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="6dp"
+        android:layout_marginEnd="6dp"
+        android:background="@drawable/bg_save_pill"
+        android:elevation="8dp"
+        android:minWidth="72dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:text="@string/setup_save"
+        android:textColor="@android:color/white"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+</FrameLayout>

@@ -17,8 +17,8 @@ object NightPalette {
     private const val NIGHT_TEXT = 0xFFFFB000.toInt()
     private const val NIGHT_BUTTON = 0xFF1A1200.toInt()
 
-    private const val DAY_BG = 0xFF1B262E.toInt()   // plowtak_bg
-    private const val DAY_TEXT = 0xFFECEFF1.toInt() // plowtak_text
+    private const val DAY_BG = 0xFF000000.toInt()   // plowtak_bg (ATAK black)
+    private const val DAY_TEXT = 0xFFF5F5F5.toInt() // plowtak_text
 
     fun apply(root: View, night: Boolean) {
         root.setBackgroundColor(if (night) NIGHT_BG else DAY_BG)
@@ -29,6 +29,13 @@ object NightPalette {
         if (view is ViewGroup) {
             for (i in 0 until view.childCount) walk(view.getChildAt(i), night)
         }
+        // OpsTileGrid cells own fill + manatee bars; never override them.
+        if (OpsTileGrid.isOpsTile(view) || isInsideOpsTile(view)) {
+            if (view is TextView && view !is EditText && view !is Button) {
+                view.setTextColor(if (night) NIGHT_TEXT else DAY_TEXT)
+            }
+            return
+        }
         when (view) {
             is Button -> {
                 view.setTextColor(if (night) NIGHT_TEXT else DAY_TEXT)
@@ -36,11 +43,18 @@ object NightPalette {
                     view.backgroundTintList =
                         android.content.res.ColorStateList.valueOf(NIGHT_BUTTON)
                 }
-                // Day-mode button tints are restored by the panel's own
-                // refresh(), which re-tints every button from live state.
             }
             is EditText -> view.setTextColor(if (night) NIGHT_TEXT else DAY_TEXT)
             is TextView -> view.setTextColor(if (night) NIGHT_TEXT else DAY_TEXT)
         }
+    }
+
+    private fun isInsideOpsTile(view: View): Boolean {
+        var p = view.parent
+        while (p is View) {
+            if (OpsTileGrid.isOpsTile(p)) return true
+            p = p.parent
+        }
+        return false
     }
 }

@@ -104,6 +104,22 @@ class PlowTakPreferences(context: Context) : KeyValuePersistence {
         get() = prefs.getBoolean(KEY_NIGHT, false)
         set(v) = prefs.edit().putBoolean(KEY_NIGHT, v).apply()
 
+    /** Mini plow HUD on the map while on shift (bottom-left). */
+    var mapHudEnabled: Boolean
+        get() = prefs.getBoolean(KEY_MAP_HUD, true)
+        set(v) = prefs.edit().putBoolean(KEY_MAP_HUD, v).apply()
+
+    /**
+     * How long a road-condition report stays on the map / in Data Sync
+     * before it is deleted. Default 2 hours. Seeded onto new storms as
+     * [com.atakmap.android.plowtak.model.StormSession.roadConditionTtlMinutes].
+     */
+    var roadConditionStaleMinutes: Int
+        get() = prefs.getInt(KEY_COND_STALE, 120)
+        set(v) = prefs.edit()
+            .putInt(KEY_COND_STALE, v.coerceIn(15, 24 * 60))
+            .apply()
+
     /** Direction-aware coverage coloring (one-way passes render dashed). */
     var directionSplitEnabled: Boolean
         get() = prefs.getBoolean(KEY_DIRECTION_SPLIT, true)
@@ -181,6 +197,21 @@ class PlowTakPreferences(context: Context) : KeyValuePersistence {
         get() = prefs.getString(KEY_DATASYNC_SERVER, "") ?: ""
         set(v) = prefs.edit().putString(KEY_DATASYNC_SERVER, v.trim()).apply()
 
+    /** Channel (server group) that owns new storms; persists across updates. */
+    var stormChannel: String
+        get() = prefs.getString(KEY_STORM_CHANNEL, "") ?: ""
+        set(v) = prefs.edit().putString(KEY_STORM_CHANNEL, v.trim()).apply()
+
+    /** Last operator name entered on the driver shift form (device-local). */
+    var lastOperatorName: String
+        get() = prefs.getString(KEY_LAST_OPERATOR_NAME, "") ?: ""
+        set(v) = prefs.edit().putString(KEY_LAST_OPERATOR_NAME, v.trim()).apply()
+
+    /** Last operator ID entered on the driver shift form (device-local). */
+    var lastOperatorId: String
+        get() = prefs.getString(KEY_LAST_OPERATOR_ID, "") ?: ""
+        set(v) = prefs.edit().putString(KEY_LAST_OPERATOR_ID, v.trim()).apply()
+
     companion object {
         const val PREFS_NAME = "plowtak_prefs"
         private const val KEY_REPORT_MOVING = "plowtak.report_interval_moving_s"
@@ -196,6 +227,8 @@ class PlowTakPreferences(context: Context) : KeyValuePersistence {
         private const val KEY_CYCLE_P3 = "plowtak.cycle_p3_min"
         private const val KEY_TTS = "plowtak.tts_enabled"
         private const val KEY_NIGHT = "plowtak.night_mode"
+        private const val KEY_MAP_HUD = "plowtak.map_hud_enabled"
+        private const val KEY_COND_STALE = "plowtak.road_condition_stale_min"
         private const val KEY_DIRECTION_SPLIT = "plowtak.direction_split"
         private const val KEY_ROADSNAP = "plowtak.roadsnap_enabled"
         private const val KEY_ROADSNAP_DIR = "plowtak.roadsnap_dir"
@@ -211,5 +244,8 @@ class PlowTakPreferences(context: Context) : KeyValuePersistence {
         private const val KEY_MISSION_COV_HASH = "plowtak.mission_cov.last_hash"
         private const val KEY_MISSION_COV_FILENAME = "plowtak.mission_cov.last_filename"
         private const val KEY_DATASYNC_SERVER = "plowtak.datasync.server"
+        private const val KEY_STORM_CHANNEL = "plowtak.storm.channel"
+        private const val KEY_LAST_OPERATOR_NAME = "plowtak.last_operator_name"
+        private const val KEY_LAST_OPERATOR_ID = "plowtak.last_operator_id"
     }
 }

@@ -12,6 +12,8 @@ import com.atakmap.android.plowtak.coverage.Freshness
 import com.atakmap.android.plowtak.coverage.FreshnessModel
 import com.atakmap.android.plowtak.coverage.RoadSnapper
 import com.atakmap.android.plowtak.coverage.SwathBuilder
+import com.atakmap.android.plowtak.demo.DemoFleetSimulator
+import com.atakmap.android.plowtak.demo.DemoRoadWalker
 import com.atakmap.android.plowtak.equipment.BluetoothEquipmentProvider
 import com.atakmap.android.plowtak.equipment.ManualEquipmentProvider
 import com.atakmap.android.plowtak.gis.LaneModel
@@ -20,6 +22,7 @@ import com.atakmap.android.plowtak.gis.RoadNetworkImporter
 import com.atakmap.android.plowtak.map.AlertOverlay
 import com.atakmap.android.plowtak.map.CoverageOverlay
 import com.atakmap.android.plowtak.map.FleetMarkerManager
+import com.atakmap.android.plowtak.map.PlowStatusHud
 import com.atakmap.android.plowtak.model.AlertEvent
 import com.atakmap.android.plowtak.model.AlertState
 import com.atakmap.android.plowtak.model.CapabilityRules
@@ -36,6 +39,8 @@ import com.atakmap.android.plowtak.model.TaskEvent
 import com.atakmap.android.plowtak.model.TaskKind
 import com.atakmap.android.plowtak.model.TreatSegment
 import com.atakmap.android.plowtak.model.VehicleStatus
+import com.atakmap.android.plowtak.model.VehicleType
+import com.atakmap.android.plowtak.model.PlowVehicle
 import com.atakmap.android.plowtak.ops.AlertManager
 import com.atakmap.android.plowtak.ops.FacilityGeofences
 import com.atakmap.android.plowtak.ops.FleetManager
@@ -52,6 +57,7 @@ import com.atakmap.android.plowtak.ops.TaskManager
 import com.atakmap.android.plowtak.ops.ToggleSanity
 import com.atakmap.android.plowtak.ops.ZoneManager
 import com.atakmap.android.plowtak.prefs.PlowTakPreferences
+import com.atakmap.android.plowtak.prefs.PlowTakSettingsBackup
 import com.atakmap.android.plowtak.prefs.VehicleCapabilityStore
 import com.atakmap.android.plowtak.report.ExportManager
 import com.atakmap.android.plowtak.report.HazardReporter
@@ -61,9 +67,13 @@ import com.atakmap.android.plowtak.report.StormExportData
 import com.atakmap.android.plowtak.report.StormReplay
 import com.atakmap.android.plowtak.service.PlowTakShiftService
 import com.atakmap.android.plowtak.sync.MissionCoverageSync
+import com.atakmap.android.plowtak.sync.MissionPullSink
+import com.atakmap.android.plowtak.sync.OpsMissionCodec
+import com.atakmap.android.plowtak.sync.StormConfigCodec
 import com.atakmap.android.plowtak.tracking.SelfTracker
 import com.atakmap.android.plowtak.ui.VoiceAlerts
 import com.atakmap.android.maps.MapView
+import com.atakmap.coremap.filesystem.FileSystemUtils
 import java.io.File
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
@@ -81,8 +91,13 @@ class PlowTakController(
 ) {
 
     // ----------------------------------------------------------- settings
-    val prefs = PlowTakPreferences(pluginContext)
-    val capabilityStore = VehicleCapabilityStore(pluginContext)
+    val prefs = PlowTakPreferences(pluginContext).also {
+        // Uninstall-proof mirror under atak/tools/plowtak/settings.json
+        PlowTakSettingsBackup.restoreIfNeeded(pluginContext)
+    }
+    val capabilityStore = VehicleCapabilityStore(pluginContext).also { store ->
+        store.addListener { PlowTakSettingsBackup.export(pluginContext) }
+    }
 
     // -------------------------------------------------------------- state
     val equipment = ManualEquipmentProvider()
@@ -144,6 +159,14 @@ class PlowTakController(
     val coverageOverlay = CoverageOverlay(mapView, coverageStore, freshnessModel)
     val fleetMarkers = FleetMarkerManager(mapView, fleetManager)
     val alertOverlay = AlertOverlay(mapView, alertManager)
+    val plowStatusHud = PlowStatusHud(
+        mapView = mapView,
+        pluginContext = pluginContext,
+        equipment = equipment,
+        isOnShift = { shiftLog.isOnShift },
+        hasSalt = { capabilityStore.load().hasSalt },
+        isEnabled = { prefs.mapHudEnabled }
+    )
     val hazardReporter = HazardReporter(cotQueue)
     val exportManager = ExportManager(pluginContext)
     val voiceAlerts = VoiceAlerts(mapView.context) { prefs.ttsEnabled }
@@ -151,6 +174,36 @@ class PlowTakController(
     val quickPicHazards = QuickPicHazardCapture { type, photoName ->
         reportHazard(type, photoName, attachQuickPic = true)
     }
+
+    /** Synthetic storm fleet for demos / sales walkthroughs. */
+    val demoFleet = DemoFleetSimulator(
+        fleetManager = fleetManager,
+        coverageStore = coverageStore,
+        hazardReporter = hazardReporter,
+        stormIdProvider = { stormManager.activeStormId },
+        anchorProvider = {
+            // GPS sample → self marker → map center. Demo must start without VNS
+            // and without a warm GPS fix (common on indoor Fold demos).
+            fun geoPair(p: com.atakmap.coremap.maps.coords.GeoPoint?): Pair<Double, Double>? {
+                if (p == null || !p.isValid) return null
+                return p.latitude to p.longitude
+            }
+            lastPositionSample?.let { it.lat to it.lon }
+                ?: geoPair(mapView.selfMarker?.point)
+                ?: geoPair(mapView.centerPoint?.get())
+        },
+        packDirResolver = {
+            val vnsGh = try {
+                File(FileSystemUtils.getItem("tools"), "VNS/GH")
+            } catch (e: Exception) {
+                null
+            }
+            DemoRoadWalker.resolvePackDir(prefs.roadSnapDir, vnsGh)
+        },
+        scheduler = { timers },
+        onHazard = { hazard -> synchronized(hazardLog) { hazardLog[hazard.uid] = hazard } }
+    )
+
     val missionCoverageSync = MissionCoverageSync(
         appContext = mapView.context,
         prefs = prefs,
@@ -158,10 +211,97 @@ class PlowTakController(
         vehicleUid = { selfUid() },
         activeStorm = { stormManager.activeSession() },
         hazards = { synchronized(hazardLog) { hazardLog.values.toList() } },
-        onStormConfigPulled = { cfg ->
-            if (cfg.cycleMinutes > 0) {
-                prefs.cycleTimeMinutes = cfg.cycleMinutes
-                stormManager.updateCycleMinutes(cfg.cycleMinutes)
+        conditions = { synchronized(conditionLog) { conditionLog.values.toList() } },
+        selfStatus = { buildSelfStatusVehicle() },
+        demoVehicles = { demoFleet.snapshotVehicles() },
+        routes = { routeAssignments.all() },
+        zones = { zoneManager.all() },
+        tasks = { taskManager.all() },
+        sink = object : MissionPullSink {
+            override fun onStormConfigPulled(cfg: StormConfigCodec.StormConfig) {
+                if (cfg.cycleMinutes > 0) {
+                    prefs.cycleTimeMinutes = cfg.cycleMinutes
+                    stormManager.updateCycleMinutes(cfg.cycleMinutes)
+                }
+                if (cfg.roadConditionTtlMinutes > 0) {
+                    stormManager.updateRoadConditionTtlMinutes(cfg.roadConditionTtlMinutes)
+                }
+            }
+
+            override fun onUnitStatusPulled(vehicle: PlowVehicle) {
+                if (vehicle.uid == selfUid()) return
+                val existing = fleetManager.get(vehicle.uid)
+                // Prefer CoT location when we already have a fresher position.
+                if (existing != null && existing.lastUpdateMs >= vehicle.lastUpdateMs) {
+                    fleetManager.update(
+                        vehicle.copy(
+                            lat = existing.lat,
+                            lon = existing.lon,
+                            lastUpdateMs = maxOf(existing.lastUpdateMs, vehicle.lastUpdateMs)
+                        )
+                    )
+                } else {
+                    fleetManager.update(vehicle)
+                }
+            }
+
+            override fun onDemoFleetPulled(units: List<PlowVehicle>) {
+                for (u in units) {
+                    if (u.uid == selfUid()) continue
+                    fleetManager.update(u)
+                }
+            }
+
+            override fun onHazardsPulled(hazards: List<HazardEvent>) {
+                for (h in hazards) {
+                    if (h.reporterUid == selfUid()) continue
+                    val isNew = synchronized(hazardLog) {
+                        if (hazardLog.containsKey(h.uid)) false
+                        else {
+                            hazardLog[h.uid] = h
+                            true
+                        }
+                    }
+                    if (isNew) hazardReporter.showLocal(h)
+                }
+            }
+
+            override fun onConditionsPulled(conditions: List<RoadConditionReport>) {
+                val ttl = conditionStaleMinutes()
+                for (c in conditions) {
+                    if (c.reporterUid == selfUid()) continue
+                    val isNew = synchronized(conditionLog) {
+                        if (conditionLog.containsKey(c.uid)) false
+                        else {
+                            conditionLog[c.uid] = c
+                            true
+                        }
+                    }
+                    if (isNew) cotPublisher.publishRoadCondition(c, ttl)
+                }
+            }
+
+            override fun onConditionsPruned(fresh: List<RoadConditionReport>) {
+                val dropped: List<RoadConditionReport>
+                synchronized(conditionLog) {
+                    val keep = fresh.map { it.uid }.toSet()
+                    dropped = conditionLog.values.filter { it.uid !in keep }
+                    conditionLog.clear()
+                    for (c in fresh) conditionLog[c.uid] = c
+                }
+                for (c in dropped) {
+                    cotPublisher.withdrawRoadCondition(c, mapView)
+                }
+            }
+
+            override fun onOpsPulled(snapshot: OpsMissionCodec.Snapshot) {
+                for (r in snapshot.routes) routeAssignments.onRemote(r)
+                for (z in snapshot.zones) zoneManager.onRemote(z, removed = false)
+                for (t in snapshot.tasks) taskManager.onRemote(t)
+            }
+
+            override fun onCoveragePulled(segments: List<TreatSegment>) {
+                for (seg in segments) coverageStore.mergeRemote(seg)
             }
         }
     )
@@ -184,6 +324,7 @@ class PlowTakController(
 
     fun start() {
         Log.i(TAG, "starting PlowTak engine")
+        PlowTakSettingsBackup.export(pluginContext)
 
         coverageStore.setStorm(stormManager.activeStormId)
 
@@ -199,6 +340,8 @@ class PlowTakController(
         coverageOverlay.start()
         fleetMarkers.start()
         alertOverlay.start()
+        plowStatusHud.start()
+        plowStatusHud.refreshVisibility()
         cotListener.start()
         equipment.start()
         reloadBluetoothLink()
@@ -218,6 +361,7 @@ class PlowTakController(
         shiftLog.addListener { shift ->
             statusManager.updateShift(shift != null)
             refreshTreatingState()
+            plowStatusHud.refreshVisibility()
             if (shift != null) {
                 PlowTakShiftService.start(
                     mapView.context,
@@ -226,6 +370,7 @@ class PlowTakController(
             } else {
                 swathBuilder.flush()
                 toggleSanity.reset()
+                plowStatusHud.setOverspeedCondition(false)
                 PlowTakShiftService.stop(mapView.context)
             }
         }
@@ -361,6 +506,11 @@ class PlowTakController(
     fun dispose() {
         Log.i(TAG, "disposing PlowTak engine")
         try {
+            demoFleet.stop()
+        } catch (e: Exception) {
+            Log.w(TAG, "demo fleet stop on dispose failed", e)
+        }
+        try {
             swathBuilder.flush()
         } catch (e: Exception) {
             Log.w(TAG, "flush on dispose failed", e)
@@ -382,8 +532,33 @@ class PlowTakController(
         coverageOverlay.dispose()
         fleetMarkers.dispose()
         alertOverlay.dispose()
+        plowStatusHud.dispose()
         voiceAlerts.shutdown()
         PlowTakShiftService.stop(mapView.context)
+        PlowTakSettingsBackup.export(pluginContext)
+    }
+
+    /**
+     * Start/stop the showcase fleet on a background thread (GraphHopper pack
+     * open can take a moment). [onDone] is posted to the map UI thread.
+     */
+    fun toggleDemoFleet(onDone: (DemoFleetSimulator.StartResult) -> Unit) {
+        if (demoFleet.isRunning) {
+            val msg = demoFleet.stop()
+            mapView.post {
+                onDone(DemoFleetSimulator.StartResult(true, msg, 0, false))
+            }
+            return
+        }
+        background.execute {
+            val result = try {
+                demoFleet.start(DemoFleetSimulator.DEFAULT_UNIT_COUNT)
+            } catch (e: Exception) {
+                Log.e(TAG, "demo fleet start failed", e)
+                DemoFleetSimulator.StartResult(false, "Demo start failed: ${e.message}")
+            }
+            mapView.post { onDone(result) }
+        }
     }
 
     /**
@@ -492,7 +667,14 @@ class PlowTakController(
             stormId = stormManager.activeStormId
         )
         synchronized(conditionLog) { conditionLog[report.uid] = report }
-        cotPublisher.publishRoadCondition(report)
+        cotPublisher.publishRoadCondition(report, conditionStaleMinutes())
+    }
+
+    /** Effective road-condition TTL: joined storm, else the settings default. */
+    fun conditionStaleMinutes(): Int {
+        val fromStorm = stormManager.activeSession()?.roadConditionTtlMinutes
+        return (fromStorm ?: prefs.roadConditionStaleMinutes)
+            .coerceIn(15, 24 * 60)
     }
 
     /** Start a storm session, create its Data Sync mission, and broadcast it. */
@@ -511,7 +693,8 @@ class PlowTakController(
             agency = agency,
             missionName = missionName,
             channel = channel,
-            cycleMinutes = cycleMinutes
+            cycleMinutes = cycleMinutes,
+            roadConditionTtlMinutes = prefs.roadConditionStaleMinutes
         )
         prefs.cycleTimeMinutes = session.cycleMinutes
         broadcastStorm(session)
@@ -520,13 +703,14 @@ class PlowTakController(
     }
 
     /**
-     * End the joined storm: broadcast end, then **delete** the Data Sync
-     * mission so the fleet stops reporting into it.
+     * End the joined storm: broadcast the end so the fleet stops reporting.
+     * The Data Sync mission and its data stay on the TAK server — deleting
+     * a mission is an admin action on the server, never done from here.
      */
     fun endStormSession(): StormSession? {
         val session = stormManager.endSession(System.currentTimeMillis()) ?: return null
         broadcastStorm(session)
-        background.execute { missionCoverageSync.deleteMissionFor(session) }
+        background.execute { missionCoverageSync.onStormEnded() }
         return session
     }
 
@@ -550,6 +734,57 @@ class PlowTakController(
     /** Stop reporting into a storm without ending it for other units. */
     fun leaveStormSession() {
         stormManager.leave()
+    }
+
+    /**
+     * PlowTAK missions currently on the Data Sync server (blocking network —
+     * runs [onResult] on the main thread).
+     */
+    fun listServerPlowTakMissions(onResult: (List<String>) -> Unit) {
+        val main = android.os.Handler(android.os.Looper.getMainLooper())
+        background.execute {
+            val missions = missionCoverageSync.listPlowTakMissions()
+            main.post { onResult(missions) }
+        }
+    }
+
+    /**
+     * Join a storm directly from its server mission: pull `storm-config.json`
+     * to rebuild the session, or fall back to a minimal session keyed on the
+     * mission name (config gets pulled and applied on the first sync tick).
+     */
+    fun joinStormFromServerMission(missionName: String, onDone: (StormSession?) -> Unit) {
+        val main = android.os.Handler(android.os.Looper.getMainLooper())
+        background.execute {
+            val cfg = missionCoverageSync.fetchStormConfig(missionName)
+            val session = if (cfg != null && cfg.id.isNotBlank()) {
+                StormSession(
+                    id = cfg.id,
+                    startTimeMs = if (cfg.startTimeMs > 0) cfg.startTimeMs
+                    else System.currentTimeMillis(),
+                    startedBy = cfg.startedBy,
+                    label = cfg.label,
+                    agency = cfg.agency,
+                    missionName = cfg.mission.ifBlank { missionName },
+                    channel = cfg.channel,
+                    cycleMinutes = if (cfg.cycleMinutes > 0) cfg.cycleMinutes
+                    else prefs.cycleTimeMinutes,
+                    roadConditionTtlMinutes = cfg.roadConditionTtlMinutes
+                )
+            } else {
+                StormSession(
+                    id = missionName,
+                    startTimeMs = System.currentTimeMillis(),
+                    label = missionName,
+                    missionName = missionName,
+                    cycleMinutes = prefs.cycleTimeMinutes
+                )
+            }
+            main.post {
+                joinStormSession(session)
+                onDone(session)
+            }
+        }
     }
 
     // ------------------------------------------------------ Phase 2 actions
@@ -708,6 +943,33 @@ class PlowTakController(
         cotPublisher.publishStormSession(session, pos?.lat ?: 0.0, pos?.lon ?: 0.0)
     }
 
+    /** Status payload for Data Sync (blade / spread / mode — not CoT). */
+    private fun buildSelfStatusVehicle(): PlowVehicle? {
+        val sample = lastPositionSample ?: return null
+        val cap = capabilityStore.load()
+        val eq = equipment.state
+        return PlowVehicle(
+            uid = selfUid(),
+            callsign = cap.callsign.ifEmpty { selfUid() },
+            type = cap.type,
+            status = statusManager.current,
+            lat = sample.lat,
+            lon = sample.lon,
+            headingDeg = sample.headingDeg,
+            lastUpdateMs = sample.timeMs,
+            hasBlade = cap.hasBlade,
+            hasSalt = cap.hasSalt,
+            bladeDown = eq.bladeDown,
+            saltOn = eq.saltOn,
+            stormId = stormManager.activeStormId,
+            operatorId = shiftLog.currentShift?.operatorId ?: "",
+            operatorName = shiftLog.currentShift?.operatorName ?: "",
+            reloadCount = facilityGeofences.reloadCountSince(
+                stormManager.current?.startTimeMs ?: 0L
+            )
+        )
+    }
+
     // ------------------------------------------------------------ wiring
 
     private val recordingListener = SelfTracker.Listener { sample ->
@@ -762,6 +1024,10 @@ class PlowTakController(
         )
 
         // Forgot-to-toggle heuristics (prompts only — never auto-flips).
+        val overspeedNow = equipment.state.bladeDown &&
+            sample.speedMps > prefs.maxPlowSpeedMph * MPS_PER_MPH
+        plowStatusHud.setOverspeedCondition(overspeedNow && shiftLog.isOnShift)
+
         val prompt = toggleSanity.onTick(
             ToggleSanity.Input(
                 timeMs = sample.timeMs,
@@ -776,7 +1042,12 @@ class PlowTakController(
         )
         if (prompt != null) {
             voiceAlerts.sanityPrompt(prompt.message)
-            sanityPromptListener?.invoke(prompt)
+            if (prompt.type == ToggleSanity.PromptType.CONFIRM_SPEED) {
+                // Audible + map HUD flash only — no dialog popup.
+                plowStatusHud.flashAlert()
+            } else {
+                sanityPromptListener?.invoke(prompt)
+            }
         }
     }
 

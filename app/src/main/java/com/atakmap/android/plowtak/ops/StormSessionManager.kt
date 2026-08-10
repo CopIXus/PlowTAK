@@ -59,7 +59,8 @@ class StormSessionManager(
         agency: String = "",
         missionName: String = "",
         channel: String = "",
-        cycleMinutes: Int = 45
+        cycleMinutes: Int = 45,
+        roadConditionTtlMinutes: Int = StormSession.DEFAULT_ROAD_CONDITION_TTL_MINUTES
     ): StormSession {
         val s = StormSession(
             id = generateId(nowMs),
@@ -69,7 +70,8 @@ class StormSessionManager(
             agency = agency.trim(),
             missionName = missionName.trim(),
             channel = channel.trim(),
-            cycleMinutes = cycleMinutes.coerceIn(5, 24 * 60)
+            cycleMinutes = cycleMinutes.coerceIn(5, 24 * 60),
+            roadConditionTtlMinutes = roadConditionTtlMinutes.coerceIn(15, 24 * 60)
         )
         remember(s)
         session = s
@@ -82,6 +84,19 @@ class StormSessionManager(
     fun updateCycleMinutes(minutes: Int): StormSession? {
         val active = session?.takeIf { it.isActive } ?: return null
         val next = active.copy(cycleMinutes = minutes.coerceIn(5, 24 * 60))
+        remember(next)
+        session = next
+        save()
+        notifyChanged()
+        return next
+    }
+
+    /** Update road-condition Data Sync TTL on the joined storm. */
+    fun updateRoadConditionTtlMinutes(minutes: Int): StormSession? {
+        val active = session?.takeIf { it.isActive } ?: return null
+        val next = active.copy(
+            roadConditionTtlMinutes = minutes.coerceIn(15, 24 * 60)
+        )
         remember(next)
         session = next
         save()
@@ -212,7 +227,8 @@ class StormSessionManager(
                 esc(s.agency),
                 esc(s.missionName),
                 esc(s.channel),
-                s.cycleMinutes.toString()
+                s.cycleMinutes.toString(),
+                s.roadConditionTtlMinutes.toString()
             ).joinToString("|")
 
         fun decodeSession(line: String): StormSession? {
@@ -229,7 +245,12 @@ class StormSessionManager(
                 agency = if (f.size > 5) unesc(f[5]) else "",
                 missionName = if (f.size > 6) unesc(f[6]) else "",
                 channel = if (f.size > 7) unesc(f[7]) else "",
-                cycleMinutes = if (f.size > 8) f[8].toIntOrNull() ?: 45 else 45
+                cycleMinutes = if (f.size > 8) f[8].toIntOrNull() ?: 45 else 45,
+                roadConditionTtlMinutes = if (f.size > 9) {
+                    f[9].toIntOrNull() ?: StormSession.DEFAULT_ROAD_CONDITION_TTL_MINUTES
+                } else {
+                    StormSession.DEFAULT_ROAD_CONDITION_TTL_MINUTES
+                }
             )
         }
 

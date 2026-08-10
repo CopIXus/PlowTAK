@@ -25,7 +25,8 @@ import kotlin.math.max
  * exits can exceed this; those points simply stay raw GPS.
  */
 class RoadSnapper private constructor(
-    private val graph: GraphHopperGraph,
+    /** Shared with callers that need edge walking (demo fleet, etc.). */
+    val graph: GraphHopperGraph,
     private val cellSizeDeg: Double
 ) {
 

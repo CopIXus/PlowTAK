@@ -234,7 +234,7 @@ class SupervisorPanel(
                 .setTitle("End storm?")
                 .setMessage(
                     "Ends ${session.displayName()} for the fleet and stops Data Sync " +
-                        "uploads for that mission."
+                        "uploads. The mission and its data stay on the TAK server."
                 )
                 .setPositiveButton("End storm") { _, _ ->
                     controller.endStormSession()

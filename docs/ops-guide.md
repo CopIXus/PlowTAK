@@ -40,21 +40,8 @@ determines what the operator sees and can do.
 - Equipment toggles: **Spreader On/Off** and material type — no blade control.
 - Same distress / hazard / condition tools as Plow (including QuickPic long-press).
 
-### 2.3 Supervisor (ops lead)
-
-- Publishes presence (non-treating) — never paints coverage.
-- Fleet list, overdue-segment view, alert acknowledge, **storm session start/end**,
-  cycle-time / priority settings, special zones, tasking, route assignment, export,
-  live metrics.
-- **Long-press a fleet truck** → Task / Assign route / Clear route. Assigned route
-  ids appear in the fleet list. Tasks also ping the target via GeoChat when the
-  contact is known.
-
-### 2.4 Observer (responders, traffic control, EOC)
-
-- Optional presence marker (configurable).
-- Sees live coverage, fleet status, hazards, and alerts — **no treat controls**.
-- Observer labels (Fire / EMS / Traffic / EOC) set in vehicle setup.
+There is **no separate supervisor or observer role**. Every unit uses the same
+Ops panel; **Storm** (create / join / leave / end) is available to all.
 
 ## 3. Reading the coverage map
 
@@ -71,29 +58,32 @@ determines what the operator sees and can do.
 Multiple agencies may start concurrent storms on the same mesh. PlowTAK **does
 not auto-join** remote storms — each device picks what it reports into.
 
-### Supervisor — start a storm
-1. Open PlowTAK → **Start storm session**.
-2. Enter **Agency** (e.g. VDOT) and a **designator** (e.g. I-81 North).
-3. Optional: **Mission override** (otherwise `plowtak-coverage-{stormId}`).
-4. Confirm the **Data Sync server** (button in the dialog or on the panel).
-   Uploads go to that one selected TAK server (not fan-out to every connection).
+### Start a storm
+1. Open PlowTAK → **Storm**.
+2. Confirm the **Data Sync server**, enter **Agency** and a **designator**.
+3. Optional: mission name override (otherwise derived from the storm label /
+   `plowtak-coverage-{stormId}`).
+4. Create — PlowTAK creates the Marti mission and announces the storm.
 
-### Every role — join a storm
-Use **Join / pick storm** (supervisor) or **Join storm** (driver / observer).
-Heard storms appear as `Agency · Designator · id`. Leave a storm to stop
-reporting without ending it for others.
+### Join a storm
+Use **Storm** → pick a heard storm (`Agency · Designator · id`) or mission from
+the server list. Leave a storm to stop reporting without ending it for others.
+**End** ends the storm for the fleet; the Data Sync mission remains on the
+server until an admin removes it.
 
 ### Coverage sharing
-- **Live CoT** — thinned coverage batches (~20s) keep the mesh usable.
-- **Data Sync** — while you have **joined** a storm, treat-capable units upload
-  5-minute gzip GeoJSON chunks to that storm’s mission on the selected server.
-  Late joiners pull those mission files for catch-up. Uploads are fail-open if
-  Data Sync or the server is unavailable.
+- **Live CoT** — PLI, distress, and storm announce stay on the mesh.
+- **Data Sync** — while you have **joined** a storm, PlowTAK syncs to that
+  storm’s Marti mission about **every 60 seconds** (hourly coverage
+  `.geojson.gz`, storm-config, hazards, conditions, unit status). Late joiners
+  pull mission files for catch-up. The on-device Data Sync plugin is not
+  required for PlowTAK’s Marti path. Uploads are fail-open if the server is
+  unavailable. Ending a storm does **not** delete the mission (admin-only).
 
 ## 5. Distress alerts
 
 One tap sends a Mayday with your location, vehicle type, and last equipment state to
-the fleet. Supervisors see an alert list and map pulse. TTS can announce nearby
+the fleet. Peers see the alert on the map. TTS can announce nearby
 distress when enabled.
 
 > Distress is a situational-awareness assist, **not** a substitute for radio/911 SOP.

@@ -8,14 +8,15 @@ import org.junit.Test
 class CapabilityRulesTest {
 
     private val plowWithSalt = VehicleCapability.defaultsFor(VehicleType.PLOW, "Plow-1", "P1")
-        .copy(hasSalt = true)
     private val plowOnly = VehicleCapability.defaultsFor(VehicleType.PLOW, "Plow-2", "P2")
+        .copy(hasSalt = false)
     private val saltOnly = VehicleCapability.defaultsFor(VehicleType.SALT_ONLY, "Salt-1", "S1")
     private val supervisor = VehicleCapability.defaultsFor(VehicleType.SUPERVISOR, "Sup-1", "SU1")
     private val observer = VehicleCapability.defaultsFor(VehicleType.OBSERVER, "Fire-Obs", "O1")
 
     @Test
     fun `defaults match capability table`() {
+        assertTrue(plowWithSalt.hasBlade); assertTrue(plowWithSalt.hasSalt); assertTrue(plowWithSalt.canTreat)
         assertTrue(plowOnly.hasBlade); assertFalse(plowOnly.hasSalt); assertTrue(plowOnly.canTreat)
         assertFalse(saltOnly.hasBlade); assertTrue(saltOnly.hasSalt); assertTrue(saltOnly.canTreat)
         assertFalse(supervisor.canTreat); assertTrue(supervisor.canManageStorm)

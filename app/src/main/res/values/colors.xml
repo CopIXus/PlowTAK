@@ -1,13 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="plowtak_bg">#1B2A41</color>
-    <color name="plowtak_accent">#5FA8D3</color>
-    <color name="plowtak_text">#F5F7FA</color>
-    <color name="plowtak_green">#2ECC40</color>
-    <color name="plowtak_yellow">#FFDC00</color>
-    <color name="plowtak_red">#FF4136</color>
-    <color name="plowtak_grey">#9E9E9E</color>
-    <color name="plowtak_distress">#C62828</color>
-    <color name="plowtak_toggle_on">#2E7D32</color>
-    <color name="plowtak_toggle_off">#455A64</color>
+    <!-- Match ATAK dark chrome (Tools / dropdown panels). -->
+    <color name="plowtak_bg">#FF000000</color>
+    <color name="plowtak_panel">#FF111111</color>
+    <color name="plowtak_accent">#FF5FA8D3</color>
+    <color name="plowtak_text">#FFF5F5F5</color>
+    <color name="plowtak_green">#FF2ECC40</color>
+    <color name="plowtak_yellow">#FFFFDC00</color>
+    <color name="plowtak_red">#FFFF4136</color>
+    <color name="plowtak_grey">#FF9E9E9E</color>
+    <color name="plowtak_distress">#FFB71C1C</color>
+    <color name="plowtak_toggle_on">#FF92A844</color>
+    <color name="plowtak_toggle_off">#FF000000</color>
+    <color name="plowtak_tile">#FF000000</color>
+    <color name="plowtak_tile_bar">#FF979797</color>
+    <color name="plowtak_tile_hazard">#FF3E2723</color>
+    <color name="plowtak_tile_condition">#FF212121</color>
 </resources>

@@ -26,8 +26,16 @@ data class StormSession(
     /** CoT channel the Data Sync mission belongs to (access control). */
     val channel: String = "",
     /** Freshness cycle minutes for this storm (shared via storm-config.json). */
-    val cycleMinutes: Int = 45
+    val cycleMinutes: Int = 45,
+    /**
+     * How long road-condition reports remain in Data Sync before they are
+     * dropped from the mission upload (and locally). Default 2 hours.
+     */
+    val roadConditionTtlMinutes: Int = DEFAULT_ROAD_CONDITION_TTL_MINUTES
 ) {
+    companion object {
+        const val DEFAULT_ROAD_CONDITION_TTL_MINUTES = 120
+    }
     val isActive: Boolean get() = endTimeMs == 0L
 
     /** Short UI label: agency · designator · id (skipping blanks). */

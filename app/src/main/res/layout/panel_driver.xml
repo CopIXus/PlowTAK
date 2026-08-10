@@ -2,15 +2,16 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/plowtak_bg">
+    android:background="@color/plowtak_bg"
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="12dp">
+        android:padding="6dp">
 
-        <!-- Header: title + Storm snowflake + Settings gear -->
+        <!-- Header: title + Storm + Night + Settings -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -22,54 +23,70 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="1"
                 android:textColor="@color/plowtak_text"
-                android:textSize="18sp"
+                android:textSize="15sp"
                 android:textStyle="bold" />
 
             <LinearLayout
                 android:id="@+id/driver_storm_btn"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:background="?android:attr/selectableItemBackground"
                 android:gravity="center"
-                android:orientation="vertical"
-                android:padding="6dp">
+                android:orientation="vertical">
 
                 <ImageView
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
                     android:contentDescription="@string/driver_storm_label"
                     android:src="@drawable/ic_plowtak_storm" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:includeFontPadding="false"
                     android:text="@string/driver_storm_label"
                     android:textColor="@color/plowtak_text"
-                    android:textSize="11sp" />
+                    android:textSize="9sp" />
             </LinearLayout>
+
+            <ToggleButton
+                android:id="@+id/driver_night_toggle"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="@android:color/transparent"
+                android:drawableTop="@drawable/ic_ops_night_off"
+                android:drawablePadding="0dp"
+                android:gravity="center"
+                android:paddingTop="2dp"
+                android:textColor="@color/plowtak_text"
+                android:textOff="@string/driver_night_short"
+                android:textOn="@string/driver_night_short"
+                android:textSize="9sp" />
 
             <LinearLayout
                 android:id="@+id/driver_settings_btn"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:background="?android:attr/selectableItemBackground"
                 android:gravity="center"
-                android:orientation="vertical"
-                android:padding="6dp">
+                android:orientation="vertical">
 
                 <ImageView
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
                     android:contentDescription="@string/driver_settings_label"
                     android:src="@drawable/ic_plowtak_settings" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:includeFontPadding="false"
                     android:text="@string/driver_settings_label"
                     android:textColor="@color/plowtak_text"
-                    android:textSize="11sp" />
+                    android:textSize="9sp" />
             </LinearLayout>
         </LinearLayout>
 
@@ -77,25 +94,22 @@
             android:id="@+id/driver_status_line"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
             android:textColor="@color/plowtak_accent"
-            android:textSize="16sp"
+            android:textSize="13sp"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/driver_paint_line"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
             android:textColor="@color/plowtak_grey"
-            android:textSize="13sp" />
+            android:textSize="11sp" />
 
-        <!-- Shift login -->
         <LinearLayout
             android:id="@+id/driver_shift_form"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="4dp"
             android:orientation="vertical">
 
             <EditText
@@ -106,7 +120,7 @@
                 android:inputType="textPersonName"
                 android:textColor="@color/plowtak_text"
                 android:textColorHint="@color/plowtak_grey"
-                android:textSize="18sp" />
+                android:textSize="15sp" />
 
             <EditText
                 android:id="@+id/driver_operator_id"
@@ -116,54 +130,34 @@
                 android:inputType="text"
                 android:textColor="@color/plowtak_text"
                 android:textColorHint="@color/plowtak_grey"
-                android:textSize="18sp" />
+                android:textSize="15sp" />
         </LinearLayout>
 
         <Button
             android:id="@+id/driver_shift_button"
             android:layout_width="match_parent"
-            android:layout_height="56dp"
+            android:layout_height="44dp"
             android:layout_marginTop="4dp"
             android:backgroundTint="@color/plowtak_accent"
             android:text="@string/driver_shift_start"
-            android:textSize="18sp"
+            android:textSize="14sp"
             android:textStyle="bold" />
 
-        <!-- Front-view plow + wings -->
         <com.atakmap.android.plowtak.ui.PlowControlView
             android:id="@+id/driver_plow_control"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="6dp"
             android:minHeight="120dp" />
 
-        <!-- Spread toggle -->
-        <ToggleButton
-            android:id="@+id/driver_spread_toggle"
-            android:layout_width="match_parent"
-            android:layout_height="88dp"
-            android:layout_marginTop="8dp"
-            android:backgroundTint="@color/plowtak_toggle_off"
-            android:drawableTop="@drawable/ic_ops_spreading"
-            android:drawablePadding="4dp"
-            android:gravity="center"
-            android:paddingTop="8dp"
-            android:paddingBottom="8dp"
-            android:textColor="@color/plowtak_text"
-            android:textOff="@string/driver_spread_off"
-            android:textOn="@string/driver_spread_on"
-            android:textSize="16sp"
-            android:textStyle="bold" />
-
-        <!-- Pending supervisor task -->
         <LinearLayout
             android:id="@+id/driver_task_bar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:background="@color/plowtak_toggle_off"
+            android:layout_marginTop="6dp"
+            android:background="@color/plowtak_tile"
             android:orientation="vertical"
-            android:padding="8dp"
+            android:padding="6dp"
             android:visibility="gone">
 
             <TextView
@@ -171,36 +165,36 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:textColor="@color/plowtak_text"
-                android:textSize="18sp"
+                android:textSize="14sp"
                 android:textStyle="bold" />
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="4dp"
                 android:orientation="horizontal">
 
                 <Button
                     android:id="@+id/driver_task_ack"
                     android:layout_width="0dp"
-                    android:layout_height="72dp"
-                    android:layout_marginEnd="4dp"
+                    android:layout_height="44dp"
+                    android:layout_marginEnd="3dp"
                     android:layout_weight="1"
                     android:backgroundTint="@color/plowtak_accent"
                     android:text="@string/driver_task_ack"
-                    android:textSize="22sp"
+                    android:textSize="14sp"
                     android:textStyle="bold" />
 
                 <Button
                     android:id="@+id/driver_task_decline"
                     android:layout_width="0dp"
-                    android:layout_height="72dp"
-                    android:layout_marginStart="4dp"
+                    android:layout_height="44dp"
+                    android:layout_marginStart="3dp"
                     android:layout_weight="1"
                     android:backgroundTint="@color/plowtak_distress"
                     android:text="@string/driver_task_decline"
                     android:textColor="@color/plowtak_text"
-                    android:textSize="22sp"
+                    android:textSize="14sp"
                     android:textStyle="bold" />
             </LinearLayout>
         </LinearLayout>
@@ -209,85 +203,81 @@
             android:id="@+id/driver_material_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="8dp"
             android:text="@string/driver_material_title"
-            android:textColor="@color/plowtak_text"
-            android:textSize="16sp"
-            android:textStyle="bold" />
+            android:textAllCaps="true"
+            android:textColor="@color/plowtak_grey"
+            android:textSize="11sp" />
 
-        <GridLayout
+        <com.atakmap.android.plowtak.ui.OpsTileGrid
             android:id="@+id/driver_material_grid"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:columnCount="3" />
+            android:layout_marginTop="2dp" />
 
-        <GridLayout
+        <TextView
+            android:id="@+id/driver_status_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/driver_status_title"
+            android:textAllCaps="true"
+            android:textColor="@color/plowtak_grey"
+            android:textSize="11sp" />
+
+        <com.atakmap.android.plowtak.ui.OpsTileGrid
             android:id="@+id/driver_status_grid"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:columnCount="2" />
+            android:layout_marginTop="2dp" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="8dp"
             android:text="@string/driver_hazards_title"
-            android:textColor="@color/plowtak_text"
-            android:textSize="16sp"
-            android:textStyle="bold" />
+            android:textAllCaps="true"
+            android:textColor="@color/plowtak_grey"
+            android:textSize="11sp" />
 
-        <GridLayout
+        <com.atakmap.android.plowtak.ui.OpsTileGrid
             android:id="@+id/driver_hazard_grid"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:columnCount="2" />
+            android:layout_marginTop="2dp" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="8dp"
             android:text="@string/driver_conditions_title"
-            android:textColor="@color/plowtak_text"
-            android:textSize="16sp"
-            android:textStyle="bold" />
+            android:textAllCaps="true"
+            android:textColor="@color/plowtak_grey"
+            android:textSize="11sp" />
 
-        <GridLayout
+        <com.atakmap.android.plowtak.ui.OpsTileGrid
             android:id="@+id/driver_condition_grid"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:columnCount="3" />
+            android:layout_marginTop="2dp" />
 
         <Button
             android:id="@+id/driver_distress"
             android:layout_width="match_parent"
-            android:layout_height="96dp"
-            android:layout_marginTop="16dp"
+            android:layout_height="68dp"
+            android:layout_marginTop="10dp"
             android:backgroundTint="@color/plowtak_distress"
             android:drawableTop="@drawable/ic_ops_mayday"
             android:drawablePadding="4dp"
             android:gravity="center"
-            android:paddingTop="8dp"
-            android:paddingBottom="8dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:minHeight="0dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp"
             android:text="@string/driver_distress"
             android:textColor="@color/plowtak_text"
-            android:textSize="18sp"
+            android:textSize="13sp"
             android:textStyle="bold" />
-
-        <ToggleButton
-            android:id="@+id/driver_night_toggle"
-            android:layout_width="match_parent"
-            android:layout_height="72dp"
-            android:layout_marginTop="12dp"
-            android:backgroundTint="@color/plowtak_toggle_off"
-            android:drawableTop="@drawable/ic_ops_night_off"
-            android:drawablePadding="2dp"
-            android:gravity="center"
-            android:paddingTop="6dp"
-            android:paddingBottom="6dp"
-            android:textColor="@color/plowtak_text"
-            android:textOff="@string/driver_night_off"
-            android:textOn="@string/driver_night_on"
-            android:textSize="13sp" />
     </LinearLayout>
 </ScrollView>

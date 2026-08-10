@@ -7,6 +7,7 @@ import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.RadioGroup
 import android.widget.Spinner
+import android.widget.Toast
 import com.atakmap.android.plowtak.PlowTakController
 import com.atakmap.android.plowtak.R
 import com.atakmap.android.plowtak.plugin.PluginLayoutInflater
@@ -40,11 +41,14 @@ class SetupPanel(
     private val presence = view.findViewById<CheckBox>(R.id.setup_presence)
     private val distress = view.findViewById<CheckBox>(R.id.setup_distress)
     private val ttsEnabled = view.findViewById<CheckBox>(R.id.setup_tts)
+    private val mapHud = view.findViewById<CheckBox>(R.id.setup_map_hud)
+    private val conditionStale = view.findViewById<EditText>(R.id.setup_condition_stale)
     private val roadSnap = view.findViewById<CheckBox>(R.id.setup_roadsnap)
     private val roadSnapDir = view.findViewById<EditText>(R.id.setup_roadsnap_dir)
     private val btEnabled = view.findViewById<CheckBox>(R.id.setup_bt_enabled)
     private val btAddress = view.findViewById<EditText>(R.id.setup_bt_address)
     private val btBle = view.findViewById<CheckBox>(R.id.setup_bt_ble)
+    private val demoBtn = view.findViewById<Button>(R.id.setup_demo_btn)
 
     private val widthLabels = listOf(
         "8 ft (2.4 m)", "10 ft (3.0 m)", "12 ft (3.7 m)",
@@ -83,10 +87,10 @@ class SetupPanel(
         val cap = controller.capabilityStore.load()
         if (controller.capabilityStore.isConfigured) {
             when (cap.type) {
-                VehicleType.PLOW -> typeGroup.check(R.id.setup_type_plow)
+                VehicleType.PLOW,
+                VehicleType.SUPERVISOR,
+                VehicleType.OBSERVER -> typeGroup.check(R.id.setup_type_plow)
                 VehicleType.SALT_ONLY -> typeGroup.check(R.id.setup_type_salt)
-                VehicleType.SUPERVISOR -> typeGroup.check(R.id.setup_type_supervisor)
-                VehicleType.OBSERVER -> typeGroup.check(R.id.setup_type_observer)
             }
             callsign.setText(cap.callsign)
             vehicleId.setText(cap.vehicleId)
@@ -103,33 +107,42 @@ class SetupPanel(
             widthSpinner.setSelection(1) // 10 ft default
         }
         ttsEnabled.isChecked = controller.prefs.ttsEnabled
+        mapHud.isChecked = controller.prefs.mapHudEnabled
+        conditionStale.setText(controller.prefs.roadConditionStaleMinutes.toString())
         roadSnap.isChecked = controller.prefs.roadSnapEnabled
         roadSnapDir.setText(controller.prefs.roadSnapDir)
         roadSnapDir.visibility = if (roadSnap.isChecked) View.VISIBLE else View.GONE
         btEnabled.isChecked = controller.prefs.btEquipmentEnabled
         btAddress.setText(controller.prefs.btDeviceAddress)
         btBle.isChecked = controller.prefs.btUseBle
-        view.findViewById<EditText>(R.id.setup_cycle_minutes)
-            .setText(controller.prefs.cycleTimeMinutes.toString())
         applyVisibility()
+        refreshDemoButton()
 
-        view.findViewById<Button>(R.id.setup_storm_start).setOnClickListener {
-            StormServerDialogs.showStartStormDialog(controller, controller.mapView.context)
-        }
-        view.findViewById<Button>(R.id.setup_storm_end).setOnClickListener {
-            StormServerDialogs.showEndStormDialog(controller, controller.mapView.context)
-        }
-        view.findViewById<Button>(R.id.setup_datasync_server).setOnClickListener {
-            StormServerDialogs.showDataSyncServerPicker(controller, controller.mapView.context)
-        }
-        view.findViewById<Button>(R.id.setup_cycle_apply).setOnClickListener {
-            val mins = view.findViewById<EditText>(R.id.setup_cycle_minutes)
-                .text.toString().toIntOrNull()
-            if (mins == null || mins < 5) return@setOnClickListener
-            controller.prefs.cycleTimeMinutes = mins
-            controller.updateStormCycleMinutes(mins)
-        }
+        demoBtn.setOnClickListener { toggleDemo() }
         view.findViewById<Button>(R.id.setup_save).setOnClickListener { save() }
+    }
+
+    private fun refreshDemoButton() {
+        demoBtn.isEnabled = true
+        demoBtn.setText(
+            if (controller.demoFleet.isRunning) R.string.setup_demo_stop
+            else R.string.setup_demo_start
+        )
+    }
+
+    private fun toggleDemo() {
+        demoBtn.isEnabled = false
+        if (!controller.demoFleet.isRunning) {
+            demoBtn.setText(R.string.setup_demo_starting)
+        }
+        controller.toggleDemoFleet { result ->
+            Toast.makeText(
+                controller.mapView.context,
+                result.message,
+                if (result.ok) Toast.LENGTH_LONG else Toast.LENGTH_SHORT
+            ).show()
+            refreshDemoButton()
+        }
     }
 
     private fun nearestIndex(options: List<Double>, value: Double): Int {
@@ -139,20 +152,15 @@ class SetupPanel(
 
     private fun selectedType(): VehicleType = when (typeGroup.checkedRadioButtonId) {
         R.id.setup_type_salt -> VehicleType.SALT_ONLY
-        R.id.setup_type_supervisor, R.id.setup_type_observer -> VehicleType.SUPERVISOR
         else -> VehicleType.PLOW
     }
 
     private fun applyVisibility() {
         val type = selectedType()
-        treatOptions.visibility =
-            if (type == VehicleType.PLOW || type == VehicleType.SALT_ONLY) View.VISIBLE
-            else View.GONE
+        treatOptions.visibility = View.VISIBLE
         // A salt-only truck always has a spreader; the checkbox is for plows.
         hasSalt.visibility = if (type == VehicleType.PLOW) View.VISIBLE else View.GONE
-        // Legacy observer option folded into "no treat equipment".
         observerOptions.visibility = View.GONE
-        view.findViewById<View>(R.id.setup_type_observer)?.visibility = View.GONE
     }
 
     private fun save() {
@@ -186,20 +194,27 @@ class SetupPanel(
 
         controller.capabilityStore.save(cap)
         controller.prefs.ttsEnabled = ttsEnabled.isChecked
+        controller.prefs.mapHudEnabled = mapHud.isChecked
+        controller.plowStatusHud.refreshVisibility()
+        val staleMin = conditionStale.text.toString().trim().toIntOrNull() ?: 120
+        controller.prefs.roadConditionStaleMinutes = staleMin
+        // Keep a joined storm's TTL in sync with the setting.
+        controller.stormManager.updateRoadConditionTtlMinutes(
+            controller.prefs.roadConditionStaleMinutes
+        )
         controller.prefs.roadSnapEnabled = roadSnap.isChecked
         controller.prefs.roadSnapDir = roadSnapDir.text.toString().trim()
         controller.prefs.btEquipmentEnabled = btEnabled.isChecked
         controller.prefs.btDeviceAddress = btAddress.text.toString().trim()
         controller.prefs.btUseBle = btBle.isChecked
+        com.atakmap.android.plowtak.prefs.PlowTakSettingsBackup.export(controller.pluginContext)
         controller.reloadRoadSnapper()
         controller.reloadBluetoothLink()
         onSaved()
     }
 
     private fun defaultCallsign(type: VehicleType): String = when (type) {
-        VehicleType.PLOW -> "Plow-1"
         VehicleType.SALT_ONLY -> "Spread-1"
-        VehicleType.SUPERVISOR -> "Cmd-1"
-        VehicleType.OBSERVER -> "Cmd-1"
+        else -> "Plow-1"
     }
 }
