@@ -84,11 +84,13 @@ Heard storms appear as `Agency · Designator · id`. Leave a storm to stop
 reporting without ending it for others.
 
 ### Coverage sharing
-- **Live CoT** — thinned coverage batches (~20s) keep the mesh usable.
-- **Data Sync** — while you have **joined** a storm, treat-capable units upload
-  5-minute gzip GeoJSON chunks to that storm’s mission on the selected server.
-  Late joiners pull those mission files for catch-up. Uploads are fail-open if
-  Data Sync or the server is unavailable.
+- **Live CoT** — PLI, distress, and storm announce stay on the mesh.
+- **Data Sync** — while you have **joined** a storm, PlowTAK syncs to that
+  storm’s Marti mission about **every 60 seconds** (hourly coverage
+  `.geojson.gz`, storm-config, hazards, conditions, unit status). Late joiners
+  pull mission files for catch-up. The on-device Data Sync plugin is not
+  required for PlowTAK’s Marti path. Uploads are fail-open if the server is
+  unavailable. Ending a storm does **not** delete the mission (admin-only).
 
 ## 5. Distress alerts
 
