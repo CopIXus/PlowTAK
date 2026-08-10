@@ -87,10 +87,10 @@ class SetupPanel(
         val cap = controller.capabilityStore.load()
         if (controller.capabilityStore.isConfigured) {
             when (cap.type) {
-                VehicleType.PLOW -> typeGroup.check(R.id.setup_type_plow)
+                VehicleType.PLOW,
+                VehicleType.SUPERVISOR,
+                VehicleType.OBSERVER -> typeGroup.check(R.id.setup_type_plow)
                 VehicleType.SALT_ONLY -> typeGroup.check(R.id.setup_type_salt)
-                VehicleType.SUPERVISOR -> typeGroup.check(R.id.setup_type_supervisor)
-                VehicleType.OBSERVER -> typeGroup.check(R.id.setup_type_observer)
             }
             callsign.setText(cap.callsign)
             vehicleId.setText(cap.vehicleId)
@@ -152,20 +152,15 @@ class SetupPanel(
 
     private fun selectedType(): VehicleType = when (typeGroup.checkedRadioButtonId) {
         R.id.setup_type_salt -> VehicleType.SALT_ONLY
-        R.id.setup_type_supervisor, R.id.setup_type_observer -> VehicleType.SUPERVISOR
         else -> VehicleType.PLOW
     }
 
     private fun applyVisibility() {
         val type = selectedType()
-        treatOptions.visibility =
-            if (type == VehicleType.PLOW || type == VehicleType.SALT_ONLY) View.VISIBLE
-            else View.GONE
+        treatOptions.visibility = View.VISIBLE
         // A salt-only truck always has a spreader; the checkbox is for plows.
         hasSalt.visibility = if (type == VehicleType.PLOW) View.VISIBLE else View.GONE
-        // Legacy observer option folded into "no treat equipment".
         observerOptions.visibility = View.GONE
-        view.findViewById<View>(R.id.setup_type_observer)?.visibility = View.GONE
     }
 
     private fun save() {
@@ -219,9 +214,7 @@ class SetupPanel(
     }
 
     private fun defaultCallsign(type: VehicleType): String = when (type) {
-        VehicleType.PLOW -> "Plow-1"
         VehicleType.SALT_ONLY -> "Spread-1"
-        VehicleType.SUPERVISOR -> "Cmd-1"
-        VehicleType.OBSERVER -> "Cmd-1"
+        else -> "Plow-1"
     }
 }
