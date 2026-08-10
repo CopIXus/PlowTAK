@@ -92,10 +92,10 @@ One APK. Pick type in **Settings** (first run / Vehicle setup):
 |------|-----|---------------|-----------------|-----------|
 | **Plow** | Blade truck (± spreader) | Yes | Yes, when treating | Blade / wings; salt if equipped |
 | **SaltOnly** | Spreader / brine, no blade | Yes | Yes, when material on | Spreader + material |
-| **Supervisor** | Ops lead | Yes (non-treating) | No | Storm create/end; same join/leave |
 
-Anyone on the mesh can **join** a storm. Create/end is for storm managers.
-(Legacy “Observer” in older prefs is treated like supervisor.)
+Every unit uses the same **Ops · Storm · Settings** panels. Any device can
+**create, join, leave, or end** a storm — there is no separate supervisor or
+observer role.
 
 ---
 
