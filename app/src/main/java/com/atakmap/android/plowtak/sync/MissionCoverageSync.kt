@@ -62,11 +62,9 @@ class MissionCoverageSync(
     }
 
     fun dispose() {
-        try {
-            syncOnce(forceConfig = false)
-        } catch (t: Throwable) {
-            Log.w(TAG, "dispose sync failed (fail-open)", t)
-        }
+        // Plugin teardown runs on the main thread (MapComponent.onDestroy).
+        // Never call Marti/OkHttp here — StrictMode throws NetworkOnMainThreadException.
+        // Normal ticks / onStormStarted already push; skip a final flush on unload.
     }
 
     /**
