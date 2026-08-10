@@ -3,12 +3,11 @@
 Handoff notes for PlowTAK so work can continue from any machine that has this
 repo (UNAS: `\\192.168.1.26\Working\TAK\IdeaPlowPlugin` or `T:\TAK\IdeaPlowPlugin`).
 
-**Last verified:** 2026-08-09  
-**Successful TPP job:** `amos-halava1-leo-gov-20260809-161048`  
-  (APK `PlowTAK-26.0809.1611-ATAK-5.8.0-civ-release.apk`; prior good job
-  `amos-halava1-leo-gov-20260809-092536`)  
-**GitHub release:** https://github.com/CopIXus/PlowTAK/releases/tag/tpc-0.1.1  
-**Git commit:** `da02649` (storm join / Data Sync picker + applymapping)
+**Last verified:** 2026-08-10  
+**Successful TPP job:** `amos-halava1-leo-gov-20260810-123525`  
+  (APK `PlowTAK-26.0810.1835-ATAK-5.8.0-civ-release.apk`)  
+**GitHub release:** https://github.com/CopIXus/PlowTAK/releases/tag/tpc-0.1.4  
+**Git commit:** `f560310` (Data Sync storm workflow, map HUD, UI polish)
 
 ---
 
@@ -108,10 +107,16 @@ See also [ci-build.md](ci-build.md) § “TAK Product Center signing”.
 
 Portal: https://tak.gov/user_builds (must be logged in).
 
+**Preferred workflow for new deployments:** lean **allowlist** source zip
+(typically a few hundred KB), not “zip the whole working tree.” Full checklist:
+[tak-gov-submission.md](tak-gov-submission.md).
+
 | Requirement | PlowTAK status |
 |-------------|----------------|
 | Single root folder in zip; name becomes APK base name | `PlowTAK/` |
-| Gradle + wrapper at that root | yes |
+| Lean size (source + wrapper; **no** `docs/`, `.takdev/`, `app/libs/`) | use packager below |
+| `template.local.properties` (placeholders only) | yes (root) |
+| Gradle + wrapper at that root (`gradle-wrapper.jar` required) | yes |
 | `assembleCivRelease` defined | yes |
 | `atak-gradle-takdev` used for SDK | yes (`3.+` when takrepo on) |
 | `-repackageclasses atakplugin.PlowTAK` | yes (`app/proguard-gradle.txt`) |
@@ -125,24 +130,16 @@ Portal: https://tak.gov/user_builds (must be logged in).
 It stores **backslash** paths. Linux TPP unpack fails in ~2 seconds with no
 useful download (“Sorry, the build file is not available.”).
 
-Build the zip with Python `zipfile` (forward slashes) or WSL `zip -r`.
-
-Example (from repo root on a Windows machine):
+### Preferred packager
 
 ```powershell
-# Stage under .tmp-apk/submit-root/PlowTAK (exclude .git, build, Maps, local.properties, *.jks, *.apk)
-# Then:
-python -c "import os,zipfile; from pathlib import Path; src=Path(r'.tmp-apk/submit-root/PlowTAK'); out=Path(r'.tmp-apk/PlowTAK-user-build.zip');
-zf=zipfile.ZipFile(out,'w',zipfile.ZIP_DEFLATED);
-[zf.writestr(zipfile.ZipInfo('PlowTAK/'+p.relative_to(src).as_posix(), date_time=p.stat().st_mtime_ns and __import__('time').localtime(p.stat().st_mtime)[:6]), p.read_bytes()) for p in src.rglob('*') if p.is_file()];
-zf.close(); print(out, out.stat().st_size)"
+cd T:\TAK\IdeaPlowPlugin
+python .tmp-apk\build_tpp_zip.py
+# → .tmp-apk\PlowTAK-user-build.zip  (allowlist; rejects docs/.takdev/libs/secrets)
 ```
 
-(Prefer the fuller script used previously under `.tmp-apk/` that also sets
-`gradlew` executable mode `0755`.)
-
-Exclude: `.git`, `build/`, `.gradle/`, `Maps/`, `local.properties`, `*.jks`,
-`*.keystore`, `*.apk`, `.tmp-apk/`.
+Must exclude: `docs/` (README hero alone was ~9 MB), `.takdev/`, `app/libs/`,
+`.git`, `build/`, `.gradle/`, `local.properties`, `*.jks`, `*.apk`.
 
 ---
 

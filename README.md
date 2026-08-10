@@ -9,6 +9,11 @@
 **PlowTAK** is an ATAK plugin for winter road operations — snow plow fleet coverage
 tracking over TAK Server. Published by **CopIX**.
 
+**Field install (ATAK-CIV 5.8):** download the latest **TPC-signed** APK from
+[Releases / tpc-0.1.4](https://github.com/CopIXus/PlowTAK/releases/tag/tpc-0.1.4),
+install, then Plugins → PlowTAK → **Load**. CopIX-only CI builds will show
+“signature INVALID” on release ATAK — use a `tpc-*` release for Load.
+
 Every plow publishes its live position and equipment state (blade down, spreader on).
 Every other plow, supervisor, and observer on the same TAK Server sees **where roads
 have been treated in the last X minutes**, which priority segments are overdue, plow
@@ -149,10 +154,13 @@ The ATAK SDK is required and is **not** included in this repository.
    `PlowTAK-<yy.mmdd.HHmm>-ATAK-5.8.0-civ-release.apk`
    (UTC build stamp, e.g. `PlowTAK-26.0809.0935-ATAK-5.8.0-civ-release.apk`)
 
-4. Install a **TAK Product Center–signed** APK (from a GitHub Release marked
-   TPC/user_builds, or your own takrepo-signed `assembleCivRelease`), then
-   enable it in ATAK's Plugins manager. A CopIX-only CI signature will show
-   “signature INVALID” on release ATAK-CIV — see [docs/ci-build.md](docs/ci-build.md).
+4. Install a **TAK Product Center–signed** APK — current field build:
+   [tpc-0.1.4](https://github.com/CopIXus/PlowTAK/releases/tag/tpc-0.1.4)
+   (`PlowTAK-26.0810.1835-ATAK-5.8.0-civ-release.apk` from tak.gov job
+   `amos-halava1-leo-gov-20260810-123525`). Then enable it in ATAK's Plugins
+   manager. A CopIX-only CI signature will show “signature INVALID” on release
+   ATAK-CIV — see [docs/ci-build.md](docs/ci-build.md) and
+   [docs/tpc-signing.md](docs/tpc-signing.md).
 
 Framework-free engine tests (no ATAK SDK):
 
@@ -177,6 +185,7 @@ Release assets**. Device install steps: [docs/vns-install.md](docs/vns-install.m
 | [docs/vns-install.md](docs/vns-install.md) | VNS / GraphHopper pack install |
 | [docs/ci-build.md](docs/ci-build.md) | GitHub Actions APK build + required secrets |
 | [docs/tpc-signing.md](docs/tpc-signing.md) | TAK Product Center / user_builds signing handoff |
+| [docs/tak-gov-submission.md](docs/tak-gov-submission.md) | Lean source zip for the next tak.gov upload |
 | [CHANGELOG.md](CHANGELOG.md) | Release history |
 
 ## CI / Releases

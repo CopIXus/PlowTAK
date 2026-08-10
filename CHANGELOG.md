@@ -7,7 +7,28 @@ Plugin versions use **yy.mmdd.HHmm** UTC (build timestamp), e.g. `26.0809.0935`.
 
 ## [Unreleased]
 
+## [0.1.4] — 2026-08-10 (TPC `tpc-0.1.4`)
+
+TPC job `amos-halava1-leo-gov-20260810-123525` →
+`PlowTAK-26.0810.1835-ATAK-5.8.0-civ-release.apk`
+([release](https://github.com/CopIXus/PlowTAK/releases/tag/tpc-0.1.4)).
+
 ### Added
+- Map HUD under menus (persisted setting); Storm as a full panel.
+- Road-condition stale TTL (default 2h) with expired condition cleanup.
+- Lean tak.gov submission notes (`docs/tak-gov-submission.md`).
+
+### Changed
+- Data Sync storm missions create/upload via Marti without requiring the Data
+  Sync plugin on-device for PlowTAK’s path; mission delete removed from the
+  plugin (admin-only on server).
+- Hazard/condition peer labels; smaller Done/Save pills and UI polish.
+
+### Fixed
+- Duplicate Wet road-condition markers from unstable GeoJSON hashes.
+- Mission create HTTP 500 when PUT had an empty JSON body.
+
+### Added (earlier unreleased)
 - **Storm catalog + join** — remote storms are heard but not auto-joined; each
   device picks which agency storm to report into (agency · designator · id).
 - **Supervisor start dialog** — agency, storm designator, optional mission
