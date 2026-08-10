@@ -4,7 +4,11 @@
   <img src="docs/images/plowtak-logo.png" alt="PlowTAK logo" width="220"/>
 </p>
 
-![PlowTAK driver UI — map, plow controls, materials, hazards, and road conditions](docs/images/plowtak-ui-hero.png)
+<p align="center">
+  <img src="docs/images/plowtak-ui-hero.jpg" alt="PlowTAK on ATAK — map with active storm plus driver panel (plow, material, hazards, road conditions)" width="420"/>
+</p>
+
+<p align="center"><em>PlowTAK running inside ATAK-CIV (Fold cover): live map + driver ops panel.</em></p>
 
 **PlowTAK** is an ATAK plugin for winter road operations — snow plow fleet coverage
 tracking over TAK Server. Published by **CopIX**.
