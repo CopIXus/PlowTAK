@@ -7,6 +7,7 @@ import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.RadioGroup
 import android.widget.Spinner
+import android.widget.Toast
 import com.atakmap.android.plowtak.PlowTakController
 import com.atakmap.android.plowtak.R
 import com.atakmap.android.plowtak.plugin.PluginLayoutInflater
@@ -45,6 +46,7 @@ class SetupPanel(
     private val btEnabled = view.findViewById<CheckBox>(R.id.setup_bt_enabled)
     private val btAddress = view.findViewById<EditText>(R.id.setup_bt_address)
     private val btBle = view.findViewById<CheckBox>(R.id.setup_bt_ble)
+    private val demoBtn = view.findViewById<Button>(R.id.setup_demo_btn)
 
     private val widthLabels = listOf(
         "8 ft (2.4 m)", "10 ft (3.0 m)", "12 ft (3.7 m)",
@@ -109,27 +111,34 @@ class SetupPanel(
         btEnabled.isChecked = controller.prefs.btEquipmentEnabled
         btAddress.setText(controller.prefs.btDeviceAddress)
         btBle.isChecked = controller.prefs.btUseBle
-        view.findViewById<EditText>(R.id.setup_cycle_minutes)
-            .setText(controller.prefs.cycleTimeMinutes.toString())
         applyVisibility()
+        refreshDemoButton()
 
-        view.findViewById<Button>(R.id.setup_storm_start).setOnClickListener {
-            StormServerDialogs.showStartStormDialog(controller, controller.mapView.context)
-        }
-        view.findViewById<Button>(R.id.setup_storm_end).setOnClickListener {
-            StormServerDialogs.showEndStormDialog(controller, controller.mapView.context)
-        }
-        view.findViewById<Button>(R.id.setup_datasync_server).setOnClickListener {
-            StormServerDialogs.showDataSyncServerPicker(controller, controller.mapView.context)
-        }
-        view.findViewById<Button>(R.id.setup_cycle_apply).setOnClickListener {
-            val mins = view.findViewById<EditText>(R.id.setup_cycle_minutes)
-                .text.toString().toIntOrNull()
-            if (mins == null || mins < 5) return@setOnClickListener
-            controller.prefs.cycleTimeMinutes = mins
-            controller.updateStormCycleMinutes(mins)
-        }
+        demoBtn.setOnClickListener { toggleDemo() }
         view.findViewById<Button>(R.id.setup_save).setOnClickListener { save() }
+    }
+
+    private fun refreshDemoButton() {
+        demoBtn.isEnabled = true
+        demoBtn.setText(
+            if (controller.demoFleet.isRunning) R.string.setup_demo_stop
+            else R.string.setup_demo_start
+        )
+    }
+
+    private fun toggleDemo() {
+        demoBtn.isEnabled = false
+        if (!controller.demoFleet.isRunning) {
+            demoBtn.setText(R.string.setup_demo_starting)
+        }
+        controller.toggleDemoFleet { result ->
+            Toast.makeText(
+                controller.mapView.context,
+                result.message,
+                if (result.ok) Toast.LENGTH_LONG else Toast.LENGTH_SHORT
+            ).show()
+            refreshDemoButton()
+        }
     }
 
     private fun nearestIndex(options: List<Double>, value: Double): Int {

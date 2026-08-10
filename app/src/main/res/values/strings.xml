@@ -12,8 +12,8 @@
     <string name="setup_type_observer">No treat equipment (legacy observer)</string>
     <string name="setup_storm_section">Storm / Data Sync</string>
     <string name="setup_cycle_hint">Storm cycle minutes</string>
-    <string name="setup_callsign_hint">Callsign (e.g. Plow-12)</string>
-    <string name="setup_vehicle_id_hint">Vehicle ID (e.g. T-1042)</string>
+    <string name="setup_callsign_hint">Unit number (e.g. Unit 12)</string>
+    <string name="setup_vehicle_id_hint">Truck number (e.g. T-1042)</string>
     <string name="setup_has_salt">Has spreader (salt)</string>
     <string name="setup_plow_width">Plow width</string>
     <string name="setup_observer_label_hint">Observer label (Fire / EMS / Traffic / EOC)</string>
@@ -32,6 +32,11 @@
     <string name="setup_tts_enabled">Voice alerts (tasks, overdue, distress)</string>
     <string name="setup_roadsnap_enabled">Snap GPS to roads (GraphHopper pack)</string>
     <string name="setup_roadsnap_dir_hint">Pack folder (contains nodes/edges/geometry)</string>
+    <string name="setup_demo_section">Demo storm fleet</string>
+    <string name="setup_demo_intro">Spawns ~30 DemoPlow units near your map position (GPS, self marker, or map center). Works without VNS — geodesic motion by default; optional GraphHopper pack for on-road driving. Units plow/salt, change status, and publish CoT to connected peers.</string>
+    <string name="setup_demo_start">Start demo fleet</string>
+    <string name="setup_demo_stop">Stop demo fleet</string>
+    <string name="setup_demo_starting">Starting demo fleet…</string>
 
     <!-- Driver panel -->
     <string name="driver_blade">BLADE</string>
@@ -59,6 +64,7 @@
     <string name="driver_task_decline">DECLINE</string>
     <string name="driver_night_on">NIGHT MODE ON</string>
     <string name="driver_night_off">NIGHT MODE OFF</string>
+    <string name="driver_night_short">Night</string>
 
     <!-- Supervisor panel -->
     <string name="sup_storm_start">Start storm session</string>

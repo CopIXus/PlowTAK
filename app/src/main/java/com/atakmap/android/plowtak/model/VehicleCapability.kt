@@ -70,7 +70,7 @@ data class VehicleCapability(
         ): VehicleCapability = when (type) {
             VehicleType.PLOW -> VehicleCapability(
                 type = type,
-                hasBlade = true, hasSalt = false,
+                hasBlade = true, hasSalt = true,
                 canTreat = true, canManageStorm = false,
                 canSendDistress = true, publishPresence = true,
                 plowWidthM = DEFAULT_WIDTH_M,

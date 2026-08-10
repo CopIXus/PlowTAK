@@ -11,12 +11,12 @@ import android.graphics.RectF
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
-import com.atakmap.android.plowtak.model.EquipmentState
 import com.atakmap.android.plowtak.R
+import com.atakmap.android.plowtak.model.EquipmentState
 
 /**
- * Front-view plow control using plow art: left wing | blade | right wing.
- * Green fill inside a part = blade down / wing extended.
+ * Front-view plow control: left wing | blade | right wing, plus a spreader bar
+ * across the bottom. Green fill stays inside each part outline.
  */
 class PlowControlView @JvmOverloads constructor(
     context: Context,
@@ -39,10 +39,24 @@ class PlowControlView @JvmOverloads constructor(
             field = value
             invalidate()
         }
+    var spreadingOn: Boolean = false
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    /** When false, spreader hit target and fill are hidden. */
+    var spreaderEnabled: Boolean = true
+        set(value) {
+            field = value
+            requestLayout()
+            invalidate()
+        }
 
     var onBladeToggle: ((Boolean) -> Unit)? = null
     var onWingLeftToggle: ((Boolean) -> Unit)? = null
     var onWingRightToggle: ((Boolean) -> Unit)? = null
+    var onSpreaderToggle: ((Boolean) -> Unit)? = null
 
     private val art: Bitmap = loadArt(context)
     private val artSrc = Rect(0, 0, art.width, art.height)
@@ -53,10 +67,22 @@ class PlowControlView @JvmOverloads constructor(
         color = COLOR_ACTIVE
     }
     private val artPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val spreaderOutline = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = dp(2).toFloat()
+        color = 0xFFFFFFFF.toInt()
+    }
+    private val spreaderLabel = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFFFFFFFF.toInt()
+        textAlign = Paint.Align.CENTER
+        textSize = sp(11)
+        isFakeBoldText = true
+    }
 
     private val leftWingHit = RectF()
     private val bladeHit = RectF()
     private val rightWingHit = RectF()
+    private val spreaderHit = RectF()
 
     private val leftWingPath = Path()
     private val bladePath = Path()
@@ -66,50 +92,61 @@ class PlowControlView @JvmOverloads constructor(
         bladeDown = state.bladeDown
         wingLeft = state.wingLeftExtended
         wingRight = state.wingRightExtended
+        spreadingOn = state.spreadingOn
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val w = MeasureSpec.getSize(widthMeasureSpec).coerceAtLeast(dp(120))
         val aspect = art.height.toFloat() / art.width.toFloat()
-        val h = (w * aspect).toInt().coerceAtLeast(dp(100))
-        setMeasuredDimension(w, h)
+        val artH = (w * aspect).toInt()
+        val spreaderH = if (spreaderEnabled) dp(36) else 0
+        setMeasuredDimension(w, artH + spreaderH)
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
-        artDst.set(0f, 0f, w.toFloat(), h.toFloat())
+        val spreaderH = if (spreaderEnabled) dp(36).toFloat() else 0f
+        artDst.set(0f, 0f, w.toFloat(), (h - spreaderH).coerceAtLeast(1f))
         layoutRegions()
     }
 
     private fun layoutRegions() {
-        // Fractions of the art canvas that map to the three plow parts.
-        leftWingHit.set(fx(0.02f), fy(0.28f), fx(0.30f), fy(0.78f))
-        bladeHit.set(fx(0.28f), fy(0.22f), fx(0.72f), fy(0.80f))
-        rightWingHit.set(fx(0.70f), fy(0.28f), fx(0.98f), fy(0.78f))
+        // Tighter fractions so green stays inside the white plow outlines.
+        leftWingHit.set(fx(0.04f), fy(0.32f), fx(0.30f), fy(0.72f))
+        bladeHit.set(fx(0.30f), fy(0.28f), fx(0.70f), fy(0.72f))
+        rightWingHit.set(fx(0.70f), fy(0.32f), fx(0.96f), fy(0.72f))
 
         leftWingPath.reset()
-        leftWingPath.moveTo(fx(0.28f), fy(0.34f))
-        leftWingPath.lineTo(fx(0.12f), fy(0.36f))
-        leftWingPath.quadTo(fx(0.04f), fy(0.42f), fx(0.05f), fy(0.55f))
-        leftWingPath.lineTo(fx(0.06f), fy(0.66f))
-        leftWingPath.quadTo(fx(0.10f), fy(0.72f), fx(0.22f), fy(0.70f))
-        leftWingPath.lineTo(fx(0.29f), fy(0.68f))
+        leftWingPath.moveTo(fx(0.295f), fy(0.38f))
+        leftWingPath.lineTo(fx(0.16f), fy(0.40f))
+        leftWingPath.quadTo(fx(0.08f), fy(0.44f), fx(0.075f), fy(0.54f))
+        leftWingPath.lineTo(fx(0.085f), fy(0.64f))
+        leftWingPath.quadTo(fx(0.14f), fy(0.70f), fx(0.24f), fy(0.68f))
+        leftWingPath.lineTo(fx(0.295f), fy(0.66f))
         leftWingPath.close()
 
         bladePath.reset()
-        bladePath.moveTo(fx(0.30f), fy(0.30f))
-        bladePath.quadTo(fx(0.50f), fy(0.26f), fx(0.70f), fy(0.30f))
-        bladePath.lineTo(fx(0.71f), fy(0.68f))
-        bladePath.quadTo(fx(0.50f), fy(0.74f), fx(0.29f), fy(0.68f))
+        bladePath.moveTo(fx(0.305f), fy(0.36f))
+        bladePath.quadTo(fx(0.50f), fy(0.32f), fx(0.695f), fy(0.36f))
+        bladePath.lineTo(fx(0.695f), fy(0.66f))
+        bladePath.quadTo(fx(0.50f), fy(0.70f), fx(0.305f), fy(0.66f))
         bladePath.close()
 
         rightWingPath.reset()
-        rightWingPath.moveTo(fx(0.72f), fy(0.34f))
-        rightWingPath.lineTo(fx(0.88f), fy(0.36f))
-        rightWingPath.quadTo(fx(0.96f), fy(0.42f), fx(0.95f), fy(0.55f))
-        rightWingPath.lineTo(fx(0.94f), fy(0.66f))
-        rightWingPath.quadTo(fx(0.90f), fy(0.72f), fx(0.78f), fy(0.70f))
-        rightWingPath.lineTo(fx(0.71f), fy(0.68f))
+        rightWingPath.moveTo(fx(0.705f), fy(0.38f))
+        rightWingPath.lineTo(fx(0.84f), fy(0.40f))
+        rightWingPath.quadTo(fx(0.92f), fy(0.44f), fx(0.925f), fy(0.54f))
+        rightWingPath.lineTo(fx(0.915f), fy(0.64f))
+        rightWingPath.quadTo(fx(0.86f), fy(0.70f), fx(0.76f), fy(0.68f))
+        rightWingPath.lineTo(fx(0.705f), fy(0.66f))
         rightWingPath.close()
+
+        if (spreaderEnabled) {
+            val top = artDst.bottom + dp(4)
+            val bottom = height.toFloat() - dp(2)
+            spreaderHit.set(dp(8).toFloat(), top, width - dp(8).toFloat(), bottom)
+        } else {
+            spreaderHit.setEmpty()
+        }
     }
 
     private fun fx(frac: Float): Float = artDst.left + artDst.width() * frac
@@ -120,6 +157,17 @@ class PlowControlView @JvmOverloads constructor(
         if (bladeDown) canvas.drawPath(bladePath, fillPaint)
         if (wingRight) canvas.drawPath(rightWingPath, fillPaint)
         canvas.drawBitmap(art, artSrc, artDst, artPaint)
+
+        if (spreaderEnabled && !spreaderHit.isEmpty) {
+            val r = dp(8).toFloat()
+            if (spreadingOn) {
+                canvas.drawRoundRect(spreaderHit, r, r, fillPaint)
+            }
+            canvas.drawRoundRect(spreaderHit, r, r, spreaderOutline)
+            val label = if (spreadingOn) "SPREADER ON" else "SPREADER"
+            val cy = spreaderHit.centerY() - (spreaderLabel.descent() + spreaderLabel.ascent()) / 2f
+            canvas.drawText(label, spreaderHit.centerX(), cy, spreaderLabel)
+        }
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -127,6 +175,11 @@ class PlowControlView @JvmOverloads constructor(
         val x = event.x
         val y = event.y
         when {
+            spreaderEnabled && spreaderHit.contains(x, y) -> {
+                spreadingOn = !spreadingOn
+                onSpreaderToggle?.invoke(spreadingOn)
+                invalidate()
+            }
             leftWingHit.contains(x, y) -> {
                 wingLeft = !wingLeft
                 onWingLeftToggle?.invoke(wingLeft)
@@ -147,6 +200,7 @@ class PlowControlView @JvmOverloads constructor(
     }
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
+    private fun sp(v: Int): Float = v * resources.displayMetrics.scaledDensity
 
     companion object {
         private const val COLOR_ACTIVE = 0xFF2ECC40.toInt()
@@ -174,7 +228,6 @@ class PlowControlView @JvmOverloads constructor(
                 pixels[i] = if (luma < BLACK_LUMA_CUTOFF) {
                     0
                 } else {
-                    // Soften anti-aliased edges: luminance drives alpha, RGB stays white.
                     (luma shl 24) or 0x00FFFFFF
                 }
             }

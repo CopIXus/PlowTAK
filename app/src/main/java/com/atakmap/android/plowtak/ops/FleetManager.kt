@@ -27,6 +27,22 @@ class FleetManager(
         notifyChanged()
     }
 
+    /** Drop one unit (e.g. demo cleanup). */
+    fun remove(uid: String): Boolean {
+        if (vehicles.remove(uid) == null) return false
+        notifyChanged()
+        return true
+    }
+
+    /** Drop many units at once; notifies once. */
+    fun removeAll(uids: Collection<String>) {
+        var changed = false
+        for (uid in uids) {
+            if (vehicles.remove(uid) != null) changed = true
+        }
+        if (changed) notifyChanged()
+    }
+
     fun get(uid: String): PlowVehicle? = vehicles[uid]
 
     fun all(): List<PlowVehicle> = vehicles.values.toList()

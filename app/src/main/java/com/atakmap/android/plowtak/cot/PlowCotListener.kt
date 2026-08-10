@@ -101,6 +101,14 @@ class PlowCotListener(
     }
 
     private fun handlePli(event: CotEvent) {
+        // Immediate-stale / expired PLI (demo stop tombstones) must remove,
+        // not re-add, the fleet entry.
+        val staleAt = event.stale?.milliseconds ?: Long.MAX_VALUE
+        if (staleAt <= System.currentTimeMillis() + 1_500L) {
+            fleetManager.remove(event.uid)
+            return
+        }
+
         val node = CotDetailAdapter.findPlowTakNode(event.detail) ?: return
         val detail = PlowTakDetail.fromNode(node) ?: return
         val point = event.cotPoint ?: return

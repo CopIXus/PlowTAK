@@ -12,6 +12,8 @@ import com.atakmap.android.plowtak.coverage.Freshness
 import com.atakmap.android.plowtak.coverage.FreshnessModel
 import com.atakmap.android.plowtak.coverage.RoadSnapper
 import com.atakmap.android.plowtak.coverage.SwathBuilder
+import com.atakmap.android.plowtak.demo.DemoFleetSimulator
+import com.atakmap.android.plowtak.demo.DemoRoadWalker
 import com.atakmap.android.plowtak.equipment.BluetoothEquipmentProvider
 import com.atakmap.android.plowtak.equipment.ManualEquipmentProvider
 import com.atakmap.android.plowtak.gis.LaneModel
@@ -64,6 +66,7 @@ import com.atakmap.android.plowtak.sync.MissionCoverageSync
 import com.atakmap.android.plowtak.tracking.SelfTracker
 import com.atakmap.android.plowtak.ui.VoiceAlerts
 import com.atakmap.android.maps.MapView
+import com.atakmap.coremap.filesystem.FileSystemUtils
 import java.io.File
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
@@ -164,6 +167,36 @@ class PlowTakController(
                 stormManager.updateCycleMinutes(cfg.cycleMinutes)
             }
         }
+    )
+
+    /** Synthetic storm fleet for demos / sales walkthroughs. */
+    val demoFleet = DemoFleetSimulator(
+        queue = cotQueue,
+        fleetManager = fleetManager,
+        coverageStore = coverageStore,
+        hazardReporter = hazardReporter,
+        stormIdProvider = { stormManager.activeStormId },
+        anchorProvider = {
+            // GPS sample → self marker → map center. Demo must start without VNS
+            // and without a warm GPS fix (common on indoor Fold demos).
+            fun geoPair(p: com.atakmap.coremap.maps.coords.GeoPoint?): Pair<Double, Double>? {
+                if (p == null || !p.isValid) return null
+                return p.latitude to p.longitude
+            }
+            lastPositionSample?.let { it.lat to it.lon }
+                ?: geoPair(mapView.selfMarker?.point)
+                ?: geoPair(mapView.centerPoint?.get())
+        },
+        packDirResolver = {
+            val vnsGh = try {
+                File(FileSystemUtils.getItem("tools"), "VNS/GH")
+            } catch (e: Exception) {
+                null
+            }
+            DemoRoadWalker.resolvePackDir(prefs.roadSnapDir, vnsGh)
+        },
+        scheduler = { timers },
+        onHazard = { hazard -> synchronized(hazardLog) { hazardLog[hazard.uid] = hazard } }
     )
 
     /** Set by the driver panel to surface forgot-to-toggle prompts. */
@@ -361,6 +394,11 @@ class PlowTakController(
     fun dispose() {
         Log.i(TAG, "disposing PlowTak engine")
         try {
+            demoFleet.stop()
+        } catch (e: Exception) {
+            Log.w(TAG, "demo fleet stop on dispose failed", e)
+        }
+        try {
             swathBuilder.flush()
         } catch (e: Exception) {
             Log.w(TAG, "flush on dispose failed", e)
@@ -384,6 +422,29 @@ class PlowTakController(
         alertOverlay.dispose()
         voiceAlerts.shutdown()
         PlowTakShiftService.stop(mapView.context)
+    }
+
+    /**
+     * Start/stop the showcase fleet on a background thread (GraphHopper pack
+     * open can take a moment). [onDone] is posted to the map UI thread.
+     */
+    fun toggleDemoFleet(onDone: (DemoFleetSimulator.StartResult) -> Unit) {
+        if (demoFleet.isRunning) {
+            val msg = demoFleet.stop()
+            mapView.post {
+                onDone(DemoFleetSimulator.StartResult(true, msg, 0, false))
+            }
+            return
+        }
+        background.execute {
+            val result = try {
+                demoFleet.start(DemoFleetSimulator.DEFAULT_UNIT_COUNT)
+            } catch (e: Exception) {
+                Log.e(TAG, "demo fleet start failed", e)
+                DemoFleetSimulator.StartResult(false, "Demo start failed: ${e.message}")
+            }
+            mapView.post { onDone(result) }
+        }
     }
 
     /**

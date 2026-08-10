@@ -181,6 +181,16 @@ class PlowTakPreferences(context: Context) : KeyValuePersistence {
         get() = prefs.getString(KEY_DATASYNC_SERVER, "") ?: ""
         set(v) = prefs.edit().putString(KEY_DATASYNC_SERVER, v.trim()).apply()
 
+    /** Last operator name entered on the driver shift form (device-local). */
+    var lastOperatorName: String
+        get() = prefs.getString(KEY_LAST_OPERATOR_NAME, "") ?: ""
+        set(v) = prefs.edit().putString(KEY_LAST_OPERATOR_NAME, v.trim()).apply()
+
+    /** Last operator ID entered on the driver shift form (device-local). */
+    var lastOperatorId: String
+        get() = prefs.getString(KEY_LAST_OPERATOR_ID, "") ?: ""
+        set(v) = prefs.edit().putString(KEY_LAST_OPERATOR_ID, v.trim()).apply()
+
     companion object {
         const val PREFS_NAME = "plowtak_prefs"
         private const val KEY_REPORT_MOVING = "plowtak.report_interval_moving_s"
@@ -211,5 +221,7 @@ class PlowTakPreferences(context: Context) : KeyValuePersistence {
         private const val KEY_MISSION_COV_HASH = "plowtak.mission_cov.last_hash"
         private const val KEY_MISSION_COV_FILENAME = "plowtak.mission_cov.last_filename"
         private const val KEY_DATASYNC_SERVER = "plowtak.datasync.server"
+        private const val KEY_LAST_OPERATOR_NAME = "plowtak.last_operator_name"
+        private const val KEY_LAST_OPERATOR_ID = "plowtak.last_operator_id"
     }
 }

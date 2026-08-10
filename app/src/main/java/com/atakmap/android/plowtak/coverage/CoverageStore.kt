@@ -97,6 +97,25 @@ class CoverageStore(
 
     fun size(): Int = synchronized(this) { segments.size }
 
+    /** Drop every segment from the given vehicle uids (e.g. demo fleet cleanup). */
+    fun removeByVehicleUids(uids: Collection<String>) {
+        if (uids.isEmpty()) return
+        val want = uids.toSet()
+        val removed: List<String>
+        synchronized(this) {
+            removed = segments.values.filter { it.vehicleUid in want }.map { it.id }
+            if (removed.isEmpty()) return
+            removed.forEach {
+                segments.remove(it)
+                index.remove(it)
+                localIds.remove(it)
+            }
+            pendingShare.removeAll { it.vehicleUid in want }
+            rewriteDisk()
+        }
+        notifyRemoved(removed)
+    }
+
     /** Coarse (bbox-precision) candidates within [radiusM] of a point. */
     fun nearby(lat: Double, lon: Double, radiusM: Double): List<TreatSegment> =
         synchronized(this) { index.nearby(lat, lon, radiusM) }

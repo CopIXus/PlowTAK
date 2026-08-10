@@ -83,7 +83,10 @@ class FleetMarkerManager(
             try {
                 val marker = markers.getOrPut(v.uid) {
                     Marker(GeoPoint(v.lat, v.lon), "$MARKER_UID_PREFIX${v.uid}").also {
-                        it.setMetaBoolean("addToObjList", false)
+                        // Keep demo/fleet units in the ATAK object list so they
+                        // are discoverable without VNS / remote CoT echo.
+                        it.setMetaBoolean("addToObjList", true)
+                        it.setShowLabel(true)
                         g.addItem(it)
                     }
                 }
@@ -92,6 +95,7 @@ class FleetMarkerManager(
                 marker.title = labelFor(v)
                 marker.setMetaString("callsign", v.callsign)
                 marker.setMetaInteger("color", statusColor(v.status))
+                marker.setShowLabel(true)
                 if (!v.headingDeg.isNaN()) {
                     // SDK-fixup point: Marker.setTrack(course, speed) per 5.x API.
                     marker.setTrack(v.headingDeg, 0.0)
