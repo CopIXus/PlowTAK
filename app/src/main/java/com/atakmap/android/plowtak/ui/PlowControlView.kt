@@ -212,7 +212,11 @@ class PlowControlView @JvmOverloads constructor(
             return makeBlackTransparent(raw)
         }
 
-        /** Keep white line art; turn near-black background transparent so green fills show through. */
+        /**
+         * Keep white line art; turn near-black background transparent so green
+         * fills show through. Also crop leftover empty rows (e.g. where the
+         * old bottom arrow lived) so the control does not reserve dead space.
+         */
         private fun makeBlackTransparent(src: Bitmap): Bitmap {
             val out = src.copy(Bitmap.Config.ARGB_8888, true) ?: return src
             val w = out.width
@@ -233,7 +237,42 @@ class PlowControlView @JvmOverloads constructor(
             }
             out.setPixels(pixels, 0, w, 0, 0, w, h)
             if (out !== src) src.recycle()
-            return out
+            return cropToOpaqueContent(out)
+        }
+
+        /** Drop fully-transparent rows/columns around the plow line art. */
+        private fun cropToOpaqueContent(src: Bitmap): Bitmap {
+            val w = src.width
+            val h = src.height
+            val pixels = IntArray(w * h)
+            src.getPixels(pixels, 0, w, 0, 0, w, h)
+            var top = 0
+            var bottom = h - 1
+            var left = 0
+            var right = w - 1
+            fun rowHasInk(y: Int): Boolean {
+                val row = y * w
+                for (x in 0 until w) if ((pixels[row + x] ushr 24) > 8) return true
+                return false
+            }
+            fun colHasInk(x: Int): Boolean {
+                for (y in 0 until h) if ((pixels[y * w + x] ushr 24) > 8) return true
+                return false
+            }
+            while (top < h && !rowHasInk(top)) top++
+            // Fully transparent art (e.g. resource failed to decode): nothing
+            // to crop — bail out instead of producing an out-of-range rect.
+            if (top >= h) return src
+            while (bottom > top && !rowHasInk(bottom)) bottom--
+            while (left < w && !colHasInk(left)) left++
+            if (left >= w) return src
+            while (right > left && !colHasInk(right)) right--
+            val cw = (right - left + 1).coerceAtLeast(1)
+            val ch = (bottom - top + 1).coerceAtLeast(1)
+            if (top == 0 && left == 0 && cw == w && ch == h) return src
+            val cropped = Bitmap.createBitmap(src, left, top, cw, ch)
+            if (cropped !== src) src.recycle()
+            return cropped
         }
     }
 }

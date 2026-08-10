@@ -23,6 +23,9 @@ object StormCotCodec {
         if (session.missionName.isNotEmpty()) attrs["mission"] = session.missionName
         if (session.channel.isNotEmpty()) attrs["channel"] = session.channel
         if (session.cycleMinutes != 45) attrs["cycle"] = session.cycleMinutes.toString()
+        if (session.roadConditionTtlMinutes != StormSession.DEFAULT_ROAD_CONDITION_TTL_MINUTES) {
+            attrs["condTtl"] = session.roadConditionTtlMinutes.toString()
+        }
         return DetailNode(
             DetailNode.PLOWTAK, emptyMap(),
             listOf(DetailNode("storm", attrs))
@@ -43,7 +46,9 @@ object StormCotCodec {
             agency = storm.attr("agency") ?: "",
             missionName = storm.attr("mission") ?: "",
             channel = storm.attr("channel") ?: "",
-            cycleMinutes = storm.attr("cycle")?.toIntOrNull() ?: 45
+            cycleMinutes = storm.attr("cycle")?.toIntOrNull() ?: 45,
+            roadConditionTtlMinutes = storm.attr("condTtl")?.toIntOrNull()
+                ?: StormSession.DEFAULT_ROAD_CONDITION_TTL_MINUTES
         )
     }
 }

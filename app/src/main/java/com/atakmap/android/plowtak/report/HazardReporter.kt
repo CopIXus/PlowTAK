@@ -6,15 +6,16 @@ import com.atakmap.android.plowtak.cot.OutboundCotQueue
 import com.atakmap.android.plowtak.cot.codec.HazardCotCodec
 import com.atakmap.android.plowtak.model.HazardEvent
 import com.atakmap.android.plowtak.model.HazardType
+import com.atakmap.android.plowtak.model.ReportLabels
 import com.atakmap.coremap.cot.event.CotDetail
 import com.atakmap.coremap.cot.event.CotEvent
 import com.atakmap.coremap.cot.event.CotPoint
 import com.atakmap.coremap.maps.time.CoordinatedTime
 
 /**
- * One-tap hazard drops. Builds a marker CoT at the current position with the
- * PlowTak hazard detail and dispatches it internally (local marker appears
- * immediately) and externally (fleet + observers see it).
+ * One-tap hazard drops. Builds a marker CoT at the current position for the
+ * **local map only**. Shared fleet visibility is via Data Sync mission
+ * content (`{uid}-hazards.geojson`), not TAK CoT broadcast.
  *
  * Photo attachments follow the ATAK attachment convention: the image lives
  * at `atak/attachments/<marker uid>/<photoFile>` and TAK attachment sync
@@ -64,7 +65,9 @@ class HazardReporter(
 
             val root = CotDetail("detail")
             val contact = CotDetail("contact")
-            contact.setAttribute("callsign", "${type.label} (${reporterCallsign})")
+            contact.setAttribute(
+                "callsign", ReportLabels.hazard(type.label, reporterCallsign)
+            )
             root.addChild(contact)
             val remarks = CotDetail("remarks")
             remarks.innerText = "${type.label} reported by $reporterCallsign"
@@ -72,11 +75,43 @@ class HazardReporter(
             root.addChild(CotDetailAdapter.toCotDetail(HazardCotCodec.encode(hazard)))
             event.detail = root
 
-            queue.send(event)
+            queue.sendLocalOnly(event)
         } catch (e: Exception) {
             Log.e(TAG, "hazard drop failed", e)
         }
         return hazard
+    }
+
+    /** Show an already-known hazard on the local map (Data Sync pull). */
+    fun showLocal(hazard: HazardEvent) {
+        try {
+            val event = CotEvent()
+            event.uid = hazard.uid
+            event.type = hazard.type.cotType
+            event.how = "h-g-i-g-o"
+            val time = CoordinatedTime()
+            event.time = time
+            event.start = time
+            event.stale = time.addSeconds(HAZARD_STALE_S)
+            event.setPoint(
+                CotPoint(
+                    hazard.lat, hazard.lon,
+                    CotPoint.UNKNOWN, CotPoint.UNKNOWN, CotPoint.UNKNOWN
+                )
+            )
+            val root = CotDetail("detail")
+            val contact = CotDetail("contact")
+            contact.setAttribute(
+                "callsign",
+                ReportLabels.hazard(hazard.type.label, hazard.reporterCallsign)
+            )
+            root.addChild(contact)
+            root.addChild(CotDetailAdapter.toCotDetail(HazardCotCodec.encode(hazard)))
+            event.detail = root
+            queue.sendLocalOnly(event)
+        } catch (e: Exception) {
+            Log.e(TAG, "hazard local show failed", e)
+        }
     }
 
     companion object {

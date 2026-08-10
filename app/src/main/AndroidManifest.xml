@@ -2,9 +2,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Foreground shift service (keeps recording alive through doze) -->
+    <!-- Foreground shift service (keeps recording alive through doze).
+         Use dataSync — not location — because this service runs in the plugin
+         process, which has no ACCESS_*_LOCATION grant (ATAK host holds those).
+         Android 14+ rejects FGS type=location without that runtime permission
+         and sticky-restarts crash-loop the plugin package. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- Bluetooth plow/spreader controllers (optional EquipmentProvider) -->
@@ -46,7 +50,7 @@
         <service
             android:name="com.atakmap.android.plowtak.service.PlowTakShiftService"
             android:exported="true"
-            android:foregroundServiceType="location" />
+            android:foregroundServiceType="dataSync" />
 
     </application>
 

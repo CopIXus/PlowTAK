@@ -7,6 +7,7 @@ import android.app.Service
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
@@ -17,11 +18,12 @@ import android.util.Log
  * mounted tablets. Started at shift start, stopped at shift end; the
  * notification text mirrors callsign + vehicle status.
  *
- * SDK-fixup note: plugin code runs inside the ATAK host process, so this
+ * SDK-setup note: plugin code runs inside the ATAK host process, so this
  * service (declared in the plugin APK's own manifest/package) is started
  * cross-package via explicit ComponentName — it must remain exported for
- * that to work. If field testing shows the host's own foreground state is
- * sufficient on target devices, this can be dropped to a plain notification.
+ * that to work. FGS type is [dataSync] (not location): the plugin process
+ * does not hold ACCESS_*_LOCATION; ATAK does. Type=location crashes on
+ * Android 14+ and sticky-restarts loop-kill the package.
  */
 class PlowTakShiftService : Service() {
 
@@ -29,12 +31,38 @@ class PlowTakShiftService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val text = intent?.getStringExtra(EXTRA_TEXT) ?: "Shift active"
-        startForeground(NOTIFICATION_ID, buildNotification(text))
-        return START_STICKY
+        return try {
+            val notification = buildNotification(text)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(
+                    NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                )
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
+            START_STICKY
+        } catch (t: Throwable) {
+            // Never crash the plugin process (Fold 8 / API 34 SecurityException
+            // on wrong FGS type previously took the package down in a loop).
+            Log.e(TAG, "startForeground failed; stopping service", t)
+            try {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            } catch (_: Throwable) {
+                // ignore
+            }
+            stopSelf(startId)
+            START_NOT_STICKY
+        }
     }
 
     override fun onDestroy() {
-        stopForeground(STOP_FOREGROUND_REMOVE)
+        try {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } catch (_: Throwable) {
+            // ignore
+        }
         super.onDestroy()
     }
 

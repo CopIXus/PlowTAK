@@ -32,7 +32,8 @@ import com.atakmap.android.plowtak.plugin.PluginLayoutInflater
  */
 class DriverPanel(
     private val controller: PlowTakController,
-    private val onOpenSettings: () -> Unit
+    private val onOpenSettings: () -> Unit,
+    private val onOpenStorm: () -> Unit
 ) {
 
     val view: View = PluginLayoutInflater.inflate(
@@ -105,11 +106,7 @@ class DriverPanel(
         shiftButton.setOnClickListener { toggleShift() }
         distressButton.setOnClickListener { onDistress() }
         view.findViewById<View>(R.id.driver_settings_btn).setOnClickListener { onOpenSettings() }
-        view.findViewById<View>(R.id.driver_storm_btn).setOnClickListener {
-            StormServerDialogs.showStormMenu(
-                controller, controller.mapView.context
-            ) { view.post { refresh() } }
-        }
+        view.findViewById<View>(R.id.driver_storm_btn).setOnClickListener { onOpenStorm() }
 
         taskAck.setOnClickListener {
             currentTask?.let { controller.ackTask(it.uid) }
@@ -127,12 +124,21 @@ class DriverPanel(
         applyTopIcon(nightToggle, R.drawable.ic_ops_night_off, dp(22))
         nightToggle.compoundDrawablePadding = dp(1)
 
-        applyTopIcon(distressButton, R.drawable.ic_ops_mayday, dp(28))
-        distressButton.compoundDrawablePadding = dp(2)
+        applyTopIcon(distressButton, R.drawable.ic_ops_mayday, dp(24))
+        distressButton.compoundDrawablePadding = dp(4)
 
         // ATAK Loadout Tools: 80dp cells, zero gutters, width-driven columns.
-        for (grid in listOf(materialGrid, statusGrid, hazardGrid, conditionGrid)) {
+        val opsGrids = listOf(materialGrid, statusGrid, hazardGrid, conditionGrid)
+        for (grid in opsGrids) {
             grid.cellDp = 80
+        }
+        // Fold / dropdown width changes: force every ops grid to reflow together.
+        view.addOnLayoutChangeListener { _, left, _, right, _, oldLeft, _, oldRight, _ ->
+            val w = right - left
+            val oldW = oldRight - oldLeft
+            if (w > 0 && w != oldW) {
+                for (grid in opsGrids) grid.requestLayout()
+            }
         }
 
         buildMaterialGrid(cap.hasSalt)
@@ -222,6 +228,8 @@ class DriverPanel(
     }
 
     private fun showSanityPrompt(prompt: ToggleSanity.Prompt) {
+        // Overspeed uses map HUD flash + TTS only (handled in controller).
+        if (prompt.type == ToggleSanity.PromptType.CONFIRM_SPEED) return
         AlertDialog.Builder(controller.mapView.context)
             .setTitle("PlowTAK check")
             .setMessage(prompt.message)

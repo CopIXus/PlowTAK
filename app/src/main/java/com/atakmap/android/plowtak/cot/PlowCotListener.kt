@@ -16,6 +16,8 @@ import com.atakmap.android.plowtak.model.CapabilityRules
 import com.atakmap.android.plowtak.model.HazardEvent
 import com.atakmap.android.plowtak.model.PlowVehicle
 import com.atakmap.android.plowtak.model.RoadConditionReport
+import com.atakmap.android.plowtak.model.VehicleStatus
+import com.atakmap.android.plowtak.model.VehicleType
 import com.atakmap.android.plowtak.ops.AlertManager
 import com.atakmap.android.plowtak.ops.FleetManager
 import com.atakmap.android.plowtak.ops.RouteAssignmentManager
@@ -27,14 +29,11 @@ import com.atakmap.coremap.cot.event.CotEvent
 
 /**
  * Consumes inbound PlowTak CoT:
- *  - PLI with `<__plowtak>` detail → [FleetManager];
- *  - coverage events → [CoverageStore], merged ONLY from canTreat units
- *    (supervisor/observer positions never paint roads);
+ *  - Location PLI (optional legacy `__plowtak` detail) → [FleetManager];
+ *    blade/spread/status primarily arrive via Data Sync;
+ *  - legacy coverage / zone / task / route CoT still accepted from older peers;
  *  - distress alerts (and cancels) → [AlertManager];
- *  - storm session broadcasts → [StormSessionManager] adoption;
- *  - special-zone updates → [ZoneManager];
- *  - supervisor tasks + state transitions → [TaskManager];
- *  - route assignments → [RouteAssignmentManager];
+ *  - storm session broadcasts → [StormSessionManager] catalog;
  *  - hazard / road-condition details → optional storm logs (export).
  */
 class PlowCotListener(
@@ -109,33 +108,60 @@ class PlowCotListener(
             return
         }
 
-        val node = CotDetailAdapter.findPlowTakNode(event.detail) ?: return
-        val detail = PlowTakDetail.fromNode(node) ?: return
         val point = event.cotPoint ?: return
-
         val callsign = event.detail
             ?.getFirstChildByName(0, "contact")
             ?.getAttribute("callsign")
             ?: event.uid
 
+        val node = CotDetailAdapter.findPlowTakNode(event.detail)
+        val detail = node?.let { PlowTakDetail.fromNode(it) }
+        val existing = fleetManager.get(event.uid)
+
+        if (detail != null) {
+            // Legacy full-detail PLI (older peers) or internal echoes.
+            fleetManager.update(
+                PlowVehicle(
+                    uid = event.uid,
+                    callsign = callsign,
+                    type = detail.vehicleType,
+                    status = detail.status,
+                    lat = point.lat,
+                    lon = point.lon,
+                    headingDeg = detail.headingDeg,
+                    lastUpdateMs = System.currentTimeMillis(),
+                    hasBlade = detail.hasBlade,
+                    hasSalt = detail.hasSalt,
+                    bladeDown = detail.bladeDown,
+                    saltOn = detail.saltOn,
+                    stormId = detail.stormId,
+                    operatorId = detail.operatorId,
+                    operatorName = detail.operatorName,
+                    reloadCount = detail.reloadCount
+                )
+            )
+            return
+        }
+
+        // Location-only PLI: keep status from Data Sync / prior detail.
         fleetManager.update(
             PlowVehicle(
                 uid = event.uid,
                 callsign = callsign,
-                type = detail.vehicleType,
-                status = detail.status,
+                type = existing?.type ?: VehicleType.PLOW,
+                status = existing?.status ?: VehicleStatus.DEADHEAD,
                 lat = point.lat,
                 lon = point.lon,
-                headingDeg = detail.headingDeg,
+                headingDeg = existing?.headingDeg ?: Double.NaN,
                 lastUpdateMs = System.currentTimeMillis(),
-                hasBlade = detail.hasBlade,
-                hasSalt = detail.hasSalt,
-                bladeDown = detail.bladeDown,
-                saltOn = detail.saltOn,
-                stormId = detail.stormId,
-                operatorId = detail.operatorId,
-                operatorName = detail.operatorName,
-                reloadCount = detail.reloadCount
+                hasBlade = existing?.hasBlade ?: false,
+                hasSalt = existing?.hasSalt ?: false,
+                bladeDown = existing?.bladeDown ?: false,
+                saltOn = existing?.saltOn ?: false,
+                stormId = existing?.stormId ?: "",
+                operatorId = existing?.operatorId ?: "",
+                operatorName = existing?.operatorName ?: "",
+                reloadCount = existing?.reloadCount ?: 0
             )
         )
     }

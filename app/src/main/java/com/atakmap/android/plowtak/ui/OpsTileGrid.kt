@@ -17,6 +17,9 @@ import kotlin.math.max
  * ATAK Loadout Tools–style grid: zero gutters, fixed 80dp row height, columns
  * from `width / 80dp`, and 1dp manatee right/bottom bars on each cell
  * (matches ATAK 5.8 `loadout_tool_grid_item`).
+ *
+ * On fold / panel resize, columns reflow and leftover pixels are distributed
+ * across the row so tiles stay edge-aligned together (ATAK `columnWidth` stretch).
  */
 class OpsTileGrid @JvmOverloads constructor(
     context: Context,
@@ -32,21 +35,43 @@ class OpsTileGrid @JvmOverloads constructor(
         }
 
     private var columns: Int = 1
-    private var tileW: Int = 0
     private var tileH: Int = 0
+    /** Per-column widths (sum == measured width); handles leftover px. */
+    private var colWidths: IntArray = intArrayOf(0)
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        if (w > 0 && w != oldw) {
+            // Fold / dropdown width changes must reflow columns.
+            requestLayout()
+        }
+    }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val width = MeasureSpec.getSize(widthMeasureSpec).coerceAtLeast(dp(cellDp))
+        val specW = MeasureSpec.getSize(widthMeasureSpec)
+        val mode = MeasureSpec.getMode(widthMeasureSpec)
         val cell = dp(cellDp)
+        // Prefer the actual laid-out width when parent already sized us
+        // (ScrollView / fold often remasures with stale AT_MOST first).
+        val width = when {
+            mode == MeasureSpec.EXACTLY && specW > 0 -> specW
+            measuredWidth > 0 && mode != MeasureSpec.UNSPECIFIED ->
+                max(specW, measuredWidth)
+            specW > 0 -> specW
+            else -> cell
+        }.coerceAtLeast(cell)
+
         columns = max(1, width / cell)
-        tileW = width / columns
         tileH = cell
+        colWidths = distributeColumns(width, columns)
+
         val count = childCount
         val rows = if (count == 0) 0 else (count + columns - 1) / columns
         val height = rows * tileH
         for (i in 0 until count) {
+            val col = i % columns
             getChildAt(i).measure(
-                MeasureSpec.makeMeasureSpec(tileW, MeasureSpec.EXACTLY),
+                MeasureSpec.makeMeasureSpec(colWidths[col], MeasureSpec.EXACTLY),
                 MeasureSpec.makeMeasureSpec(tileH, MeasureSpec.EXACTLY)
             )
         }
@@ -54,14 +79,41 @@ class OpsTileGrid @JvmOverloads constructor(
     }
 
     override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
+        if (colWidths.size != columns) {
+            colWidths = distributeColumns(r - l, columns)
+        }
+        val xOffsets = IntArray(columns)
+        var acc = 0
+        for (c in 0 until columns) {
+            xOffsets[c] = acc
+            acc += colWidths.getOrElse(c) { 0 }
+        }
         for (i in 0 until childCount) {
             val child = getChildAt(i)
             val col = i % columns
             val row = i / columns
-            val left = col * tileW
+            val left = xOffsets[col]
             val top = row * tileH
-            child.layout(left, top, left + tileW, top + tileH)
+            val tw = colWidths.getOrElse(col) { tileH }
+            child.layout(left, top, left + tw, top + tileH)
         }
+    }
+
+    override fun onViewAdded(child: View?) {
+        super.onViewAdded(child)
+        requestLayout()
+    }
+
+    override fun onViewRemoved(child: View?) {
+        super.onViewRemoved(child)
+        requestLayout()
+    }
+
+    private fun distributeColumns(width: Int, cols: Int): IntArray {
+        val n = cols.coerceAtLeast(1)
+        val base = width / n
+        val extra = width % n
+        return IntArray(n) { i -> base + if (i < extra) 1 else 0 }
     }
 
     private fun dp(v: Int): Int =
@@ -98,11 +150,14 @@ class OpsTileGrid @JvmOverloads constructor(
             cell.isClickable = true
             cell.isFocusable = true
             cell.setOnClickListener(onClick)
+            // Avoid Button-like min sizes forcing uneven cells after reflow.
+            cell.minimumWidth = 0
+            cell.minimumHeight = 0
 
             val content = LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER_HORIZONTAL
-                setPadding(dp(context, 4), dp(context, 10), dp(context, 4), dp(context, 4))
+                gravity = Gravity.CENTER_HORIZONTAL or Gravity.CENTER_VERTICAL
+                setPadding(dp(context, 4), dp(context, 8), dp(context, 4), dp(context, 4))
             }
             val icon = ImageView(context).apply {
                 val size = dp(context, 36)
@@ -110,7 +165,6 @@ class OpsTileGrid @JvmOverloads constructor(
                     it.gravity = Gravity.CENTER_HORIZONTAL
                 }
                 setImageResource(iconRes)
-                // ATAK Tools icons are white line-art.
                 setColorFilter(Color.WHITE)
             }
             val text = TextView(context).apply {

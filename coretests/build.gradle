@@ -41,8 +41,13 @@ sourceSets {
             include 'com/atakmap/android/plowtak/report/CsvExporter.kt'
             include 'com/atakmap/android/plowtak/report/MetricsCalculator.kt'
             include 'com/atakmap/android/plowtak/report/StormReplay.kt'
-            // sync/ MissionCoverageCodec is pure; MissionCoverageSync needs ATAK HTTP.
+            // sync/ pure codecs; MissionCoverageSync / TakServerTargets need ATAK HTTP.
             include 'com/atakmap/android/plowtak/sync/MissionCoverageCodec.kt'
+            include 'com/atakmap/android/plowtak/sync/ConditionMissionCodec.kt'
+            include 'com/atakmap/android/plowtak/sync/UnitStatusMissionCodec.kt'
+            include 'com/atakmap/android/plowtak/sync/OpsMissionCodec.kt'
+            include 'com/atakmap/android/plowtak/sync/HazardMissionCodec.kt'
+            include 'com/atakmap/android/plowtak/sync/StormConfigCodec.kt'
         }
     }
     test {

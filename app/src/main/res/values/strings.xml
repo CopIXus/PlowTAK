@@ -27,6 +27,22 @@
     <string name="sup_route_id_hint">Route ID (GIS route_id or drawn name)</string>
     <string name="sup_unassign_route">Clear route assignment</string>
     <string name="setup_save">Save and continue</string>
+
+    <string name="setup_map_hud_enabled">Mini plow HUD on map (while on shift)</string>
+    <string name="setup_condition_stale_label">Road condition stale (minutes)</string>
+    <string name="setup_condition_stale_hint">Minutes until a road condition is deleted (default 120)</string>
+
+    <!-- Storm screen -->
+    <string name="storm_screen_title">Storm / Data Sync</string>
+    <string name="storm_section_server">SERVER</string>
+    <string name="storm_section_channel">CHANNEL</string>
+    <string name="storm_section_storms">STORMS</string>
+    <string name="storm_section_new">NEW STORM</string>
+    <string name="storm_new_name_hint">Storm name</string>
+    <string name="storm_create">Create storm + Data Sync mission</string>
+    <string name="storm_leave">Leave storm</string>
+    <string name="storm_end">End storm…</string>
+    <string name="storm_done">Done</string>
     <string name="setup_wing_width">Wing width (when extended)</string>
     <string name="setup_tow_width">Tow plow width (when deployed)</string>
     <string name="setup_tts_enabled">Voice alerts (tasks, overdue, distress)</string>
@@ -51,6 +67,7 @@
     <string name="driver_distress">MAYDAY / NEED ASSIST</string>
     <string name="driver_distress_clear">CLEAR MY MAYDAY</string>
     <string name="driver_status_driving">DRIVING</string>
+    <string name="driver_status_title">Unit status</string>
     <string name="driver_shift_start">Start shift</string>
     <string name="driver_shift_end">End shift</string>
     <string name="driver_operator_name_hint">Operator name</string>

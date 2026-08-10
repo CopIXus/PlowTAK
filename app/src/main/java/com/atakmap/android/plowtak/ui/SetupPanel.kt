@@ -41,6 +41,8 @@ class SetupPanel(
     private val presence = view.findViewById<CheckBox>(R.id.setup_presence)
     private val distress = view.findViewById<CheckBox>(R.id.setup_distress)
     private val ttsEnabled = view.findViewById<CheckBox>(R.id.setup_tts)
+    private val mapHud = view.findViewById<CheckBox>(R.id.setup_map_hud)
+    private val conditionStale = view.findViewById<EditText>(R.id.setup_condition_stale)
     private val roadSnap = view.findViewById<CheckBox>(R.id.setup_roadsnap)
     private val roadSnapDir = view.findViewById<EditText>(R.id.setup_roadsnap_dir)
     private val btEnabled = view.findViewById<CheckBox>(R.id.setup_bt_enabled)
@@ -105,6 +107,8 @@ class SetupPanel(
             widthSpinner.setSelection(1) // 10 ft default
         }
         ttsEnabled.isChecked = controller.prefs.ttsEnabled
+        mapHud.isChecked = controller.prefs.mapHudEnabled
+        conditionStale.setText(controller.prefs.roadConditionStaleMinutes.toString())
         roadSnap.isChecked = controller.prefs.roadSnapEnabled
         roadSnapDir.setText(controller.prefs.roadSnapDir)
         roadSnapDir.visibility = if (roadSnap.isChecked) View.VISIBLE else View.GONE
@@ -195,11 +199,20 @@ class SetupPanel(
 
         controller.capabilityStore.save(cap)
         controller.prefs.ttsEnabled = ttsEnabled.isChecked
+        controller.prefs.mapHudEnabled = mapHud.isChecked
+        controller.plowStatusHud.refreshVisibility()
+        val staleMin = conditionStale.text.toString().trim().toIntOrNull() ?: 120
+        controller.prefs.roadConditionStaleMinutes = staleMin
+        // Keep a joined storm's TTL in sync with the setting.
+        controller.stormManager.updateRoadConditionTtlMinutes(
+            controller.prefs.roadConditionStaleMinutes
+        )
         controller.prefs.roadSnapEnabled = roadSnap.isChecked
         controller.prefs.roadSnapDir = roadSnapDir.text.toString().trim()
         controller.prefs.btEquipmentEnabled = btEnabled.isChecked
         controller.prefs.btDeviceAddress = btAddress.text.toString().trim()
         controller.prefs.btUseBle = btBle.isChecked
+        com.atakmap.android.plowtak.prefs.PlowTakSettingsBackup.export(controller.pluginContext)
         controller.reloadRoadSnapper()
         controller.reloadBluetoothLink()
         onSaved()

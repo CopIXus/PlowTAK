@@ -1,11 +1,6 @@
 package com.atakmap.android.plowtak.demo
 
 import android.util.Log
-import com.atakmap.android.plowtak.cot.CotDetailAdapter
-import com.atakmap.android.plowtak.cot.OutboundCotQueue
-import com.atakmap.android.plowtak.cot.PlowCotPublisher
-import com.atakmap.android.plowtak.cot.codec.CoverageCotCodec
-import com.atakmap.android.plowtak.cot.codec.PlowTakDetail
 import com.atakmap.android.plowtak.coverage.CoverageStore
 import com.atakmap.android.plowtak.coverage.GeoMath
 import com.atakmap.android.plowtak.model.HazardEvent
@@ -17,13 +12,8 @@ import com.atakmap.android.plowtak.model.TrackPoint
 import com.atakmap.android.plowtak.model.TreatSegment
 import com.atakmap.android.plowtak.model.VehicleStatus
 import com.atakmap.android.plowtak.model.VehicleType
-import com.atakmap.android.plowtak.model.WidthPreset
 import com.atakmap.android.plowtak.ops.FleetManager
 import com.atakmap.android.plowtak.report.HazardReporter
-import com.atakmap.coremap.cot.event.CotDetail
-import com.atakmap.coremap.cot.event.CotEvent
-import com.atakmap.coremap.cot.event.CotPoint
-import com.atakmap.coremap.maps.time.CoordinatedTime
 import java.io.File
 import java.util.Random
 import java.util.concurrent.ScheduledExecutorService
@@ -36,10 +26,12 @@ import kotlin.math.sin
  * Showcase fleet: ~30 synthetic plow units near the operator.
  * Uses GraphHopper road packs when present (VNS `tools/VNS/GH` or a custom
  * road-snap folder); otherwise geodesic motion — VNS is optional.
- * Local visibility is via [FleetManager] markers; CoT goes external for peers.
+ *
+ * Local visibility is via [FleetManager] markers. Positions / status / paint
+ * are shared only through Data Sync (`{hostUid}-demo-fleet.geojson` + coverage
+ * segments in the store) — never as TAK CoT broadcast.
  */
 class DemoFleetSimulator(
-    private val queue: OutboundCotQueue,
     private val fleetManager: FleetManager,
     private val coverageStore: CoverageStore,
     private val hazardReporter: HazardReporter,
@@ -85,7 +77,6 @@ class DemoFleetSimulator(
         for (i in 1..unitCount) {
             val unit = spawnUnit(i, anchor.first, anchor.second, now)
             units.add(unit)
-            publishPli(unit, now)
             fleetManager.update(toVehicle(unit, now))
         }
 
@@ -114,11 +105,8 @@ class DemoFleetSimulator(
         tickFuture = null
         val snapshot = units.toList()
         val uids = snapshot.map { it.uid }
-        // Do not flush long-lived coverage on stop — that keeps CoTs on
-        // CloudTAK/ATAK for hours. Drop local demo paint and tombstone PLI.
         for (u in snapshot) {
             u.track.clear()
-            publishPliTombstone(u)
         }
         units.clear()
         walker = null
@@ -128,8 +116,16 @@ class DemoFleetSimulator(
         } catch (e: Exception) {
             Log.w(TAG, "demo coverage cleanup failed", e)
         }
-        Log.i(TAG, "demo fleet stopped (${uids.size} units tombstoned)")
-        return "Demo fleet stopped (${uids.size} units cleared; markers stale in ~${TOMBSTONE_STALE_S}s)"
+        Log.i(TAG, "demo fleet stopped (${uids.size} units)")
+        return "Demo fleet stopped (${uids.size} units cleared)"
+    }
+
+    /** Current demo units for Data Sync upload (empty when not running). */
+    @Synchronized
+    fun snapshotVehicles(): List<PlowVehicle> {
+        if (!running) return emptyList()
+        val now = System.currentTimeMillis()
+        return units.map { toVehicle(it, now) }
     }
 
     private fun safeTick() {
@@ -160,7 +156,6 @@ class DemoFleetSimulator(
                 }
             }
             u.stormId = stormId
-            publishPli(u, now)
             fleetManager.update(toVehicle(u, now))
             if (u.isTreating) {
                 appendCoveragePoint(u, now)
@@ -174,7 +169,6 @@ class DemoFleetSimulator(
             }
             maybeDropHazard(u, now)
         }
-        queue.onTick()
     }
 
     private fun spawnUnit(index: Int, anchorLat: Double, anchorLon: Double, now: Long): DemoUnit {
@@ -359,9 +353,8 @@ class DemoFleetSimulator(
         u.track.clear()
         try {
             coverageStore.addLocal(segment)
-            publishCoverage(segment)
         } catch (e: Exception) {
-            Log.w(TAG, "demo coverage publish failed for ${u.callsign}", e)
+            Log.w(TAG, "demo coverage store failed for ${u.callsign}", e)
         }
     }
 
@@ -386,75 +379,6 @@ class DemoFleetSimulator(
         } catch (e: Exception) {
             Log.w(TAG, "demo hazard failed", e)
         }
-    }
-
-    private fun publishPli(u: DemoUnit, now: Long) {
-        queue.send(buildPliEvent(u, staleSeconds = PLI_STALE_S), alsoInternal = true)
-    }
-
-    /** Same UID with near-immediate stale so ATAK + CloudTAK drop the contact. */
-    private fun publishPliTombstone(u: DemoUnit) {
-        queue.send(buildPliEvent(u, staleSeconds = TOMBSTONE_STALE_S), alsoInternal = true)
-    }
-
-    private fun buildPliEvent(u: DemoUnit, staleSeconds: Int): CotEvent {
-        val detail = PlowTakDetail(
-            vehicleType = u.type,
-            hasBlade = u.hasBlade,
-            hasSalt = u.hasSalt,
-            canTreat = u.hasBlade || u.hasSalt,
-            status = u.status,
-            bladeDown = u.bladeDown,
-            saltOn = u.saltOn,
-            material = u.material,
-            plowWidthM = u.plowWidthM,
-            headingDeg = u.headingDeg,
-            stormId = u.stormId,
-            operatorId = "demo",
-            operatorName = u.callsign,
-            widthPreset = WidthPreset.STANDARD,
-            reloadCount = if (u.status == VehicleStatus.LOADING) random.nextInt(4) else 0
-        )
-        val event = CotEvent()
-        event.uid = u.uid
-        event.type = PlowCotPublisher.PLI_EVENT_TYPE
-        event.how = "m-g"
-        val time = CoordinatedTime()
-        event.time = time
-        event.start = time
-        event.stale = time.addSeconds(staleSeconds.coerceAtLeast(1))
-        event.setPoint(
-            CotPoint(u.lat, u.lon, CotPoint.UNKNOWN, CotPoint.UNKNOWN, CotPoint.UNKNOWN)
-        )
-        val root = CotDetail("detail")
-        val contact = CotDetail("contact")
-        contact.setAttribute("callsign", u.callsign)
-        root.addChild(contact)
-        root.addChild(CotDetailAdapter.toCotDetail(detail.toNode()))
-        event.detail = root
-        return event
-    }
-
-    private fun publishCoverage(segment: TreatSegment) {
-        val node = CoverageCotCodec.encode(segment.stormId, listOf(segment))
-        val first = segment.points.first()
-        val event = CotEvent()
-        event.uid = "${segment.vehicleUid}-cov-${segment.startTimeMs}"
-        event.type = CoverageCotCodec.COVERAGE_EVENT_TYPE
-        event.how = "m-g"
-        val time = CoordinatedTime()
-        event.time = time
-        event.start = time
-        // Demo paint should not linger for hours after stop / network lag.
-        event.stale = time.addSeconds(DEMO_COVERAGE_STALE_S)
-        event.setPoint(
-            CotPoint(first.lat, first.lon, CotPoint.UNKNOWN, CotPoint.UNKNOWN, CotPoint.UNKNOWN)
-        )
-        val root = CotDetail("detail")
-        root.addChild(CotDetailAdapter.toCotDetail(node))
-        event.detail = root
-        // Local overlay already has addLocal; internal echo would re-merge.
-        queue.send(event, alsoInternal = false)
     }
 
     private fun toVehicle(u: DemoUnit, now: Long) = PlowVehicle(
@@ -544,12 +468,6 @@ class DemoFleetSimulator(
         const val UID_PREFIX = "plowtak-demo-"
 
         private const val TICK_MS = 2_000L
-        /** Live demo PLI lifetime — short so stop tombstones win quickly. */
-        private const val PLI_STALE_S = 30
-        /** Stop tombstone: ATAK/CloudTAK drop the contact within a few seconds. */
-        private const val TOMBSTONE_STALE_S = 3
-        /** Demo coverage CoT — minutes, not hours (real ops still use long retention). */
-        private const val DEMO_COVERAGE_STALE_S = 120
         private const val COVERAGE_FLUSH_POINTS = 12
         private const val COVERAGE_FLUSH_MS = 25_000L
         private const val BEHAVIOR_MIN_MS = 45_000L

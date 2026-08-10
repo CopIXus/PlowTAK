@@ -1,8 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/plowtak_bg">
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -13,6 +17,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginEnd="112dp"
             android:text="@string/setup_title"
             android:textColor="@color/plowtak_text"
             android:textSize="24sp"
@@ -190,6 +195,34 @@
             android:textSize="16sp" />
 
         <CheckBox
+            android:id="@+id/setup_map_hud"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:checked="true"
+            android:text="@string/setup_map_hud_enabled"
+            android:textColor="@color/plowtak_text"
+            android:textSize="16sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/setup_condition_stale_label"
+            android:textColor="@color/plowtak_grey"
+            android:textSize="13sp" />
+
+        <EditText
+            android:id="@+id/setup_condition_stale"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/setup_condition_stale_hint"
+            android:inputType="number"
+            android:maxLines="1"
+            android:textColor="@color/plowtak_text"
+            android:textColorHint="@color/plowtak_grey"
+            android:textSize="16sp" />
+
+        <CheckBox
             android:id="@+id/setup_roadsnap"
             android:layout_width="match_parent"
             android:layout_height="48dp"
@@ -262,14 +295,28 @@
             android:textSize="16sp"
             android:textStyle="bold" />
 
-        <Button
-            android:id="@+id/setup_save"
+        <!-- Bottom spacer so the last controls clear the floating pill. -->
+        <View
             android:layout_width="match_parent"
-            android:layout_height="64dp"
-            android:layout_marginTop="16dp"
-            android:backgroundTint="@color/plowtak_accent"
-            android:text="@string/setup_save"
-            android:textSize="20sp"
-            android:textStyle="bold" />
+            android:layout_height="24dp" />
     </LinearLayout>
-</ScrollView>
+    </ScrollView>
+
+    <!-- Floating save pill: fixed top-right, never scrolls away. -->
+    <Button
+        android:id="@+id/setup_save"
+        android:layout_width="wrap_content"
+        android:layout_height="38dp"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="6dp"
+        android:layout_marginEnd="6dp"
+        android:background="@drawable/bg_save_pill"
+        android:elevation="8dp"
+        android:minWidth="72dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:text="@string/setup_save"
+        android:textColor="@android:color/white"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+</FrameLayout>

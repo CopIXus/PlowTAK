@@ -135,30 +135,40 @@ object StormServerDialogs {
             setCancelable(true)
             show()
         }
-        val finished = AtomicBoolean(false)
-        fun finish(groups: List<String>) {
-            if (!finished.compareAndSet(false, true)) return
+        var cancelled = false
+        busy.setOnCancelListener {
+            cancelled = true
+            after(null)
+        }
+        loadChannels(hostContext, server.connectString) { groups ->
+            if (cancelled) return@loadChannels
             try {
                 busy.dismiss()
             } catch (_: Throwable) {
             }
             showChannelPicker(hostContext, groups, after)
         }
+    }
 
-        busy.setOnCancelListener {
-            if (!finished.compareAndSet(false, true)) return@setOnCancelListener
-            try {
-                busy.dismiss()
-            } catch (_: Throwable) {
-            }
-            after(null)
+    /**
+     * Active channels (server groups) this client cert can use on [connectString].
+     * Calls [onResult] once on the main thread; falls back to groups cached on
+     * the TAKServer object and finally to an 8 s timeout.
+     */
+    fun loadChannels(
+        hostContext: Context,
+        connectString: String,
+        onResult: (List<String>) -> Unit
+    ) {
+        val finished = AtomicBoolean(false)
+        fun finish(groups: List<String>) {
+            if (!finished.compareAndSet(false, true)) return
+            onResult(groups)
         }
-
-        // ATAK Channels API: groups this client cert may use on the selected server.
         try {
             ServerGroupsClient.getInstance().getAllGroups(
                 hostContext,
-                server.connectString,
+                connectString,
                 true,
                 ServerGroupsClient.ServerGroupsCallback { _, groups ->
                     mainHandler.post {
@@ -166,8 +176,7 @@ object StormServerDialogs {
                         if (names.isNotEmpty()) {
                             finish(names)
                         } else {
-                            // Fallback: groups cached on the TAKServer object.
-                            finish(cachedServerGroups(server.connectString))
+                            finish(cachedServerGroups(connectString))
                         }
                     }
                 }
@@ -175,11 +184,11 @@ object StormServerDialogs {
             // Safety timeout — ATAK callback can stall if API port is closed.
             mainHandler.postDelayed({
                 if (!finished.get()) {
-                    finish(cachedServerGroups(server.connectString))
+                    finish(cachedServerGroups(connectString))
                 }
             }, 8_000L)
         } catch (t: Throwable) {
-            finish(cachedServerGroups(server.connectString))
+            finish(cachedServerGroups(connectString))
         }
     }
 
@@ -336,14 +345,20 @@ object StormServerDialogs {
             return
         }
         AlertDialog.Builder(hostContext)
-            .setTitle("End storm / delete Data Sync")
+            .setTitle("End storm")
             .setMessage(
-                "End \"${active.displayName()}\" and delete its Data Sync mission?\n\n" +
-                    "All trucks will stop uploading to that mission."
+                "End \"${active.displayName()}\" for the whole fleet?\n\n" +
+                    "All trucks stop uploading. The Data Sync mission and its " +
+                    "data stay on the TAK server; only a server admin can " +
+                    "delete it."
             )
-            .setPositiveButton("Delete mission") { _, _ ->
+            .setPositiveButton("End storm") { _, _ ->
                 controller.endStormSession()
-                Toast.makeText(hostContext, "Storm ended; mission delete requested", Toast.LENGTH_LONG).show()
+                Toast.makeText(
+                    hostContext,
+                    "Storm ended; mission kept on server",
+                    Toast.LENGTH_LONG
+                ).show()
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
@@ -354,41 +369,98 @@ object StormServerDialogs {
         hostContext: Context,
         onChanged: (() -> Unit)? = null
     ) {
+        val busy = ProgressDialog(hostContext).apply {
+            setMessage("Checking server for PlowTAK Data Sync missions…")
+            setCancelable(true)
+            show()
+        }
+        controller.listServerPlowTakMissions { serverMissions ->
+            try {
+                busy.dismiss()
+            } catch (_: Throwable) {
+            }
+            showJoinStormList(controller, hostContext, serverMissions, onChanged)
+        }
+    }
+
+    private fun showJoinStormList(
+        controller: PlowTakController,
+        hostContext: Context,
+        serverMissions: List<String>,
+        onChanged: (() -> Unit)?
+    ) {
         val storms = controller.stormManager.knownStorms()
-        if (storms.isEmpty()) {
+        val joinedId = controller.stormManager.activeStormId
+        // Missions already represented by a heard storm are not repeated.
+        val heardMissions = storms.map {
+            MissionCoverageCodec.effectiveMissionName(it.id, it.missionName)
+        }.toSet()
+        val serverOnly = serverMissions.filter { it !in heardMissions }
+
+        if (storms.isEmpty() && serverOnly.isEmpty()) {
             Toast.makeText(
                 hostContext,
-                "No storms heard yet. Start one from Storm, or wait for a broadcast.",
+                "No PlowTAK storms heard and none on the server. Start one from Storm.",
                 Toast.LENGTH_LONG
             ).show()
             return
         }
-        val joinedId = controller.stormManager.activeStormId
-        val labels = storms.map { s ->
+
+        val labels = ArrayList<String>()
+        val actions = ArrayList<() -> Unit>()
+        storms.forEach { s ->
             val state = if (s.isActive) "ACTIVE" else "ended"
             val mark = if (s.id == joinedId) "★ " else ""
             val mission = MissionCoverageCodec.effectiveMissionName(s.id, s.missionName)
             val ch = if (s.channel.isNotBlank()) " · ch ${s.channel}" else ""
-            "$mark${s.displayName()}  [$state]\n" +
-                "by ${s.startedBy.ifBlank { "?" }} · mission $mission$ch · ${s.cycleMinutes}m"
-        }.toTypedArray()
+            labels.add(
+                "$mark${s.displayName()}  [$state]\n" +
+                    "by ${s.startedBy.ifBlank { "?" }} · mission $mission$ch · ${s.cycleMinutes}m"
+            )
+            actions.add {
+                if (!s.isActive) {
+                    Toast.makeText(hostContext, "That storm has ended", Toast.LENGTH_SHORT).show()
+                } else {
+                    controller.joinStormSession(s)
+                    Toast.makeText(
+                        hostContext,
+                        "Reporting into ${s.displayName()}",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    onChanged?.invoke()
+                }
+            }
+        }
+        serverOnly.forEach { mission ->
+            labels.add("$mission  [server]\nPlowTAK Data Sync mission on server")
+            actions.add {
+                val joining = ProgressDialog(hostContext).apply {
+                    setMessage("Joining $mission…")
+                    setCancelable(false)
+                    show()
+                }
+                controller.joinStormFromServerMission(mission) { session ->
+                    try {
+                        joining.dismiss()
+                    } catch (_: Throwable) {
+                    }
+                    if (session == null) {
+                        Toast.makeText(hostContext, "Join failed", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(
+                            hostContext,
+                            "Reporting into ${session.displayName()}",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        onChanged?.invoke()
+                    }
+                }
+            }
+        }
 
         AlertDialog.Builder(hostContext)
             .setTitle("Storm — select Data Sync")
-            .setItems(labels) { _, which ->
-                val chosen = storms[which]
-                if (!chosen.isActive) {
-                    Toast.makeText(hostContext, "That storm has ended", Toast.LENGTH_SHORT).show()
-                    return@setItems
-                }
-                controller.joinStormSession(chosen)
-                Toast.makeText(
-                    hostContext,
-                    "Reporting into ${chosen.displayName()}",
-                    Toast.LENGTH_SHORT
-                ).show()
-                onChanged?.invoke()
-            }
+            .setItems(labels.toTypedArray()) { _, which -> actions[which]() }
             .setNeutralButton("Leave storm") { _, _ ->
                 controller.leaveStormSession()
                 Toast.makeText(hostContext, "Left storm (not reporting)", Toast.LENGTH_SHORT).show()

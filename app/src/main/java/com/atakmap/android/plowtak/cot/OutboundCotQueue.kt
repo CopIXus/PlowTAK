@@ -29,7 +29,24 @@ class OutboundCotQueue(
         loadPersisted()
     }
 
-    /** Dispatch internally now; externally now or when connectivity returns. */
+    /**
+     * Local map only — never queues for the TAK server.
+     * Used for ops markers (hazards, conditions, etc.) that are shared via
+     * Data Sync while the storm mission is joined.
+     */
+    @Synchronized
+    fun sendLocalOnly(event: CotEvent) {
+        try {
+            CotMapComponent.getInternalDispatcher()?.dispatch(event)
+        } catch (e: Exception) {
+            Log.w(TAG, "local-only dispatch failed for ${event.uid}", e)
+        }
+    }
+
+    /**
+     * Dispatch internally now; externally now or when connectivity returns.
+     * Reserved for real-unit location PLI (and distress / storm announce).
+     */
     @Synchronized
     fun send(event: CotEvent, alsoInternal: Boolean = true) {
         if (alsoInternal) {

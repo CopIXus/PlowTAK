@@ -45,11 +45,16 @@ class PlowTakDropDownReceiver(
             return SetupPanel(controller) { show(selectView()) }.view
         }
         opsPanel?.dispose()
-        return DriverPanel(controller, ::openSettings).also { opsPanel = it }.view
+        return DriverPanel(controller, ::openSettings, ::openStorm)
+            .also { opsPanel = it }.view
     }
 
     private fun openSettings() {
         show(SetupPanel(controller) { show(selectView()) }.view)
+    }
+
+    private fun openStorm() {
+        show(StormPanel(controller) { show(selectView()) }.view)
     }
 
     private fun disposePanels() {
@@ -61,11 +66,14 @@ class PlowTakDropDownReceiver(
 
     override fun onDropDownVisible(visible: Boolean) {
         if (visible) opsPanel?.refresh()
+        controller.plowStatusHud.setPanelOpen(visible)
     }
 
     override fun onDropDownSizeChanged(width: Double, height: Double) {}
 
-    override fun onDropDownClose() {}
+    override fun onDropDownClose() {
+        controller.plowStatusHud.setPanelOpen(false)
+    }
 
     companion object {
         const val SHOW_PLUGIN = "com.atakmap.android.plowtak.SHOW"

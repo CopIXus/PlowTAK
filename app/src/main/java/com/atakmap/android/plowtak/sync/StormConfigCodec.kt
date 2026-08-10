@@ -17,6 +17,8 @@ object StormConfigCodec {
             append("\"channel\":").append(quote(session.channel)).append(',')
             append("\"mission\":").append(quote(session.missionName)).append(',')
             append("\"cycleMinutes\":").append(session.cycleMinutes).append(',')
+            append("\"roadConditionTtlMinutes\":")
+                .append(session.roadConditionTtlMinutes).append(',')
             append("\"startTimeMs\":").append(session.startTimeMs).append(',')
             append("\"startedBy\":").append(quote(session.startedBy))
             append('}')
@@ -35,6 +37,8 @@ object StormConfigCodec {
             channel = map["channel"] as? String ?: "",
             mission = map["mission"] as? String ?: "",
             cycleMinutes = (map["cycleMinutes"] as? Number)?.toInt() ?: 45,
+            roadConditionTtlMinutes = (map["roadConditionTtlMinutes"] as? Number)?.toInt()
+                ?: StormSession.DEFAULT_ROAD_CONDITION_TTL_MINUTES,
             startTimeMs = (map["startTimeMs"] as? Number)?.toLong() ?: 0L,
             startedBy = map["startedBy"] as? String ?: ""
         )
@@ -47,6 +51,8 @@ object StormConfigCodec {
         val channel: String,
         val mission: String,
         val cycleMinutes: Int,
+        val roadConditionTtlMinutes: Int =
+            StormSession.DEFAULT_ROAD_CONDITION_TTL_MINUTES,
         val startTimeMs: Long,
         val startedBy: String
     )
