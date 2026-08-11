@@ -109,17 +109,34 @@ object MissionCoverageCodec {
     }
 
     fun gzip(raw: ByteArray): ByteArray {
+        // Zero the gzip MTIME header (bytes 4–7) so identical JSON yields
+        // identical gzip bytes — otherwise every 60s tick gets a new hash,
+        // re-uploads, and deletes the previous mission content.
         val out = ByteArrayOutputStream(raw.size / 2 + 64)
         GZIPOutputStream(out).use { it.write(raw) }
-        return out.toByteArray()
+        val bytes = out.toByteArray()
+        if (bytes.size >= 8) {
+            bytes[4] = 0
+            bytes[5] = 0
+            bytes[6] = 0
+            bytes[7] = 0
+        }
+        return bytes
     }
 
     private fun segmentFeature(seg: TreatSegment): String {
         val coords = seg.points.joinToString(",") { p ->
             "[${num(p.lon)},${num(p.lat)}]"
         }
+        val label = buildString {
+            append(seg.callsign.ifBlank { seg.vehicleUid }.ifBlank { "Plow" })
+            append(" · ")
+            append(seg.material.wireName)
+        }
         val propMap = linkedMapOf(
             "type" to "segment",
+            "name" to label,
+            "title" to label,
             "id" to seg.id,
             "vehicle" to seg.vehicleUid,
             "callsign" to seg.callsign,

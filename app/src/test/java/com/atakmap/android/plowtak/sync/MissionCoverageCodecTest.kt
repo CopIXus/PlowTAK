@@ -101,6 +101,8 @@ class MissionCoverageCodecTest {
         assertTrue(json.contains("\"stormId\":\"storm-A\""))
         assertTrue(json.contains("\"type\":\"LineString\""))
         assertTrue(json.contains("\"id\":\"s1\""))
+        assertTrue(json.contains("\"name\":"))
+        assertTrue(json.contains("\"title\":"))
         assertFalse(json.contains("\n"))
     }
 
@@ -120,5 +122,25 @@ class MissionCoverageCodecTest {
         val hash = MissionCoverageCodec.sha256Hex(gz)
         assertEquals(64, hash.length)
         assertEquals(hash, MissionCoverageCodec.sha256Hex(gz))
+    }
+
+    @Test
+    fun gzipHashIsStableAcrossCalls() {
+        val now = 1_735_689_600_000L
+        val segs = listOf(seg("s1", now + 1_000L, now + 2_000L))
+        val a = MissionCoverageCodec.encodeBytes("storm-A", "PLOWTAK-T-1", now, segs, gzip = true)
+        Thread.sleep(5)
+        val b = MissionCoverageCodec.encodeBytes("storm-A", "PLOWTAK-T-1", now, segs, gzip = true)
+        assertEquals(MissionCoverageCodec.sha256Hex(a), MissionCoverageCodec.sha256Hex(b))
+    }
+
+    @Test
+    fun plainGeoJsonHashIsStable() {
+        val now = 1_735_689_600_000L
+        val segs = listOf(seg("s1", now + 1_000L, now + 2_000L))
+        val a = MissionCoverageCodec.encodeBytes("storm-A", "PLOWTAK-T-1", now, segs, gzip = false)
+        val b = MissionCoverageCodec.encodeBytes("storm-A", "PLOWTAK-T-1", now, segs, gzip = false)
+        assertEquals(MissionCoverageCodec.sha256Hex(a), MissionCoverageCodec.sha256Hex(b))
+        assertTrue(a.toString(Charsets.UTF_8).startsWith("{"))
     }
 }

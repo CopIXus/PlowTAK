@@ -188,7 +188,8 @@ class MissionCoverageSync(
         uploadIfChanged(
             client, mission, HazardMissionCodec.filename(uid),
             HazardMissionCodec.encode(stormId, myHazards), uid, "application/geo+json",
-            KEY_LAST_HAZARD_HASH
+            KEY_LAST_HAZARD_HASH,
+            associateUids = myHazards.map { it.uid }
         )
 
         val myConditions = freshConditions.filter {
@@ -216,13 +217,13 @@ class MissionCoverageSync(
             val demoSegs = MissionCoverageCodec.segmentsInCurrentHour(coverageStore.all(), now)
                 .filter { it.vehicleUid.startsWith("plowtak-demo-") }
             if (demoSegs.isNotEmpty()) {
-                val demoCovName = "${sanitize(uid)}-demo-${MissionCoverageCodec.hourLabelUtc(now)}-live.geojson.gz"
+                val demoCovName = "${sanitize(uid)}-demo-${MissionCoverageCodec.hourLabelUtc(now)}-live.geojson"
                 val demoCovBytes = MissionCoverageCodec.encodeBytes(
-                    stormId, uid, now, demoSegs, gzip = true
+                    stormId, uid, MissionCoverageCodec.hourStartMs(now), demoSegs, gzip = false
                 )
                 uploadNamedIfChanged(
                     client, mission, demoCovName, demoCovBytes, uid,
-                    "application/geo+json", "gzip",
+                    "application/geo+json", null,
                     KEY_LAST_DEMO_COV_HASH, KEY_LAST_DEMO_COV_FILENAME, KEY_LAST_MISSION
                 )
             }
@@ -350,7 +351,7 @@ class MissionCoverageSync(
                 sink.onOpsPulled(snap)
             }
             filename.endsWith("-live.geojson.gz") || filename.endsWith("-live.geojson") -> {
-                val jsonBytes = if (filename.endsWith(".gz")) gunzip(bytes) else bytes
+                val jsonBytes = decodeMaybeGzip(filename, bytes)
                 val segs = decodeCoverageGeoJson(jsonBytes)
                 if (segs.isNotEmpty()) sink.onCoveragePulled(segs)
             }
@@ -446,9 +447,12 @@ class MissionCoverageSync(
     }
 
     /**
-     * Upload one gzip GeoJSON chunk per UTC hour that has self segments.
+     * Upload one plain GeoJSON chunk per UTC hour that has self segments.
      * Deterministic encoding (generatedAt = hour start) keeps hashes stable,
      * so unchanged hours are skipped and only new painting re-uploads.
+     * Plain `.geojson` (no gzip / Content-Encoding) so Marti, Data Sync, and
+     * peer pulls all see the same bytes — gzip+Content-Encoding caused
+     * ADD→REMOVE churn and decode failures on peers.
      */
     private fun uploadCoverageHistory(
         client: TakHttpClient2,
@@ -470,9 +474,9 @@ class MissionCoverageSync(
             val hourEnd = hourStart + 3_600_000L
             val inHour = segs.filter { it.startTimeMs < hourEnd && it.endTimeMs >= hourStart }
             if (inHour.isNotEmpty()) {
-                val filename = MissionCoverageCodec.liveFilename(uid, hourStart, gzip = true)
+                val filename = MissionCoverageCodec.liveFilename(uid, hourStart, gzip = false)
                 val bytes = MissionCoverageCodec.encodeBytes(
-                    stormId, uid, hourStart, inHour, gzip = true
+                    stormId, uid, hourStart, inHour, gzip = false
                 )
                 uploadHourChunk(client, mission, filename, bytes, uid)
                 uploaded.add(filename)
@@ -496,13 +500,18 @@ class MissionCoverageSync(
         val hash = MissionCoverageCodec.sha256Hex(bytes)
         val prevHash = prefs.getString(hashKey)
         if (hash == prevHash) return
+        // No Content-Encoding — body is plain GeoJSON matching the filename.
         val serverHash =
-            uploadContent(client, filename, hash, uid, bytes, "application/geo+json", "gzip")
+            uploadContent(client, filename, hash, uid, bytes, "application/geo+json", null)
         if (serverHash != null) {
             associateContent(client, mission, serverHash)
-            val prevServerHash = prefs.getString(serverHashKey) ?: prevHash
+            val prevServerHash = prefs.getString(serverHashKey)
             if (!prevServerHash.isNullOrBlank() && prevServerHash != serverHash) {
                 deleteOldContent(client, mission, prevServerHash)
+            }
+            // Drop legacy gzip twins from older builds (same hour, .geojson.gz).
+            if (!filename.endsWith(".gz")) {
+                purgeOtherHashesForFilename(client, mission, "$filename.gz", keepHash = "")
             }
             prefs.putString(hashKey, hash)
             prefs.putString(serverHashKey, serverHash)
@@ -519,7 +528,8 @@ class MissionCoverageSync(
         contentType: String,
         hashKey: String,
         force: Boolean = false,
-        contentEncoding: String? = null
+        contentEncoding: String? = null,
+        associateUids: List<String> = emptyList()
     ) {
         val hash = MissionCoverageCodec.sha256Hex(bytes)
         if (!force && hash == prefs.getString(hashKey)) return
@@ -527,7 +537,7 @@ class MissionCoverageSync(
         val serverHash =
             uploadContent(client, filename, hash, creatorUid, bytes, contentType, contentEncoding)
         if (serverHash != null) {
-            associateContent(client, mission, serverHash)
+            associateContent(client, mission, serverHash, associateUids)
             // Replace prior versions of this same logical file. Without this,
             // every hash change left another copy in the mission and Data Sync
             // peers rendered N identical markers (e.g. five "Wet" at one time).
@@ -655,9 +665,17 @@ class MissionCoverageSync(
         }
     }
 
-    private fun associateContent(client: TakHttpClient2, mission: String, hash: String) {
+    private fun associateContent(
+        client: TakHttpClient2,
+        mission: String,
+        hash: String,
+        uids: List<String> = emptyList()
+    ) {
         val path = client.getUrl("/api/missions/" + enc(mission) + "/contents")
-        val body = "{\"hashes\":[\"$hash\"],\"uids\":[]}".toByteArray(Charsets.UTF_8)
+        val uidJson = uids.filter { it.isNotBlank() }
+            .distinct()
+            .joinToString(",") { "\"${it.replace("\"", "").replace("\\", "")}\"" }
+        val body = "{\"hashes\":[\"$hash\"],\"uids\":[$uidJson]}".toByteArray(Charsets.UTF_8)
         try {
             val resp = client.put(path, "application/json", body, null)
             if (!resp.isOk && !resp.isCreated) {
@@ -727,6 +745,24 @@ class MissionCoverageSync(
 
     private fun gunzip(bytes: ByteArray): ByteArray =
         GZIPInputStream(bytes.inputStream()).use { it.readBytes() }
+
+    /**
+     * Peer downloads may be still-gzipped (older uploads) or already plain
+     * JSON (Marti stripped Content-Encoding). Prefer gunzip for `.gz` names,
+     * but fall back to raw bytes when the payload is already JSON.
+     */
+    private fun decodeMaybeGzip(filename: String, bytes: ByteArray): ByteArray {
+        if (!filename.endsWith(".gz")) return bytes
+        if (bytes.size >= 2 && bytes[0] == 0x1f.toByte() && bytes[1] == 0x8b.toByte()) {
+            return gunzip(bytes)
+        }
+        // Already plain (or server transparently decompressed).
+        return try {
+            gunzip(bytes)
+        } catch (_: Throwable) {
+            bytes
+        }
+    }
 
     /** Best-effort GeoJSON coverage FeatureCollection → [TreatSegment] list. */
     private fun decodeCoverageGeoJson(bytes: ByteArray): List<TreatSegment> {

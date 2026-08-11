@@ -13,9 +13,10 @@ import com.atakmap.coremap.cot.event.CotPoint
 import com.atakmap.coremap.maps.time.CoordinatedTime
 
 /**
- * One-tap hazard drops. Builds a marker CoT at the current position for the
- * **local map only**. Shared fleet visibility is via Data Sync mission
- * content (`{uid}-hazards.geojson`), not TAK CoT broadcast.
+ * One-tap hazard drops. Builds a marker CoT at the current position and
+ * **broadcasts it to the TAK mesh** so peers and CloudTAK Map Items can see
+ * it. The same event is also mirrored into Data Sync as
+ * `{uid}-hazards.geojson` for late joiners / mission subscribers.
  *
  * Photo attachments follow the ATAK attachment convention: the image lives
  * at `atak/attachments/<marker uid>/<photoFile>` and TAK attachment sync
@@ -75,7 +76,8 @@ class HazardReporter(
             root.addChild(CotDetailAdapter.toCotDetail(HazardCotCodec.encode(hazard)))
             event.detail = root
 
-            queue.sendLocalOnly(event)
+            // Broadcast so CloudTAK / peer ATAK without waiting on Data Sync.
+            queue.send(event)
         } catch (e: Exception) {
             Log.e(TAG, "hazard drop failed", e)
         }
