@@ -1,6 +1,7 @@
 package com.atakmap.android.plowtak.report
 
 import android.util.Log
+import com.atakmap.android.maps.MapView
 import com.atakmap.android.plowtak.cot.CotDetailAdapter
 import com.atakmap.android.plowtak.cot.OutboundCotQueue
 import com.atakmap.android.plowtak.cot.codec.HazardCotCodec
@@ -89,7 +90,7 @@ class HazardReporter(
         try {
             // Same UID already on the map (e.g. CoT arrived first) — do not
             // dispatch another CotEvent that could flicker or double-draw.
-            val mapView = com.atakmap.map.MapView.getMapView()
+            val mapView = MapView.getMapView()
             if (mapView?.rootGroup?.deepFindUID(hazard.uid) != null) return
 
             val event = CotEvent()
