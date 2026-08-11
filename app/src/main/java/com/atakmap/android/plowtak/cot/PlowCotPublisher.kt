@@ -198,6 +198,11 @@ class PlowCotPublisher(
         report: RoadConditionReport,
         staleMinutes: Int = StormSession.DEFAULT_ROAD_CONDITION_TTL_MINUTES
     ) {
+        try {
+            if (MapView.getMapView()?.rootGroup?.deepFindUID(report.uid) != null) return
+        } catch (_: Throwable) {
+            // fall through and publish
+        }
         val staleS = (staleMinutes.coerceIn(15, 24 * 60) * 60).coerceAtLeast(60)
         val title = ReportLabels.condition(
             report.condition.label, report.reporterCallsign, report.timeMs

@@ -255,14 +255,16 @@ class PlowTakController(
             override fun onHazardsPulled(hazards: List<HazardEvent>) {
                 for (h in hazards) {
                     if (h.reporterUid == selfUid()) continue
-                    val isNew = synchronized(hazardLog) {
-                        if (hazardLog.containsKey(h.uid)) false
-                        else {
-                            hazardLog[h.uid] = h
-                            true
-                        }
+                    // Always remember the event; only paint when the UID is
+                    // neither in our log nor already on the ATAK map (CoT may
+                    // have beaten Data Sync and created the marker already).
+                    val shouldPaint = synchronized(hazardLog) {
+                        val known = hazardLog.containsKey(h.uid)
+                        hazardLog[h.uid] = h
+                        !known
                     }
-                    if (isNew) hazardReporter.showLocal(h)
+                    if (!shouldPaint || mapHasUid(h.uid)) continue
+                    hazardReporter.showLocal(h)
                 }
             }
 
@@ -270,14 +272,13 @@ class PlowTakController(
                 val ttl = conditionStaleMinutes()
                 for (c in conditions) {
                     if (c.reporterUid == selfUid()) continue
-                    val isNew = synchronized(conditionLog) {
-                        if (conditionLog.containsKey(c.uid)) false
-                        else {
-                            conditionLog[c.uid] = c
-                            true
-                        }
+                    val shouldPaint = synchronized(conditionLog) {
+                        val known = conditionLog.containsKey(c.uid)
+                        conditionLog[c.uid] = c
+                        !known
                     }
-                    if (isNew) cotPublisher.publishRoadCondition(c, ttl)
+                    if (!shouldPaint || mapHasUid(c.uid)) continue
+                    cotPublisher.publishRoadCondition(c, ttl)
                 }
             }
 
@@ -1098,6 +1099,16 @@ class PlowTakController(
 
     private fun refreshTreatingState() {
         statusManager.updateTreating(isTreatingNow())
+    }
+
+    /** True when ATAK already has a map item for [uid] (CoT beat Data Sync). */
+    private fun mapHasUid(uid: String): Boolean {
+        if (uid.isBlank()) return false
+        return try {
+            mapView.rootGroup.deepFindUID(uid) != null
+        } catch (_: Throwable) {
+            false
+        }
     }
 
     /** Attach or detach the direction-split hook per the setting. */

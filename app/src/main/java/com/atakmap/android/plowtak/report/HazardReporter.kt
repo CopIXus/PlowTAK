@@ -87,6 +87,11 @@ class HazardReporter(
     /** Show an already-known hazard on the local map (Data Sync pull). */
     fun showLocal(hazard: HazardEvent) {
         try {
+            // Same UID already on the map (e.g. CoT arrived first) — do not
+            // dispatch another CotEvent that could flicker or double-draw.
+            val mapView = com.atakmap.map.MapView.getMapView()
+            if (mapView?.rootGroup?.deepFindUID(hazard.uid) != null) return
+
             val event = CotEvent()
             event.uid = hazard.uid
             event.type = hazard.type.cotType
