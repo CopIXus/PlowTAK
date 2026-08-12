@@ -7,6 +7,21 @@ Plugin versions use **yy.mmdd.HHmm** UTC (build timestamp), e.g. `26.0809.0935`.
 
 ## [Unreleased]
 
+## [0.1.5] — 2026-08-12 (TPC `tpc-0.1.5`)
+
+TPC job `amos-halava1-leo-gov-20260812-140635` →
+`PlowTAK-26.0812.1406-ATAK-5.8.0-civ-release.apk`
+([release](https://github.com/CopIXus/PlowTAK/releases/tag/tpc-0.1.5)).
+
+### Fixed
+- Coverage Data Sync ADD/REMOVE churn from gzip + `Content-Encoding` uploads;
+  peers and CloudTAK now get stable plain `*-live.geojson`.
+- Skip Data Sync local paint when a hazard/condition UID is already on the map.
+- CIV release compile (`MapView` import).
+
+### Changed
+- Hazards: CoT broadcast plus mission association for CloudTAK Map Items.
+
 ## [0.1.4] — 2026-08-10 (TPC `tpc-0.1.4`)
 
 TPC job `amos-halava1-leo-gov-20260810-123525` →
