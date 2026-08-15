@@ -7,6 +7,19 @@ Plugin versions use **yy.mmdd.HHmm** UTC (build timestamp), e.g. `26.0809.0935`.
 
 ## [Unreleased]
 
+## [0.1.6] — 2026-08-15 (TPC `tpc-0.1.6`)
+
+TPC job `amos-halava1-leo-gov-20260815-205020` →
+`PlowTAK-26.0815.2050-ATAK-5.8.0-civ-release.apk`
+([release](https://github.com/CopIXus/PlowTAK/releases/tag/tpc-0.1.6)).
+
+### Added
+- Storm-level coverage colors/timers (cycle, P1–P3, retention; 0 = stay red).
+- Mine-first Tasks screen with snooze and ops sync.
+
+### Changed
+- GIS priority in overlay/tasking; Supervisor cycle binds from active storm.
+
 ## [0.1.5] — 2026-08-12 (TPC `tpc-0.1.5`)
 
 TPC job `amos-halava1-leo-gov-20260812-140635` →

@@ -3,11 +3,11 @@
 Handoff notes for PlowTAK so work can continue from any machine that has this
 repo (UNAS: `\\192.168.1.26\Working\TAK\IdeaPlowPlugin` or `T:\TAK\IdeaPlowPlugin`).
 
-**Last verified:** 2026-08-12  
-**Successful TPP job:** `amos-halava1-leo-gov-20260812-140635`  
-  (APK `PlowTAK-26.0812.1406-ATAK-5.8.0-civ-release.apk`)  
-**GitHub release:** https://github.com/CopIXus/PlowTAK/releases/tag/tpc-0.1.5  
-**Git commit:** `4f88861` (coverage sync fix, UID dedupe, CIV MapView import)
+**Last verified:** 2026-08-15  
+**Successful TPP job:** `amos-halava1-leo-gov-20260815-205020`  
+  (APK `PlowTAK-26.0815.2050-ATAK-5.8.0-civ-release.apk`)  
+**GitHub release:** https://github.com/CopIXus/PlowTAK/releases/tag/tpc-0.1.6  
+**Git commit:** `67fd478` (storm coverage colors/timers + mine-first Tasks)
 
 ---
 
