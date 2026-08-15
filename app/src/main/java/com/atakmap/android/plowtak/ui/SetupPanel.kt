@@ -6,7 +6,6 @@ import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.RadioGroup
 import android.widget.TextView
-import com.atakmap.android.plowtak.BuildConfig
 import com.atakmap.android.plowtak.PlowTakController
 import com.atakmap.android.plowtak.R
 import com.atakmap.android.plowtak.model.VehicleCapability
@@ -54,7 +53,7 @@ class SetupPanel(
 
     init {
         view.findViewById<TextView>(R.id.setup_version).text =
-            "PlowTAK ${BuildConfig.VERSION_NAME}"
+            "PlowTAK ${pluginVersionLabel()}"
 
         typeGroup.setOnCheckedChangeListener { _, _ -> applyVisibility() }
         roadSnap.setOnCheckedChangeListener { _, checked ->
@@ -186,6 +185,18 @@ class SetupPanel(
     private fun defaultCallsign(type: VehicleType): String = when (type) {
         VehicleType.SALT_ONLY -> "Spread-1"
         else -> "Plow-1"
+    }
+
+    /** Prefer APK versionName; avoids BuildConfig (disabled by default on AGP 8). */
+    private fun pluginVersionLabel(): String {
+        return try {
+            val ctx = controller.pluginContext
+            ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName
+                ?.takeIf { it.isNotBlank() }
+                ?: "?"
+        } catch (_: Exception) {
+            "?"
+        }
     }
 
     companion object {

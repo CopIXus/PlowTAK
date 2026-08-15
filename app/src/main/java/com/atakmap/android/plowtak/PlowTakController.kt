@@ -135,8 +135,6 @@ class PlowTakController(
         redAfterMinutes = prefs.cycleTimeMinutes,
         retentionHours = prefs.retentionHours
     )
-        retentionHours = prefs.retentionHours
-    )
     val coverageStore = CoverageStore(File(pluginContext.filesDir, "plowtak"))
     private val swathBuilder = SwathBuilder { segment -> coverageStore.addLocal(segment) }
 
