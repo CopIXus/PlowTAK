@@ -1,22 +1,22 @@
 package com.atakmap.android.plowtak.ui
 
 import android.view.View
-import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.RadioGroup
-import android.widget.Spinner
 import android.widget.Toast
 import com.atakmap.android.plowtak.PlowTakController
 import com.atakmap.android.plowtak.R
-import com.atakmap.android.plowtak.plugin.PluginLayoutInflater
 import com.atakmap.android.plowtak.model.VehicleCapability
 import com.atakmap.android.plowtak.model.VehicleType
+import com.atakmap.android.plowtak.plugin.PluginLayoutInflater
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /**
  * First-run / settings flow: pick the vehicle type, then sub-options
- * (plow width presets, hasSalt, observer label, presence, distress).
+ * (plow/wing/tow widths in feet, hasSalt, presence, distress).
  * Saving persists a sanitized capability and returns to the main panel.
  */
 class SetupPanel(
@@ -33,9 +33,9 @@ class SetupPanel(
     private val vehicleId = view.findViewById<EditText>(R.id.setup_vehicle_id)
     private val treatOptions = view.findViewById<View>(R.id.setup_treat_options)
     private val hasSalt = view.findViewById<CheckBox>(R.id.setup_has_salt)
-    private val widthSpinner = view.findViewById<Spinner>(R.id.setup_width_spinner)
-    private val wingSpinner = view.findViewById<Spinner>(R.id.setup_wing_spinner)
-    private val towSpinner = view.findViewById<Spinner>(R.id.setup_tow_spinner)
+    private val plowWidthFt = view.findViewById<EditText>(R.id.setup_plow_width)
+    private val wingWidthFt = view.findViewById<EditText>(R.id.setup_wing_width)
+    private val towWidthFt = view.findViewById<EditText>(R.id.setup_tow_width)
     private val observerOptions = view.findViewById<View>(R.id.setup_observer_options)
     private val observerLabel = view.findViewById<EditText>(R.id.setup_observer_label)
     private val presence = view.findViewById<CheckBox>(R.id.setup_presence)
@@ -51,34 +51,7 @@ class SetupPanel(
     private val btBle = view.findViewById<CheckBox>(R.id.setup_bt_ble)
     private val demoBtn = view.findViewById<Button>(R.id.setup_demo_btn)
 
-    private val widthLabels = listOf(
-        "8 ft (2.4 m)", "10 ft (3.0 m)", "12 ft (3.7 m)",
-        "Wing 16 ft (4.9 m)", "Tow 26 ft (7.9 m)"
-    )
-
-    /** Wing / tow preset options; index 0 = not fitted (disables the preset). */
-    private val wingOptionsM = listOf(0.0, 4.9, 5.5)
-    private val wingLabels = listOf("Not fitted", "16 ft (4.9 m)", "18 ft (5.5 m)")
-    private val towOptionsM = listOf(0.0, 7.9, 8.5)
-    private val towLabels = listOf("Not fitted", "26 ft (7.9 m)", "28 ft (8.5 m)")
-
     init {
-        widthSpinner.adapter = ArrayAdapter(
-            controller.pluginContext,
-            android.R.layout.simple_spinner_dropdown_item,
-            widthLabels
-        )
-        wingSpinner.adapter = ArrayAdapter(
-            controller.pluginContext,
-            android.R.layout.simple_spinner_dropdown_item,
-            wingLabels
-        )
-        towSpinner.adapter = ArrayAdapter(
-            controller.pluginContext,
-            android.R.layout.simple_spinner_dropdown_item,
-            towLabels
-        )
-
         typeGroup.setOnCheckedChangeListener { _, _ -> applyVisibility() }
         roadSnap.setOnCheckedChangeListener { _, checked ->
             roadSnapDir.visibility = if (checked) View.VISIBLE else View.GONE
@@ -99,13 +72,13 @@ class SetupPanel(
             observerLabel.setText(cap.observerLabel)
             presence.isChecked = cap.publishPresence
             distress.isChecked = cap.canSendDistress
-            val presetIndex = VehicleCapability.WIDTH_PRESETS_M
-                .indexOfFirst { Math.abs(it - cap.plowWidthM) < 0.01 }
-            widthSpinner.setSelection(if (presetIndex >= 0) presetIndex else 1)
-            wingSpinner.setSelection(nearestIndex(wingOptionsM, cap.wingWidthM))
-            towSpinner.setSelection(nearestIndex(towOptionsM, cap.towWidthM))
+            plowWidthFt.setText(formatFeet(cap.plowWidthM))
+            wingWidthFt.setText(formatFeet(cap.wingWidthM))
+            towWidthFt.setText(formatFeet(cap.towWidthM))
         } else {
-            widthSpinner.setSelection(1) // 10 ft default
+            plowWidthFt.setText(formatFeet(VehicleCapability.DEFAULT_WIDTH_M))
+            wingWidthFt.setText("0")
+            towWidthFt.setText("0")
         }
         ttsEnabled.isChecked = controller.prefs.ttsEnabled
         taskingSnooze.setText(controller.prefs.taskingSnoozeMinutes.toString())
@@ -147,11 +120,6 @@ class SetupPanel(
         }
     }
 
-    private fun nearestIndex(options: List<Double>, value: Double): Int {
-        val i = options.indexOfFirst { Math.abs(it - value) < 0.01 }
-        return if (i >= 0) i else 0
-    }
-
     private fun selectedType(): VehicleType = when (typeGroup.checkedRadioButtonId) {
         R.id.setup_type_salt -> VehicleType.SALT_ONLY
         else -> VehicleType.PLOW
@@ -168,8 +136,6 @@ class SetupPanel(
     private fun save() {
         val type = selectedType()
         val defaults = VehicleCapability.defaultsFor(type)
-        val widthIndex = widthSpinner.selectedItemPosition
-            .coerceIn(0, VehicleCapability.WIDTH_PRESETS_M.size - 1)
 
         val cap = defaults.copy(
             hasSalt = when (type) {
@@ -179,15 +145,22 @@ class SetupPanel(
             },
             canSendDistress = distress.isChecked,
             publishPresence = presence.isChecked,
-            plowWidthM = if (defaults.canTreat)
-                VehicleCapability.WIDTH_PRESETS_M[widthIndex]
-            else 0.0,
-            wingWidthM = if (defaults.canTreat)
-                wingOptionsM[wingSpinner.selectedItemPosition.coerceIn(0, wingOptionsM.size - 1)]
-            else 0.0,
-            towWidthM = if (defaults.canTreat)
-                towOptionsM[towSpinner.selectedItemPosition.coerceIn(0, towOptionsM.size - 1)]
-            else 0.0,
+            plowWidthM = if (defaults.canTreat) {
+                VehicleCapability.feetToMeters(
+                    plowWidthFt.text.toString().trim().toDoubleOrNull()
+                        ?: (VehicleCapability.DEFAULT_WIDTH_M / VehicleCapability.FT_TO_M)
+                )
+            } else 0.0,
+            wingWidthM = if (defaults.canTreat) {
+                VehicleCapability.feetToMeters(
+                    wingWidthFt.text.toString().trim().toDoubleOrNull() ?: 0.0
+                )
+            } else 0.0,
+            towWidthM = if (defaults.canTreat) {
+                VehicleCapability.feetToMeters(
+                    towWidthFt.text.toString().trim().toDoubleOrNull() ?: 0.0
+                )
+            } else 0.0,
             callsign = callsign.text.toString().trim()
                 .ifEmpty { defaultCallsign(type) },
             vehicleId = vehicleId.text.toString().trim(),
@@ -224,5 +197,18 @@ class SetupPanel(
     private fun defaultCallsign(type: VehicleType): String = when (type) {
         VehicleType.SALT_ONLY -> "Spread-1"
         else -> "Plow-1"
+    }
+
+    companion object {
+        /** Compact feet display from stored meters (whole feet when close). */
+        fun formatFeet(meters: Double): String {
+            if (meters <= 0.0) return "0"
+            val ft = VehicleCapability.metersToFeet(meters)
+            return if (abs(ft - ft.roundToInt()) < 0.05) {
+                ft.roundToInt().toString()
+            } else {
+                String.format(java.util.Locale.US, "%.1f", ft)
+            }
+        }
     }
 }

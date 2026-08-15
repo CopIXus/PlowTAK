@@ -34,19 +34,36 @@ class ManualEquipmentProvider(
 
     fun setWidthPreset(preset: WidthPreset) = update(state.copy(widthPreset = preset))
 
+    /** Deploy / stow the tow plow. Deploying retracts wings. */
+    fun setTowDeployed(deployed: Boolean) = update(
+        if (deployed) {
+            state.copy(
+                widthPreset = WidthPreset.TOW,
+                wingLeftExtended = false,
+                wingRightExtended = false
+            )
+        } else {
+            state.copy(widthPreset = WidthPreset.STANDARD)
+        }
+    )
+
     fun setWingLeft(extended: Boolean) = update(
         state.copy(
             wingLeftExtended = extended,
-            widthPreset = if (extended || state.wingRightExtended) WidthPreset.WING
-            else WidthPreset.STANDARD
+            widthPreset = when {
+                extended || state.wingRightExtended -> WidthPreset.WING
+                else -> WidthPreset.STANDARD
+            }
         )
     )
 
     fun setWingRight(extended: Boolean) = update(
         state.copy(
             wingRightExtended = extended,
-            widthPreset = if (extended || state.wingLeftExtended) WidthPreset.WING
-            else WidthPreset.STANDARD
+            widthPreset = when {
+                extended || state.wingLeftExtended -> WidthPreset.WING
+                else -> WidthPreset.STANDARD
+            }
         )
     )
 

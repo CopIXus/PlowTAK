@@ -31,7 +31,9 @@ class TaskingPanel(
         controller.pluginContext, R.layout.panel_tasking, null
     )
 
+    /** Host activity context — Toast only. Plugin strings use [pluginCtx]. */
     private val hostContext = controller.mapView.context
+    private val pluginCtx = controller.pluginContext
     private val list = view.findViewById<LinearLayout>(R.id.tasking_list)
     private val empty = view.findViewById<TextView>(R.id.tasking_empty)
     private val hint = view.findViewById<TextView>(R.id.tasking_hint)
@@ -81,7 +83,8 @@ class TaskingPanel(
         controller.routeAssignments.addListener(routeListener)
         controller.snoozeStore.addListener(snoozeListener)
         val snooze = controller.prefs.taskingSnoozeMinutes
-        hint.text = hostContext.getString(R.string.tasking_hint, snooze)
+        // Plugin R.string IDs only resolve on the plugin context (host crashes).
+        hint.text = pluginCtx.getString(R.string.tasking_hint, snooze)
         refresh()
         handler.postDelayed(refreshTick, REFRESH_MS)
     }
@@ -109,7 +112,7 @@ class TaskingPanel(
 
     private fun rowFor(item: TaskingItem): View {
         val pad = dp(10)
-        val row = LinearLayout(controller.pluginContext).apply {
+        val row = LinearLayout(pluginCtx).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(pad, pad, pad, pad)
@@ -120,16 +123,16 @@ class TaskingPanel(
                 controller.zoomToTaskingItem(item)
                 Toast.makeText(
                     hostContext,
-                    hostContext.getString(R.string.tasking_zoomed, item.title),
+                    pluginCtx.getString(R.string.tasking_zoomed, item.title),
                     Toast.LENGTH_SHORT
                 ).show()
             }
         }
-        val textCol = LinearLayout(controller.pluginContext).apply {
+        val textCol = LinearLayout(pluginCtx).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
-        textCol.addView(TextView(controller.pluginContext).apply {
+        textCol.addView(TextView(pluginCtx).apply {
             text = item.title
             setTextColor(0xFFFFFFFF.toInt())
             textSize = 15f
@@ -140,7 +143,7 @@ class TaskingPanel(
             TaskingListBuilder.formatDistanceMiles(item.distanceM)
         }
         val kind = item.kind.label
-        textCol.addView(TextView(controller.pluginContext).apply {
+        textCol.addView(TextView(pluginCtx).apply {
             text = "$kind · $dist" +
                 if (item.detail.isNotEmpty()) " · ${item.detail}" else ""
             setTextColor(0xFF9E9E9E.toInt())
@@ -148,7 +151,7 @@ class TaskingPanel(
         })
         row.addView(textCol)
 
-        val plus = Button(controller.pluginContext).apply {
+        val plus = Button(pluginCtx).apply {
             text = "+"
             textSize = 20f
             minWidth = dp(48)
@@ -157,7 +160,7 @@ class TaskingPanel(
                 val mins = controller.snoozeTaskingItem(item.id)
                 Toast.makeText(
                     hostContext,
-                    hostContext.getString(R.string.tasking_deferred, mins),
+                    pluginCtx.getString(R.string.tasking_deferred, mins),
                     Toast.LENGTH_SHORT
                 ).show()
                 refresh()
@@ -174,7 +177,7 @@ class TaskingPanel(
     }
 
     private fun dp(value: Int): Int =
-        (value * controller.pluginContext.resources.displayMetrics.density).toInt()
+        (value * pluginCtx.resources.displayMetrics.density).toInt()
 
     companion object {
         private const val REFRESH_MS = 30_000L

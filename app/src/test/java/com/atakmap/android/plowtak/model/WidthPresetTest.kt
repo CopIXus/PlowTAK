@@ -46,4 +46,12 @@ class WidthPresetTest {
         }
         assertEquals(null, WidthPreset.fromWireName("bogus"))
     }
+
+    @Test
+    fun `feet and meters round-trip for common plow sizes`() {
+        assertEquals(3.048, VehicleCapability.feetToMeters(10.0), 1e-9)
+        assertEquals(7.9248, VehicleCapability.feetToMeters(26.0), 1e-9)
+        assertEquals(10.0, VehicleCapability.metersToFeet(3.048), 1e-9)
+        assertEquals(0.0, VehicleCapability.feetToMeters(-1.0), 1e-9)
+    }
 }

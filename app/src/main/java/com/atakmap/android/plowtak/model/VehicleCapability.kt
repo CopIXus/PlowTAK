@@ -53,11 +53,20 @@ data class VehicleCapability(
 
     companion object {
 
-        /** Common plow width presets in meters (8 ft, 10 ft, 12 ft, wing 16 ft, tow 26 ft). */
+        /**
+         * Historical reference widths in meters (8 / 10 / 12 / wing 16 / tow 26 ft).
+         * Setup now accepts freeform feet; these remain useful for demos/tests.
+         */
         val WIDTH_PRESETS_M = listOf(2.4, 3.0, 3.7, 4.9, 7.9)
         const val DEFAULT_WIDTH_M = 3.0
         const val DEFAULT_WING_WIDTH_M = 4.9
         const val DEFAULT_TOW_WIDTH_M = 7.9
+        /** Feet → meters (US plow widths are configured in feet). */
+        const val FT_TO_M = 0.3048
+
+        fun feetToMeters(feet: Double): Double = feet.coerceAtLeast(0.0) * FT_TO_M
+
+        fun metersToFeet(meters: Double): Double = meters / FT_TO_M
 
         /**
          * Sensible defaults per vehicle type; the first-run UI starts from

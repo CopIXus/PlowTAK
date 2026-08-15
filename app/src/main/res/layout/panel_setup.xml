@@ -100,10 +100,15 @@
                 android:textColor="@color/plowtak_text"
                 android:textSize="16sp" />
 
-            <Spinner
-                android:id="@+id/setup_width_spinner"
+            <EditText
+                android:id="@+id/setup_plow_width"
                 android:layout_width="match_parent"
-                android:layout_height="48dp" />
+                android:layout_height="wrap_content"
+                android:hint="@string/setup_plow_width_hint"
+                android:inputType="numberDecimal"
+                android:textColor="@color/plowtak_text"
+                android:textColorHint="@color/plowtak_grey"
+                android:textSize="16sp" />
 
             <TextView
                 android:layout_width="match_parent"
@@ -113,10 +118,15 @@
                 android:textColor="@color/plowtak_text"
                 android:textSize="16sp" />
 
-            <Spinner
-                android:id="@+id/setup_wing_spinner"
+            <EditText
+                android:id="@+id/setup_wing_width"
                 android:layout_width="match_parent"
-                android:layout_height="48dp" />
+                android:layout_height="wrap_content"
+                android:hint="@string/setup_wing_width_hint"
+                android:inputType="numberDecimal"
+                android:textColor="@color/plowtak_text"
+                android:textColorHint="@color/plowtak_grey"
+                android:textSize="16sp" />
 
             <TextView
                 android:layout_width="match_parent"
@@ -126,10 +136,15 @@
                 android:textColor="@color/plowtak_text"
                 android:textSize="16sp" />
 
-            <Spinner
-                android:id="@+id/setup_tow_spinner"
+            <EditText
+                android:id="@+id/setup_tow_width"
                 android:layout_width="match_parent"
-                android:layout_height="48dp" />
+                android:layout_height="wrap_content"
+                android:hint="@string/setup_tow_width_hint"
+                android:inputType="numberDecimal"
+                android:textColor="@color/plowtak_text"
+                android:textColorHint="@color/plowtak_grey"
+                android:textSize="16sp" />
         </LinearLayout>
 
         <!-- Observer sub-options -->

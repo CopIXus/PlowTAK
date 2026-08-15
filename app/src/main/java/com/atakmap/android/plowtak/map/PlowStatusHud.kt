@@ -28,6 +28,7 @@ class PlowStatusHud(
     private val equipment: ManualEquipmentProvider,
     private val isOnShift: () -> Boolean,
     private val hasSalt: () -> Boolean,
+    private val hasTow: () -> Boolean = { false },
     /** User setting: mini plow HUD on the map (persisted). */
     private val isEnabled: () -> Boolean = { true }
 ) {
@@ -71,6 +72,7 @@ class PlowStatusHud(
             root?.visibility = if (show) View.VISIBLE else View.GONE
             if (show) {
                 plow?.spreaderEnabled = hasSalt()
+                plow?.towAvailable = hasTow()
                 bindEquipment(equipment.state)
             } else {
                 setOverspeedVisual(false)
@@ -159,6 +161,7 @@ class PlowStatusHud(
         }
         val plowView = PlowControlView(ctx).apply {
             spreaderEnabled = hasSalt()
+            towAvailable = hasTow()
             layoutParams = LinearLayout.LayoutParams(
                 dp(HUD_WIDTH_DP),
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -167,6 +170,7 @@ class PlowStatusHud(
             onBladeToggle = { equipment.setBladeDown(it) }
             onWingLeftToggle = { equipment.setWingLeft(it) }
             onWingRightToggle = { equipment.setWingRight(it) }
+            onTowToggle = { equipment.setTowDeployed(it) }
             onSpreaderToggle = { equipment.setSpreading(it) }
         }
 
@@ -255,6 +259,7 @@ class PlowStatusHud(
     private fun bindEquipment(state: EquipmentState) {
         plow?.bind(state)
         plow?.spreaderEnabled = hasSalt()
+        plow?.towAvailable = hasTow()
     }
 
     private fun updateSpeedLabel() {

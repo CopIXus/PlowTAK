@@ -15,7 +15,8 @@
     <string name="setup_callsign_hint">Unit number (e.g. Unit 12)</string>
     <string name="setup_vehicle_id_hint">Truck number (e.g. T-1042)</string>
     <string name="setup_has_salt">Has spreader (salt)</string>
-    <string name="setup_plow_width">Plow width</string>
+    <string name="setup_plow_width">Plow width (ft)</string>
+    <string name="setup_plow_width_hint">e.g. 10</string>
     <string name="setup_observer_label_hint">Observer label (Fire / EMS / Traffic / EOC)</string>
     <string name="setup_publish_presence">Publish presence (my marker on the fleet map)</string>
     <string name="setup_distress_enabled">Enable distress button</string>
@@ -43,8 +44,10 @@
     <string name="storm_leave">Leave storm</string>
     <string name="storm_end">End storm…</string>
     <string name="storm_done">Done</string>
-    <string name="setup_wing_width">Wing width (when extended)</string>
-    <string name="setup_tow_width">Tow plow width (when deployed)</string>
+    <string name="setup_wing_width">Wing width (ft) — 0 if not fitted</string>
+    <string name="setup_wing_width_hint">0 = not fitted</string>
+    <string name="setup_tow_width">Tow plow width (ft) — 0 if not fitted</string>
+    <string name="setup_tow_width_hint">0 = not fitted</string>
     <string name="setup_tts_enabled">Voice alerts (tasks, overdue, distress)</string>
     <string name="setup_roadsnap_enabled">Snap GPS to roads (GraphHopper pack)</string>
     <string name="setup_roadsnap_dir_hint">Pack folder (contains nodes/edges/geometry)</string>

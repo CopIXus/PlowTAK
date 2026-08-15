@@ -175,6 +175,10 @@ class PlowTakController(
         equipment = equipment,
         isOnShift = { shiftLog.isOnShift },
         hasSalt = { capabilityStore.load().hasSalt },
+        hasTow = {
+            val c = capabilityStore.load()
+            c.hasBlade && c.towWidthM > 0.0
+        },
         isEnabled = { prefs.mapHudEnabled }
     )
     val hazardReporter = HazardReporter(cotQueue)

@@ -82,6 +82,7 @@ class DriverPanel(
         plowControl.visibility =
             if (cap.hasBlade || cap.hasSalt) View.VISIBLE else View.GONE
         plowControl.spreaderEnabled = cap.hasSalt
+        plowControl.towAvailable = cap.hasBlade && cap.towWidthM > 0.0
         distressButton.visibility = if (cap.canSendDistress) View.VISIBLE else View.GONE
 
         plowControl.onBladeToggle = { down ->
@@ -94,6 +95,10 @@ class DriverPanel(
         }
         plowControl.onWingRightToggle = { ext ->
             controller.equipment.setWingRight(ext)
+            refresh()
+        }
+        plowControl.onTowToggle = { deployed ->
+            controller.equipment.setTowDeployed(deployed)
             refresh()
         }
         plowControl.onSpreaderToggle = { on ->
@@ -183,6 +188,7 @@ class DriverPanel(
         val truck = cap.vehicleId.ifBlank { "Truck ?" }
         header.text = "$unit  ·  $truck  ($widthM m)"
         plowControl.spreaderEnabled = cap.hasSalt
+        plowControl.towAvailable = cap.hasBlade && cap.towWidthM > 0.0
         plowControl.visibility =
             if (cap.hasBlade || cap.hasSalt) View.VISIBLE else View.GONE
 
