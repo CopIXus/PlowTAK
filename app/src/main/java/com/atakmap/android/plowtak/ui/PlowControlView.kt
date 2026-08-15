@@ -6,6 +6,8 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
 import android.graphics.Rect
 import android.graphics.RectF
 import android.util.AttributeSet
@@ -18,13 +20,23 @@ import com.atakmap.android.plowtak.model.WidthPreset
 /**
  * Front-view plow control: left wing | blade | right wing, optional tow plow
  * behind the main blade, plus a spreader bar across the bottom. Green fill
- * stays inside each part outline.
+ * stays inside each part outline. Uninstalled wings are omitted entirely.
+ *
+ * [compact]=true (HUD): small stacked tow/spreader.
+ * [compact]=false (main panel): larger controls; tow+spreader side-by-side when both fitted.
  */
 class PlowControlView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyle: Int = 0
 ) : View(context, attrs, defStyle) {
+
+    var compact: Boolean = true
+        set(value) {
+            field = value
+            requestLayout()
+            invalidate()
+        }
 
     var bladeDown: Boolean = false
         set(value) {
@@ -69,6 +81,22 @@ class PlowControlView @JvmOverloads constructor(
             invalidate()
         }
 
+    /** When false, left wing is omitted (no outline, fill, or hit). */
+    var wingLeftAvailable: Boolean = true
+        set(value) {
+            field = value
+            if (!value) wingLeft = false
+            invalidate()
+        }
+
+    /** When false, right wing is omitted (no outline, fill, or hit). */
+    var wingRightAvailable: Boolean = true
+        set(value) {
+            field = value
+            if (!value) wingRight = false
+            invalidate()
+        }
+
     var onBladeToggle: ((Boolean) -> Unit)? = null
     var onWingLeftToggle: ((Boolean) -> Unit)? = null
     var onWingRightToggle: ((Boolean) -> Unit)? = null
@@ -84,6 +112,9 @@ class PlowControlView @JvmOverloads constructor(
         color = COLOR_ACTIVE
     }
     private val artPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val clearPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)
+    }
     private val towOutline = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = dp(2).toFloat()
@@ -120,42 +151,62 @@ class PlowControlView @JvmOverloads constructor(
 
     fun bind(state: EquipmentState) {
         bladeDown = state.bladeDown
-        wingLeft = state.wingLeftExtended
-        wingRight = state.wingRightExtended
-        towDeployed = state.widthPreset == WidthPreset.TOW && !state.wingsExtended
+        wingLeft = wingLeftAvailable && state.wingLeftExtended
+        wingRight = wingRightAvailable && state.wingRightExtended
+        towDeployed = towAvailable && state.widthPreset == WidthPreset.TOW && !state.wingsExtended
         spreadingOn = state.spreadingOn
+    }
+
+    private fun towH(): Int = when {
+        !towAvailable -> 0
+        compact -> dp(28)
+        else -> dp(44)
+    }
+
+    private fun spreaderH(): Int = when {
+        !spreaderEnabled -> 0
+        compact -> dp(36)
+        else -> dp(52)
+    }
+
+    /** When both fitted and not compact, tow+spreader share one row. */
+    private fun sideBySideExtras(): Boolean =
+        !compact && towAvailable && spreaderEnabled
+
+    private fun extrasH(): Int = when {
+        sideBySideExtras() -> maxOf(towH(), spreaderH())
+        else -> towH() + spreaderH()
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val w = MeasureSpec.getSize(widthMeasureSpec).coerceAtLeast(dp(120))
         val aspect = art.height.toFloat() / art.width.toFloat()
         val artH = (w * aspect).toInt()
-        val towH = if (towAvailable) dp(28) else 0
-        val spreaderH = if (spreaderEnabled) dp(36) else 0
-        setMeasuredDimension(w, artH + towH + spreaderH)
+        setMeasuredDimension(w, artH + extrasH())
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
-        val spreaderH = if (spreaderEnabled) dp(36).toFloat() else 0f
-        val towH = if (towAvailable) dp(28).toFloat() else 0f
-        artDst.set(0f, 0f, w.toFloat(), (h - spreaderH - towH).coerceAtLeast(1f))
+        artDst.set(0f, 0f, w.toFloat(), (h - extrasH()).toFloat().coerceAtLeast(1f))
         layoutRegions()
     }
 
     private fun layoutRegions() {
-        // Tighter fractions so green stays inside the white plow outlines.
         leftWingHit.set(fx(0.04f), fy(0.32f), fx(0.30f), fy(0.72f))
         bladeHit.set(fx(0.30f), fy(0.28f), fx(0.70f), fy(0.72f))
         rightWingHit.set(fx(0.70f), fy(0.32f), fx(0.96f), fy(0.72f))
+        if (!wingLeftAvailable) leftWingHit.setEmpty()
+        if (!wingRightAvailable) rightWingHit.setEmpty()
 
         leftWingPath.reset()
-        leftWingPath.moveTo(fx(0.295f), fy(0.38f))
-        leftWingPath.lineTo(fx(0.16f), fy(0.40f))
-        leftWingPath.quadTo(fx(0.08f), fy(0.44f), fx(0.075f), fy(0.54f))
-        leftWingPath.lineTo(fx(0.085f), fy(0.64f))
-        leftWingPath.quadTo(fx(0.14f), fy(0.70f), fx(0.24f), fy(0.68f))
-        leftWingPath.lineTo(fx(0.295f), fy(0.66f))
-        leftWingPath.close()
+        if (wingLeftAvailable) {
+            leftWingPath.moveTo(fx(0.295f), fy(0.38f))
+            leftWingPath.lineTo(fx(0.16f), fy(0.40f))
+            leftWingPath.quadTo(fx(0.08f), fy(0.44f), fx(0.075f), fy(0.54f))
+            leftWingPath.lineTo(fx(0.085f), fy(0.64f))
+            leftWingPath.quadTo(fx(0.14f), fy(0.70f), fx(0.24f), fy(0.68f))
+            leftWingPath.lineTo(fx(0.295f), fy(0.66f))
+            leftWingPath.close()
+        }
 
         bladePath.reset()
         bladePath.moveTo(fx(0.305f), fy(0.36f))
@@ -165,47 +216,77 @@ class PlowControlView @JvmOverloads constructor(
         bladePath.close()
 
         rightWingPath.reset()
-        rightWingPath.moveTo(fx(0.705f), fy(0.38f))
-        rightWingPath.lineTo(fx(0.84f), fy(0.40f))
-        rightWingPath.quadTo(fx(0.92f), fy(0.44f), fx(0.925f), fy(0.54f))
-        rightWingPath.lineTo(fx(0.915f), fy(0.64f))
-        rightWingPath.quadTo(fx(0.86f), fy(0.70f), fx(0.76f), fy(0.68f))
-        rightWingPath.lineTo(fx(0.705f), fy(0.66f))
-        rightWingPath.close()
-
-        if (towAvailable) {
-            val top = artDst.bottom + dp(2)
-            val bottom = top + dp(24)
-            towHit.set(dp(4).toFloat(), top, width - dp(4).toFloat(), bottom)
-            towPath.reset()
-            // Wide rear blade silhouette (tow plow).
-            towPath.moveTo(towHit.left + dp(6), towHit.top + dp(6))
-            towPath.quadTo(towHit.centerX(), towHit.top + dp(1), towHit.right - dp(6), towHit.top + dp(6))
-            towPath.lineTo(towHit.right - dp(4), towHit.bottom - dp(4))
-            towPath.quadTo(towHit.centerX(), towHit.bottom - dp(1), towHit.left + dp(4), towHit.bottom - dp(4))
-            towPath.close()
-        } else {
-            towHit.setEmpty()
-            towPath.reset()
+        if (wingRightAvailable) {
+            rightWingPath.moveTo(fx(0.705f), fy(0.38f))
+            rightWingPath.lineTo(fx(0.84f), fy(0.40f))
+            rightWingPath.quadTo(fx(0.92f), fy(0.44f), fx(0.925f), fy(0.54f))
+            rightWingPath.lineTo(fx(0.915f), fy(0.64f))
+            rightWingPath.quadTo(fx(0.86f), fy(0.70f), fx(0.76f), fy(0.68f))
+            rightWingPath.lineTo(fx(0.705f), fy(0.66f))
+            rightWingPath.close()
         }
 
-        if (spreaderEnabled) {
-            val top = if (towAvailable) towHit.bottom + dp(4) else artDst.bottom + dp(4)
-            val bottom = height.toFloat() - dp(2)
-            spreaderHit.set(dp(8).toFloat(), top, width - dp(8).toFloat(), bottom)
+        towPath.reset()
+        towHit.setEmpty()
+        spreaderHit.setEmpty()
+
+        if (sideBySideExtras()) {
+            val top = artDst.bottom + dp(4)
+            val bottom = top + maxOf(towH(), spreaderH()) - dp(4)
+            val mid = width / 2f
+            val gap = dp(6).toFloat()
+            towHit.set(dp(4).toFloat(), top, mid - gap / 2f, bottom)
+            spreaderHit.set(mid + gap / 2f, top, width - dp(4).toFloat(), bottom)
+            buildTowPath()
         } else {
-            spreaderHit.setEmpty()
+            if (towAvailable) {
+                val top = artDst.bottom + dp(2)
+                val bottom = top + towH() - dp(4)
+                towHit.set(dp(4).toFloat(), top, width - dp(4).toFloat(), bottom)
+                buildTowPath()
+            }
+            if (spreaderEnabled) {
+                val top = if (towAvailable) towHit.bottom + dp(4) else artDst.bottom + dp(4)
+                val bottom = height.toFloat() - dp(2)
+                spreaderHit.set(dp(8).toFloat(), top, width - dp(8).toFloat(), bottom)
+            }
         }
+
+        if (!compact) {
+            towLabel.textSize = sp(13)
+            spreaderLabel.textSize = sp(13)
+        } else {
+            towLabel.textSize = sp(10)
+            spreaderLabel.textSize = sp(11)
+        }
+    }
+
+    private fun buildTowPath() {
+        towPath.reset()
+        towPath.moveTo(towHit.left + dp(6), towHit.top + dp(6))
+        towPath.quadTo(towHit.centerX(), towHit.top + dp(1), towHit.right - dp(6), towHit.top + dp(6))
+        towPath.lineTo(towHit.right - dp(4), towHit.bottom - dp(4))
+        towPath.quadTo(towHit.centerX(), towHit.bottom - dp(1), towHit.left + dp(4), towHit.bottom - dp(4))
+        towPath.close()
     }
 
     private fun fx(frac: Float): Float = artDst.left + artDst.width() * frac
     private fun fy(frac: Float): Float = artDst.top + artDst.height() * frac
 
     override fun onDraw(canvas: Canvas) {
-        if (wingLeft) canvas.drawPath(leftWingPath, fillPaint)
+        val save = canvas.saveLayer(artDst, null)
+        if (wingLeftAvailable && wingLeft) canvas.drawPath(leftWingPath, fillPaint)
         if (bladeDown) canvas.drawPath(bladePath, fillPaint)
-        if (wingRight) canvas.drawPath(rightWingPath, fillPaint)
+        if (wingRightAvailable && wingRight) canvas.drawPath(rightWingPath, fillPaint)
         canvas.drawBitmap(art, artSrc, artDst, artPaint)
+        // Erase uninstalled wing outlines from the stock art.
+        if (!wingLeftAvailable) {
+            canvas.drawRect(fx(0.0f), fy(0.28f), fx(0.30f), fy(0.75f), clearPaint)
+        }
+        if (!wingRightAvailable) {
+            canvas.drawRect(fx(0.70f), fy(0.28f), fx(1.0f), fy(0.75f), clearPaint)
+        }
+        canvas.restoreToCount(save)
 
         if (towAvailable && !towHit.isEmpty) {
             if (towDeployed) canvas.drawPath(towPath, fillPaint)
@@ -246,13 +327,13 @@ class PlowControlView @JvmOverloads constructor(
                 onTowToggle?.invoke(towDeployed)
                 invalidate()
             }
-            leftWingHit.contains(x, y) -> {
+            wingLeftAvailable && leftWingHit.contains(x, y) -> {
                 wingLeft = !wingLeft
                 if (wingLeft) towDeployed = false
                 onWingLeftToggle?.invoke(wingLeft)
                 invalidate()
             }
-            rightWingHit.contains(x, y) -> {
+            wingRightAvailable && rightWingHit.contains(x, y) -> {
                 wingRight = !wingRight
                 if (wingRight) towDeployed = false
                 onWingRightToggle?.invoke(wingRight)
@@ -280,11 +361,6 @@ class PlowControlView @JvmOverloads constructor(
             return makeBlackTransparent(raw)
         }
 
-        /**
-         * Keep white line art; turn near-black background transparent so green
-         * fills show through. Also crop leftover empty rows (e.g. where the
-         * old bottom arrow lived) so the control does not reserve dead space.
-         */
         private fun makeBlackTransparent(src: Bitmap): Bitmap {
             val out = src.copy(Bitmap.Config.ARGB_8888, true) ?: return src
             val w = out.width
@@ -308,7 +384,6 @@ class PlowControlView @JvmOverloads constructor(
             return cropToOpaqueContent(out)
         }
 
-        /** Drop fully-transparent rows/columns around the plow line art. */
         private fun cropToOpaqueContent(src: Bitmap): Bitmap {
             val w = src.width
             val h = src.height
@@ -328,8 +403,6 @@ class PlowControlView @JvmOverloads constructor(
                 return false
             }
             while (top < h && !rowHasInk(top)) top++
-            // Fully transparent art (e.g. resource failed to decode): nothing
-            // to crop — bail out instead of producing an out-of-range rect.
             if (top >= h) return src
             while (bottom > top && !rowHasInk(bottom)) bottom--
             while (left < w && !colHasInk(left)) left++

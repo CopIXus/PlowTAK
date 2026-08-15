@@ -15,8 +15,10 @@ data class VehicleCapability(
     val publishPresence: Boolean,
     /** Effective treated width in meters (blade / wing / spreader spread). */
     val plowWidthM: Double,
-    /** Width with the wing extended; 0 disables the WING preset. */
-    val wingWidthM: Double = 0.0,
+    /** Left wing width when extended; 0 = not installed. */
+    val wingLeftWidthM: Double = 0.0,
+    /** Right wing width when extended; 0 = not installed. */
+    val wingRightWidthM: Double = 0.0,
     /** Width with the tow plow deployed; 0 disables the TOW preset. */
     val towWidthM: Double = 0.0,
     /** Fleet-facing callsign, e.g. "Plow-12". */
@@ -33,6 +35,9 @@ data class VehicleCapability(
     val contractor: Boolean = false
 ) {
 
+    /** True if either wing is fitted. */
+    val hasAnyWing: Boolean get() = wingLeftWidthM > 0.0 || wingRightWidthM > 0.0
+
     /**
      * Effective treated width for the given preset. A preset whose width is
      * unset (<= 0) falls back to the standard blade width so a mis-tap can
@@ -40,14 +45,32 @@ data class VehicleCapability(
      */
     fun widthFor(preset: WidthPreset): Double = when (preset) {
         WidthPreset.STANDARD -> plowWidthM
-        WidthPreset.WING -> if (wingWidthM > 0.0) wingWidthM else plowWidthM
+        WidthPreset.WING -> {
+            val w = maxOf(wingLeftWidthM, wingRightWidthM)
+            if (w > 0.0) w else plowWidthM
+        }
         WidthPreset.TOW -> if (towWidthM > 0.0) towWidthM else plowWidthM
+    }
+
+    /**
+     * Coverage width when wings are out: extended side’s width; both → max.
+     * Returns 0 if neither extended side is fitted/out.
+     */
+    fun effectiveWingWidthM(leftExtended: Boolean, rightExtended: Boolean): Double {
+        val l = if (leftExtended && wingLeftWidthM > 0.0) wingLeftWidthM else 0.0
+        val r = if (rightExtended && wingRightWidthM > 0.0) wingRightWidthM else 0.0
+        return when {
+            l > 0.0 && r > 0.0 -> maxOf(l, r)
+            l > 0.0 -> l
+            r > 0.0 -> r
+            else -> 0.0
+        }
     }
 
     /** Presets actually available on this vehicle (configured width > 0). */
     fun availablePresets(): List<WidthPreset> = buildList {
         add(WidthPreset.STANDARD)
-        if (wingWidthM > 0.0) add(WidthPreset.WING)
+        if (hasAnyWing) add(WidthPreset.WING)
         if (towWidthM > 0.0) add(WidthPreset.TOW)
     }
 
@@ -55,7 +78,7 @@ data class VehicleCapability(
 
         /**
          * Historical reference widths in meters (8 / 10 / 12 / wing 16 / tow 26 ft).
-         * Setup now accepts freeform feet; these remain useful for demos/tests.
+         * Setup now accepts freeform feet; these remain useful for tests.
          */
         val WIDTH_PRESETS_M = listOf(2.4, 3.0, 3.7, 4.9, 7.9)
         const val DEFAULT_WIDTH_M = 3.0
@@ -135,7 +158,8 @@ data class VehicleCapability(
                 // Storm start/end is available to every configured unit.
                 canManageStorm = true,
                 plowWidthM = if (treatType) cap.plowWidthM.coerceAtLeast(1.0) else 0.0,
-                wingWidthM = if (treatType) cap.wingWidthM.coerceAtLeast(0.0) else 0.0,
+                wingLeftWidthM = if (treatType) cap.wingLeftWidthM.coerceAtLeast(0.0) else 0.0,
+                wingRightWidthM = if (treatType) cap.wingRightWidthM.coerceAtLeast(0.0) else 0.0,
                 towWidthM = if (treatType) cap.towWidthM.coerceAtLeast(0.0) else 0.0,
                 observerLabel = "",
                 contractor = cap.contractor && treatType

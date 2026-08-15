@@ -41,10 +41,20 @@ class PlowTakPreferences(context: Context) : KeyValuePersistence {
         get() = prefs.getInt(KEY_REPORT_STOPPED, 15)
         set(v) = prefs.edit().putInt(KEY_REPORT_STOPPED, v.coerceIn(5, 300)).apply()
 
-    /** Global cycle time, minutes (per-priority overrides are Phase 2). */
+    /** Red-after (minutes) for new storms / no-storm fallback. */
     var cycleTimeMinutes: Int
-        get() = prefs.getInt(KEY_CYCLE_TIME, 45)
+        get() = prefs.getInt(KEY_CYCLE_TIME, 60)
         set(v) = prefs.edit().putInt(KEY_CYCLE_TIME, v.coerceIn(5, 24 * 60)).apply()
+
+    /** Green-until minutes for new storms. */
+    var greenUntilMinutes: Int
+        get() = prefs.getInt(KEY_GREEN_UNTIL, 30)
+        set(v) = prefs.edit().putInt(KEY_GREEN_UNTIL, v.coerceIn(1, 24 * 60)).apply()
+
+    /** Yellow-until minutes for new storms. */
+    var yellowUntilMinutes: Int
+        get() = prefs.getInt(KEY_YELLOW_UNTIL, 50)
+        set(v) = prefs.edit().putInt(KEY_YELLOW_UNTIL, v.coerceIn(1, 24 * 60)).apply()
 
     /**
      * Default coverage clear window for **new** storms, hours.
@@ -52,7 +62,7 @@ class PlowTakPreferences(context: Context) : KeyValuePersistence {
      * [com.atakmap.android.plowtak.model.StormSession.coverageRetentionHours].
      */
     var retentionHours: Double
-        get() = prefs.getFloat(KEY_RETENTION_H, 0f).toDouble()
+        get() = prefs.getFloat(KEY_RETENTION_H, 8f).toDouble()
         set(v) = prefs.edit().putFloat(KEY_RETENTION_H, v.toFloat().coerceIn(0f, 72f)).apply()
 
     /** Configurable treating rule for capable units. */
@@ -226,6 +236,8 @@ class PlowTakPreferences(context: Context) : KeyValuePersistence {
         private const val KEY_REPORT_MOVING = "plowtak.report_interval_moving_s"
         private const val KEY_REPORT_STOPPED = "plowtak.report_interval_stopped_s"
         private const val KEY_CYCLE_TIME = "plowtak.cycle_time_min"
+        private const val KEY_GREEN_UNTIL = "plowtak.green_until_min"
+        private const val KEY_YELLOW_UNTIL = "plowtak.yellow_until_min"
         private const val KEY_RETENTION_H = "plowtak.retention_hours"
         private const val KEY_TREAT_RULE = "plowtak.treat_rule"
         private const val KEY_MATERIAL = "plowtak.material"

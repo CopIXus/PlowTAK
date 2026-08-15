@@ -9,6 +9,8 @@
     <color name="plowtak_yellow">#FFFFDC00</color>
     <color name="plowtak_red">#FFFF4136</color>
     <color name="plowtak_grey">#FF9E9E9E</color>
+    <!-- Approximate ATAK Radial Details / prefs section heading tan. -->
+    <color name="plowtak_heading">#FFC9B896</color>
     <color name="plowtak_distress">#FFB71C1C</color>
     <color name="plowtak_toggle_on">#FF92A844</color>
     <color name="plowtak_toggle_off">#FF000000</color>

@@ -15,8 +15,17 @@
         android:padding="16dp">
 
         <TextView
+            android:id="@+id/setup_version"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginEnd="112dp"
+            android:textColor="@color/plowtak_grey"
+            android:textSize="12sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
             android:layout_marginEnd="112dp"
             android:text="@string/setup_title"
             android:textColor="@color/plowtak_text"
@@ -97,15 +106,21 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:text="@string/setup_plow_width"
-                android:textColor="@color/plowtak_text"
-                android:textSize="16sp" />
+                android:textColor="@color/plowtak_heading"
+                android:tag="plowtak_heading"
+                android:textSize="13sp"
+                android:textStyle="bold" />
 
             <EditText
                 android:id="@+id/setup_plow_width"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:background="@drawable/bg_field"
                 android:hint="@string/setup_plow_width_hint"
                 android:inputType="numberDecimal"
+                android:minHeight="48dp"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
                 android:textColor="@color/plowtak_text"
                 android:textColorHint="@color/plowtak_grey"
                 android:textSize="16sp" />
@@ -113,17 +128,23 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="@string/setup_wing_width"
-                android:textColor="@color/plowtak_text"
-                android:textSize="16sp" />
+                android:layout_marginTop="8dp"
+                android:text="@string/setup_wing_left_width"
+                android:textColor="@color/plowtak_heading"
+                android:tag="plowtak_heading"
+                android:textSize="13sp"
+                android:textStyle="bold" />
 
             <EditText
-                android:id="@+id/setup_wing_width"
+                android:id="@+id/setup_wing_left_width"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:background="@drawable/bg_field"
                 android:hint="@string/setup_wing_width_hint"
                 android:inputType="numberDecimal"
+                android:minHeight="48dp"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
                 android:textColor="@color/plowtak_text"
                 android:textColorHint="@color/plowtak_grey"
                 android:textSize="16sp" />
@@ -131,17 +152,47 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="@string/setup_tow_width"
+                android:layout_marginTop="8dp"
+                android:text="@string/setup_wing_right_width"
+                android:textColor="@color/plowtak_heading"
+                android:tag="plowtak_heading"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/setup_wing_right_width"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_field"
+                android:hint="@string/setup_wing_width_hint"
+                android:inputType="numberDecimal"
+                android:minHeight="48dp"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
                 android:textColor="@color/plowtak_text"
+                android:textColorHint="@color/plowtak_grey"
                 android:textSize="16sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/setup_tow_width"
+                android:textColor="@color/plowtak_heading"
+                android:tag="plowtak_heading"
+                android:textSize="13sp"
+                android:textStyle="bold" />
 
             <EditText
                 android:id="@+id/setup_tow_width"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:background="@drawable/bg_field"
                 android:hint="@string/setup_tow_width_hint"
                 android:inputType="numberDecimal"
+                android:minHeight="48dp"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
                 android:textColor="@color/plowtak_text"
                 android:textColorHint="@color/plowtak_grey"
                 android:textSize="16sp" />
@@ -225,17 +276,23 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
+            android:tag="plowtak_heading"
             android:text="@string/setup_condition_stale_label"
-            android:textColor="@color/plowtak_grey"
-            android:textSize="13sp" />
+            android:textColor="@color/plowtak_heading"
+            android:textSize="13sp"
+            android:textStyle="bold" />
 
         <EditText
             android:id="@+id/setup_condition_stale"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:background="@drawable/bg_field"
             android:hint="@string/setup_condition_stale_hint"
             android:inputType="number"
             android:maxLines="1"
+            android:minHeight="48dp"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
             android:textColor="@color/plowtak_text"
             android:textColorHint="@color/plowtak_grey"
             android:textSize="16sp" />
@@ -285,33 +342,6 @@
             android:text="@string/setup_bt_ble"
             android:textColor="@color/plowtak_text"
             android:textSize="16sp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="@string/setup_demo_section"
-            android:textColor="@color/plowtak_text"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="@string/setup_demo_intro"
-            android:textColor="@color/plowtak_grey"
-            android:textSize="13sp" />
-
-        <Button
-            android:id="@+id/setup_demo_btn"
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:layout_marginTop="8dp"
-            android:backgroundTint="@color/plowtak_accent"
-            android:text="@string/setup_demo_start"
-            android:textSize="16sp"
-            android:textStyle="bold" />
 
         <!-- Bottom spacer so the last controls clear the floating pill. -->
         <View

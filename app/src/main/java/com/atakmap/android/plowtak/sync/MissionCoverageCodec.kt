@@ -93,7 +93,9 @@ object MissionCoverageCodec {
     ): String {
         val fallbackCycle = cycleMinutes.coerceAtLeast(1)
         val model = FreshnessModel(
-            cycleTimeMinutes = fallbackCycle,
+            greenUntilMinutes = com.atakmap.android.plowtak.coverage.StormDefaults.GREEN_UNTIL_MIN,
+            yellowUntilMinutes = com.atakmap.android.plowtak.coverage.StormDefaults.YELLOW_UNTIL_MIN,
+            redAfterMinutes = fallbackCycle,
             retentionHours = retentionHours
         )
         fun cycleFor(seg: TreatSegment): Int =

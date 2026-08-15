@@ -6,7 +6,7 @@ import org.junit.Test
 class WidthPresetTest {
 
     private val plow = VehicleCapability.defaultsFor(VehicleType.PLOW, "Plow-12", "T-1042")
-        .copy(plowWidthM = 3.0, wingWidthM = 4.9, towWidthM = 7.9)
+        .copy(plowWidthM = 3.0, wingLeftWidthM = 4.9, wingRightWidthM = 4.9, towWidthM = 7.9)
 
     @Test
     fun `presets map to configured widths`() {
@@ -21,7 +21,7 @@ class WidthPresetTest {
 
     @Test
     fun `unset preset widths fall back to standard`() {
-        val noWing = plow.copy(wingWidthM = 0.0, towWidthM = 0.0)
+        val noWing = plow.copy(wingLeftWidthM = 0.0, wingRightWidthM = 0.0, towWidthM = 0.0)
         assertEquals(3.0, noWing.widthFor(WidthPreset.WING), 1e-9)
         assertEquals(3.0, noWing.widthFor(WidthPreset.TOW), 1e-9)
         assertEquals(listOf(WidthPreset.STANDARD), noWing.availablePresets())
@@ -30,12 +30,14 @@ class WidthPresetTest {
     @Test
     fun `sanitize keeps preset widths for treat types and zeroes others`() {
         val sanitized = VehicleCapability.sanitize(plow)
-        assertEquals(4.9, sanitized.wingWidthM, 1e-9)
+        assertEquals(4.9, sanitized.wingLeftWidthM, 1e-9)
+        assertEquals(4.9, sanitized.wingRightWidthM, 1e-9)
 
         val supervisor = VehicleCapability.defaultsFor(VehicleType.SUPERVISOR)
-            .copy(wingWidthM = 4.9, towWidthM = 7.9)
+            .copy(wingLeftWidthM = 4.9, wingRightWidthM = 4.9, towWidthM = 7.9)
         val cleaned = VehicleCapability.sanitize(supervisor)
-        assertEquals(0.0, cleaned.wingWidthM, 1e-9)
+        assertEquals(0.0, cleaned.wingLeftWidthM, 1e-9)
+        assertEquals(0.0, cleaned.wingRightWidthM, 1e-9)
         assertEquals(0.0, cleaned.towWidthM, 1e-9)
     }
 

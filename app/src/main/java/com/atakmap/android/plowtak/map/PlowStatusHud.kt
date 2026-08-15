@@ -2,12 +2,15 @@ package com.atakmap.android.plowtak.map
 
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
+import android.app.AlertDialog
 import android.graphics.Color
+import android.graphics.Typeface
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.LinearInterpolator
+import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -18,8 +21,8 @@ import com.atakmap.android.plowtak.ui.PlowControlView
 
 /**
  * Bottom-left map HUD: miniature plow control mirroring driver toggles while
- * on shift. Shows a "Speed" caption and flashes during overspeed alerts
- * (TTS without a dialog).
+ * on shift. Stays visible while the plugin drop-down is open. Optional Mayday
+ * button above the plow (confirm before send/clear).
  */
 class PlowStatusHud(
     private val mapView: MapView,
@@ -29,17 +32,22 @@ class PlowStatusHud(
     private val isOnShift: () -> Boolean,
     private val hasSalt: () -> Boolean,
     private val hasTow: () -> Boolean = { false },
+    private val hasWingLeft: () -> Boolean = { true },
+    private val hasWingRight: () -> Boolean = { true },
+    private val canSendDistress: () -> Boolean = { false },
+    private val hasOwnDistress: () -> Boolean = { false },
+    private val onMayday: (send: Boolean) -> Unit = {},
     /** User setting: mini plow HUD on the map (persisted). */
     private val isEnabled: () -> Boolean = { true }
 ) {
 
     private var root: LinearLayout? = null
     private var speedLabel: TextView? = null
+    private var maydayBtn: Button? = null
     private var plow: PlowControlView? = null
     private var flashAnim: ObjectAnimator? = null
     private var overspeedActive = false
     private var flashUntilMs = 0L
-    private var panelOpen = false
 
     private val eqListener = object : com.atakmap.android.plowtak.equipment.EquipmentProvider.Listener {
         override fun onEquipmentChanged(state: EquipmentState) {
@@ -59,21 +67,20 @@ class PlowStatusHud(
         mapView.post { detach() }
     }
 
-    /** HUD shows only when the plugin panel is closed (mirrors the drop-down). */
+    /** Kept for call-site compatibility; panel open no longer hides the HUD. */
+    @Suppress("UNUSED_PARAMETER")
     fun setPanelOpen(open: Boolean) {
-        panelOpen = open
         refreshVisibility()
     }
 
-    /** Show/hide based on setting + shift + panel state; refresh chrome. */
+    /** Show/hide based on setting + shift; refresh chrome. */
     fun refreshVisibility() {
         mapView.post {
-            val show = isEnabled() && isOnShift() && !panelOpen
+            val show = isEnabled() && isOnShift()
             root?.visibility = if (show) View.VISIBLE else View.GONE
             if (show) {
-                plow?.spreaderEnabled = hasSalt()
-                plow?.towAvailable = hasTow()
                 bindEquipment(equipment.state)
+                refreshMayday()
             } else {
                 setOverspeedVisual(false)
                 stopFlash()
@@ -81,10 +88,6 @@ class PlowStatusHud(
         }
     }
 
-    /**
-     * Continuous overspeed condition (blade down above max plow speed).
-     * Shows the Speed caption; [flashAlert] drives the pulse during TTS.
-     */
     fun setOverspeedCondition(active: Boolean) {
         mapView.post {
             overspeedActive = active
@@ -93,7 +96,6 @@ class PlowStatusHud(
         }
     }
 
-    /** Brief flash while overspeed TTS is speaking (no popup). */
     fun flashAlert(durationMs: Long = 4_000L) {
         mapView.post {
             flashUntilMs = System.currentTimeMillis() + durationMs
@@ -114,20 +116,11 @@ class PlowStatusHud(
             android.util.Log.e("PlowStatusHud", "attach failed; HUD disabled", t)
             root = null
             speedLabel = null
+            maydayBtn = null
             plow = null
         }
     }
 
-    /**
-     * Host inside the map's own container hierarchy so ATAK drop-downs, the
-     * Tools grid and other chrome naturally draw ABOVE the HUD (it must
-     * never cover menus). The map's direct parent can be a LinearLayout,
-     * which STACKS children instead of overlaying them — a HUD added there
-     * lays out off-screen below the full-height map. So walk up to the
-     * nearest overlay-capable ancestor (FrameLayout/RelativeLayout);
-     * android.R.id.content is itself a FrameLayout and acts as the final
-     * fallback.
-     */
     private fun findHost(): ViewGroup? {
         var p: android.view.ViewParent? = mapView.parent
         while (p is ViewGroup) {
@@ -143,9 +136,6 @@ class PlowStatusHud(
             android.util.Log.w("PlowStatusHud", "no host view found; HUD not attached")
             return
         }
-        // Views MUST be created with the plugin context: PlowControlView loads
-        // R.drawable.plow_control_art, and plugin resource IDs do not resolve
-        // through the ATAK activity context (decode fails → blank/crash).
         val ctx = pluginContext
         val density = ctx.resources.displayMetrics.density
         fun dp(v: Int) = (v * density).toInt()
@@ -159,9 +149,26 @@ class PlowStatusHud(
             visibility = View.GONE
             setPadding(0, 0, 0, dp(2))
         }
+
+        val mayday = Button(ctx).apply {
+            text = "MAYDAY"
+            setTextColor(Color.WHITE)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+            typeface = Typeface.DEFAULT_BOLD
+            setBackgroundColor(0xFFB71C1C.toInt())
+            setPadding(dp(6), dp(4), dp(6), dp(4))
+            minHeight = 0
+            minimumHeight = 0
+            visibility = if (canSendDistress()) View.VISIBLE else View.GONE
+            setOnClickListener { confirmMayday() }
+        }
+
         val plowView = PlowControlView(ctx).apply {
+            compact = true
             spreaderEnabled = hasSalt()
             towAvailable = hasTow()
+            wingLeftAvailable = hasWingLeft()
+            wingRightAvailable = hasWingRight()
             layoutParams = LinearLayout.LayoutParams(
                 dp(HUD_WIDTH_DP),
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -188,12 +195,15 @@ class PlowStatusHud(
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 )
             )
+            addView(
+                mayday,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply { bottomMargin = dp(4) }
+            )
             addView(plowView)
-            visibility = if (isEnabled() && isOnShift() && !panelOpen) {
-                View.VISIBLE
-            } else {
-                View.GONE
-            }
+            visibility = if (isEnabled() && isOnShift()) View.VISIBLE else View.GONE
         }
 
         val lp = when (host) {
@@ -219,14 +229,12 @@ class PlowStatusHud(
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply {
                 leftMargin = dp(8)
-                // Absolute-ish: place near bottom via translation after layout.
                 bottomMargin = dp(72)
             }
         }
         try {
             host.addView(column, lp)
         } catch (t: Throwable) {
-            // Fallback: default LayoutParams, pin with translationY after measure.
             host.addView(column)
             column.post {
                 val parentH = host.height
@@ -240,7 +248,9 @@ class PlowStatusHud(
         column.bringToFront()
         root = column
         speedLabel = label
+        maydayBtn = mayday
         plow = plowView
+        refreshMayday()
         android.util.Log.i(
             "PlowStatusHud",
             "attached to ${host.javaClass.simpleName} " +
@@ -248,18 +258,49 @@ class PlowStatusHud(
         )
     }
 
+    private fun confirmMayday() {
+        val clearing = hasOwnDistress()
+        val title = if (clearing) "Clear MAYDAY" else "Send MAYDAY"
+        val msg = if (clearing) {
+            "Clear your MAYDAY?"
+        } else {
+            "Send MAYDAY / need assist?"
+        }
+        AlertDialog.Builder(mapView.context)
+            .setTitle(title)
+            .setMessage(msg)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                onMayday(!clearing)
+                refreshMayday()
+            }
+            .show()
+    }
+
+    private fun refreshMayday() {
+        val btn = maydayBtn ?: return
+        val allow = canSendDistress()
+        btn.visibility = if (allow) View.VISIBLE else View.GONE
+        if (!allow) return
+        btn.text = if (hasOwnDistress()) "CLEAR MY MAYDAY" else "MAYDAY"
+    }
+
     private fun detach() {
         val column = root ?: return
         (column.parent as? ViewGroup)?.removeView(column)
         root = null
         speedLabel = null
+        maydayBtn = null
         plow = null
     }
 
     private fun bindEquipment(state: EquipmentState) {
-        plow?.bind(state)
+        plow?.wingLeftAvailable = hasWingLeft()
+        plow?.wingRightAvailable = hasWingRight()
         plow?.spreaderEnabled = hasSalt()
         plow?.towAvailable = hasTow()
+        plow?.bind(state)
+        refreshMayday()
     }
 
     private fun updateSpeedLabel() {

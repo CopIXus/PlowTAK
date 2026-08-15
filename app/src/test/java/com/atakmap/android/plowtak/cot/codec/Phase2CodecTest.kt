@@ -178,7 +178,7 @@ class Phase2DetailExtensionsTest {
     @Test
     fun `pli detail carries width preset and side`() {
         val cap = VehicleCapability.defaultsFor(VehicleType.PLOW, "Plow-12", "T-1042")
-            .copy(hasSalt = true, plowWidthM = 3.0, wingWidthM = 4.9, towWidthM = 7.9)
+            .copy(hasSalt = true, plowWidthM = 3.0, wingLeftWidthM = 4.9, wingRightWidthM = 4.9, towWidthM = 7.9)
         val detail = PlowTakDetail.fromLocalState(
             cap = cap, status = VehicleStatus.TREATING,
             bladeDown = true, saltOn = false, material = Material.SALT,

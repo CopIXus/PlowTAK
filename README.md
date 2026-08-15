@@ -42,7 +42,7 @@ One ops drop-down for every vehicle type, plus **Storm** and **Settings**:
 | **Road conditions** | Bare / wet / slush / snow-covered / ice · peer labels · stale TTL (default **2 h**) |
 | **Mayday** | Distress with location + last equipment state |
 | **Storm** | Pick TAK server, create / join / leave / end · mission stays on server |
-| **Settings** | Vehicle type, widths, TTS, night mode, **map HUD**, condition TTL, road-snap, Bluetooth, demo fleet |
+| **Settings** | Vehicle type, widths, TTS, night mode, **map HUD**, condition TTL, road-snap, Bluetooth |
 | **Map HUD** | Mini plow under the menus while on shift (panel closed) |
 
 <p align="center">
@@ -107,7 +107,7 @@ observer role.
 - **Create** opens a Marti mission (storm label, or `plowtak-coverage-{stormId}`).
 - While joined, PlowTAK syncs about **every 60 seconds** (hash-skip if unchanged):
   `storm-config.json`, hourly coverage `.geojson.gz`, hazards, conditions,
-  unit status, optional demo fleet.
+  unit status.
 - **Leave** stops reporting; **End** ends the storm for the fleet.
 - The Data Sync **mission is never deleted from the plugin** — only a server
   admin removes it (so mid-storm data cannot be wiped by accident).
@@ -162,8 +162,7 @@ Direction-aware half-treated lines show one travel direction painted.
 - **QuickPic hazards** — long-press a hazard tile to attach a photo.
 - **Data Sync storm missions** — create/join/leave/end without requiring the
   Data Sync plugin for PlowTAK’s Marti path; no in-app mission delete.
-- **Fleet markers** — stale grey-out; demo fleet (~30 simulated units) via
-  Data Sync for training (Settings).
+- **Fleet markers** — stale grey-out.
 - **Bluetooth equipment** — optional paired controller for blade/salt.
 - **Offline continuity** — durable outbound CoT queue; local coverage kept
   across restarts; shift foreground service; VNS for offline basemap/routing.

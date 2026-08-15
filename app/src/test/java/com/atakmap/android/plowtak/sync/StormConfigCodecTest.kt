@@ -2,7 +2,6 @@ package com.atakmap.android.plowtak.sync
 
 import com.atakmap.android.plowtak.model.StormSession
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class StormConfigCodecTest {
@@ -17,7 +16,9 @@ class StormConfigCodecTest {
             agency = "VDOT",
             missionName = "VDOT-I-81",
             channel = "__ANON__",
-            cycleMinutes = 30,
+            greenUntilMinutes = 30,
+            yellowUntilMinutes = 50,
+            cycleMinutes = 60,
             cycleP1Minutes = 20,
             cycleP2Minutes = 0,
             cycleP3Minutes = 60,
@@ -26,7 +27,9 @@ class StormConfigCodecTest {
         )
         val decoded = StormConfigCodec.decode(StormConfigCodec.encode(session))!!
         assertEquals(session.id, decoded.id)
-        assertEquals(30, decoded.cycleMinutes)
+        assertEquals(30, decoded.greenUntilMinutes)
+        assertEquals(50, decoded.yellowUntilMinutes)
+        assertEquals(60, decoded.cycleMinutes)
         assertEquals(20, decoded.cycleP1Minutes)
         assertEquals(0, decoded.cycleP2Minutes)
         assertEquals(60, decoded.cycleP3Minutes)
@@ -44,7 +47,12 @@ class StormConfigCodecTest {
         """.trimIndent()
         val decoded = StormConfigCodec.decode(json.toByteArray())!!
         assertEquals(0, decoded.cycleP1Minutes)
+        assertEquals(45, decoded.cycleMinutes)
+        assertEquals(30, decoded.greenUntilMinutes)
+        assertEquals(33, decoded.yellowUntilMinutes)
         assertEquals(StormSession.DEFAULT_COVERAGE_RETENTION_HOURS, decoded.coverageRetentionHours, 0.0)
-        assertTrue(decoded.toSession().coverageRetentionHours == 0.0)
+        val session = decoded.toSession()
+        assertEquals(45, session.cycleMinutes)
+        assertEquals(30, session.greenUntilMinutes)
     }
 }

@@ -50,7 +50,12 @@ object TaskingListBuilder {
 
     fun build(input: Input): List<TaskingItem> {
         val cycle = input.cycleMinutes.coerceAtLeast(1)
-        val model = FreshnessModel(cycleTimeMinutes = cycle)
+        val model = FreshnessModel(
+            greenUntilMinutes = com.atakmap.android.plowtak.coverage.StormDefaults.GREEN_UNTIL_MIN,
+            yellowUntilMinutes = com.atakmap.android.plowtak.coverage.StormDefaults.YELLOW_UNTIL_MIN,
+            redAfterMinutes = cycle,
+            retentionHours = 0.0
+        )
         val classify = input.classify ?: { seg ->
             model.classify(seg.endTimeMs, input.nowMs, cycle)
         }

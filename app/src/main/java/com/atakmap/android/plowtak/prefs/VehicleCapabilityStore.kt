@@ -66,7 +66,8 @@ class VehicleCapabilityStore(context: Context) {
             .putBoolean(KEY_CAN_DISTRESS, cap.canSendDistress)
             .putBoolean(KEY_PRESENCE, cap.publishPresence)
             .putFloat(KEY_WIDTH, cap.plowWidthM.toFloat())
-            .putFloat(KEY_WING_WIDTH, cap.wingWidthM.toFloat())
+            .putFloat(KEY_WING_LEFT_WIDTH, cap.wingLeftWidthM.toFloat())
+            .putFloat(KEY_WING_RIGHT_WIDTH, cap.wingRightWidthM.toFloat())
             .putFloat(KEY_TOW_WIDTH, cap.towWidthM.toFloat())
             .putString(KEY_CALLSIGN, cap.callsign)
             .putString(KEY_VEHICLE_ID, cap.vehicleId)
@@ -81,6 +82,21 @@ class VehicleCapabilityStore(context: Context) {
         val type = VehicleType.fromWireName(prefs.getString(KEY_TYPE, null))
             ?: return VehicleCapability.defaultsFor(VehicleType.OBSERVER)
         val defaults = VehicleCapability.defaultsFor(type)
+        val legacyWing = if (prefs.contains(KEY_WING_WIDTH)) {
+            prefs.getFloat(KEY_WING_WIDTH, 0f).toDouble()
+        } else {
+            null
+        }
+        val wingLeft = if (prefs.contains(KEY_WING_LEFT_WIDTH)) {
+            prefs.getFloat(KEY_WING_LEFT_WIDTH, 0f).toDouble()
+        } else {
+            legacyWing ?: 0.0
+        }
+        val wingRight = if (prefs.contains(KEY_WING_RIGHT_WIDTH)) {
+            prefs.getFloat(KEY_WING_RIGHT_WIDTH, 0f).toDouble()
+        } else {
+            legacyWing ?: 0.0
+        }
         return VehicleCapability(
             type = type,
             hasBlade = prefs.getBoolean(KEY_HAS_BLADE, defaults.hasBlade),
@@ -90,7 +106,8 @@ class VehicleCapabilityStore(context: Context) {
             canSendDistress = prefs.getBoolean(KEY_CAN_DISTRESS, defaults.canSendDistress),
             publishPresence = prefs.getBoolean(KEY_PRESENCE, defaults.publishPresence),
             plowWidthM = prefs.getFloat(KEY_WIDTH, defaults.plowWidthM.toFloat()).toDouble(),
-            wingWidthM = prefs.getFloat(KEY_WING_WIDTH, 0f).toDouble(),
+            wingLeftWidthM = wingLeft,
+            wingRightWidthM = wingRight,
             towWidthM = prefs.getFloat(KEY_TOW_WIDTH, 0f).toDouble(),
             callsign = prefs.getString(KEY_CALLSIGN, "") ?: "",
             vehicleId = prefs.getString(KEY_VEHICLE_ID, "") ?: "",
@@ -110,7 +127,10 @@ class VehicleCapabilityStore(context: Context) {
         private const val KEY_CAN_DISTRESS = "plowtak.cap.can_distress"
         private const val KEY_PRESENCE = "plowtak.cap.publish_presence"
         private const val KEY_WIDTH = "plowtak.cap.plow_width_m"
+        /** Legacy single wing width; migrated into both sides when L/R keys missing. */
         private const val KEY_WING_WIDTH = "plowtak.cap.wing_width_m"
+        private const val KEY_WING_LEFT_WIDTH = "plowtak.cap.wing_left_width_m"
+        private const val KEY_WING_RIGHT_WIDTH = "plowtak.cap.wing_right_width_m"
         private const val KEY_TOW_WIDTH = "plowtak.cap.tow_width_m"
         private const val KEY_CALLSIGN = "plowtak.cap.callsign"
         private const val KEY_VEHICLE_ID = "plowtak.cap.vehicle_id"

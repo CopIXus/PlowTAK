@@ -194,16 +194,18 @@ class CotCodecTest {
             label = "I-81 North",
             agency = "VDOT",
             missionName = "vdot-i81-north",
-            cycleMinutes = 30,
+            greenUntilMinutes = 30,
+            yellowUntilMinutes = 50,
+            cycleMinutes = 60,
             cycleP1Minutes = 20,
             cycleP3Minutes = 90,
             coverageRetentionHours = 6.0,
             roadConditionTtlMinutes = 90
         )
-        assertEquals(session, StormCotCodec.decode(StormCotCodec.encode(session)))
+        assertEquals(session.sanitized(), StormCotCodec.decode(StormCotCodec.encode(session)))
 
         val ended = session.copy(endTimeMs = 1_736_999_999_000L)
-        assertEquals(ended, StormCotCodec.decode(StormCotCodec.encode(ended)))
+        assertEquals(ended.sanitized(), StormCotCodec.decode(StormCotCodec.encode(ended)))
     }
 
     @Test
@@ -227,7 +229,8 @@ class CotCodecTest {
         assertEquals("", decoded.label)
         assertEquals("", decoded.agency)
         assertEquals("", decoded.missionName)
-        assertEquals(0.0, decoded.coverageRetentionHours, 0.0)
+        assertEquals(StormSession.DEFAULT_COVERAGE_RETENTION_HOURS, decoded.coverageRetentionHours, 0.0)
+        assertEquals(60, decoded.cycleMinutes)
         assertEquals(0, decoded.cycleP1Minutes)
     }
 

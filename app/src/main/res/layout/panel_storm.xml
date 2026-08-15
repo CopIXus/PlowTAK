@@ -36,8 +36,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="20dp"
+                android:tag="plowtak_heading"
                 android:text="@string/storm_section_server"
-                android:textColor="@color/plowtak_grey"
+                android:textColor="@color/plowtak_heading"
                 android:textSize="13sp"
                 android:textStyle="bold" />
 
@@ -46,7 +47,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
                 android:layout_marginTop="4dp"
-                android:background="@drawable/bg_spinner"
+                android:background="@drawable/bg_field"
                 android:paddingStart="8dp"
                 android:paddingEnd="8dp" />
 
@@ -55,8 +56,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
+                android:tag="plowtak_heading"
                 android:text="@string/storm_section_channel"
-                android:textColor="@color/plowtak_grey"
+                android:textColor="@color/plowtak_heading"
                 android:textSize="13sp"
                 android:textStyle="bold" />
 
@@ -65,7 +67,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
                 android:layout_marginTop="4dp"
-                android:background="@drawable/bg_spinner"
+                android:background="@drawable/bg_field"
                 android:paddingStart="8dp"
                 android:paddingEnd="8dp" />
 
@@ -82,8 +84,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="20dp"
+                android:tag="plowtak_heading"
                 android:text="@string/storm_section_storms"
-                android:textColor="@color/plowtak_grey"
+                android:textColor="@color/plowtak_heading"
                 android:textSize="13sp"
                 android:textStyle="bold" />
 
@@ -126,36 +129,49 @@
                     android:textSize="14sp" />
             </LinearLayout>
 
-            <!-- ============================== NEW STORM -->
-            <TextView
+            <!-- ============================== CREATE NEW STORM (card) -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="20dp"
-                android:text="@string/storm_section_new"
-                android:textColor="@color/plowtak_grey"
-                android:textSize="13sp"
-                android:textStyle="bold" />
+                android:background="@drawable/bg_card"
+                android:orientation="vertical">
 
-            <EditText
-                android:id="@+id/storm_new_name"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:hint="@string/storm_new_name_hint"
-                android:inputType="text"
-                android:textColor="@color/plowtak_text"
-                android:textColorHint="@color/plowtak_grey"
-                android:textSize="16sp" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:tag="plowtak_heading"
+                    android:text="@string/storm_section_new"
+                    android:textColor="@color/plowtak_heading"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
 
-            <Button
-                android:id="@+id/storm_create"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:layout_marginTop="8dp"
-                android:backgroundTint="@color/plowtak_accent"
-                android:text="@string/storm_create"
-                android:textSize="18sp"
-                android:textStyle="bold" />
+                <EditText
+                    android:id="@+id/storm_new_name"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_field"
+                    android:hint="@string/storm_new_name_hint"
+                    android:inputType="text"
+                    android:minHeight="48dp"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp"
+                    android:textColor="@color/plowtak_text"
+                    android:textColorHint="@color/plowtak_grey"
+                    android:textSize="16sp" />
+
+                <Button
+                    android:id="@+id/storm_create"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_primary_button"
+                    android:text="@string/storm_create"
+                    android:textColor="@color/plowtak_text"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
 
             <View
                 android:layout_width="match_parent"

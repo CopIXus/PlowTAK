@@ -5,7 +5,8 @@ import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.RadioGroup
-import android.widget.Toast
+import android.widget.TextView
+import com.atakmap.android.plowtak.BuildConfig
 import com.atakmap.android.plowtak.PlowTakController
 import com.atakmap.android.plowtak.R
 import com.atakmap.android.plowtak.model.VehicleCapability
@@ -34,7 +35,8 @@ class SetupPanel(
     private val treatOptions = view.findViewById<View>(R.id.setup_treat_options)
     private val hasSalt = view.findViewById<CheckBox>(R.id.setup_has_salt)
     private val plowWidthFt = view.findViewById<EditText>(R.id.setup_plow_width)
-    private val wingWidthFt = view.findViewById<EditText>(R.id.setup_wing_width)
+    private val wingLeftWidthFt = view.findViewById<EditText>(R.id.setup_wing_left_width)
+    private val wingRightWidthFt = view.findViewById<EditText>(R.id.setup_wing_right_width)
     private val towWidthFt = view.findViewById<EditText>(R.id.setup_tow_width)
     private val observerOptions = view.findViewById<View>(R.id.setup_observer_options)
     private val observerLabel = view.findViewById<EditText>(R.id.setup_observer_label)
@@ -49,9 +51,11 @@ class SetupPanel(
     private val btEnabled = view.findViewById<CheckBox>(R.id.setup_bt_enabled)
     private val btAddress = view.findViewById<EditText>(R.id.setup_bt_address)
     private val btBle = view.findViewById<CheckBox>(R.id.setup_bt_ble)
-    private val demoBtn = view.findViewById<Button>(R.id.setup_demo_btn)
 
     init {
+        view.findViewById<TextView>(R.id.setup_version).text =
+            "PlowTAK ${BuildConfig.VERSION_NAME}"
+
         typeGroup.setOnCheckedChangeListener { _, _ -> applyVisibility() }
         roadSnap.setOnCheckedChangeListener { _, checked ->
             roadSnapDir.visibility = if (checked) View.VISIBLE else View.GONE
@@ -73,11 +77,13 @@ class SetupPanel(
             presence.isChecked = cap.publishPresence
             distress.isChecked = cap.canSendDistress
             plowWidthFt.setText(formatFeet(cap.plowWidthM))
-            wingWidthFt.setText(formatFeet(cap.wingWidthM))
+            wingLeftWidthFt.setText(formatFeet(cap.wingLeftWidthM))
+            wingRightWidthFt.setText(formatFeet(cap.wingRightWidthM))
             towWidthFt.setText(formatFeet(cap.towWidthM))
         } else {
             plowWidthFt.setText(formatFeet(VehicleCapability.DEFAULT_WIDTH_M))
-            wingWidthFt.setText("0")
+            wingLeftWidthFt.setText("0")
+            wingRightWidthFt.setText("0")
             towWidthFt.setText("0")
         }
         ttsEnabled.isChecked = controller.prefs.ttsEnabled
@@ -91,33 +97,8 @@ class SetupPanel(
         btAddress.setText(controller.prefs.btDeviceAddress)
         btBle.isChecked = controller.prefs.btUseBle
         applyVisibility()
-        refreshDemoButton()
 
-        demoBtn.setOnClickListener { toggleDemo() }
         view.findViewById<Button>(R.id.setup_save).setOnClickListener { save() }
-    }
-
-    private fun refreshDemoButton() {
-        demoBtn.isEnabled = true
-        demoBtn.setText(
-            if (controller.demoFleet.isRunning) R.string.setup_demo_stop
-            else R.string.setup_demo_start
-        )
-    }
-
-    private fun toggleDemo() {
-        demoBtn.isEnabled = false
-        if (!controller.demoFleet.isRunning) {
-            demoBtn.setText(R.string.setup_demo_starting)
-        }
-        controller.toggleDemoFleet { result ->
-            Toast.makeText(
-                controller.mapView.context,
-                result.message,
-                if (result.ok) Toast.LENGTH_LONG else Toast.LENGTH_SHORT
-            ).show()
-            refreshDemoButton()
-        }
     }
 
     private fun selectedType(): VehicleType = when (typeGroup.checkedRadioButtonId) {
@@ -151,9 +132,14 @@ class SetupPanel(
                         ?: (VehicleCapability.DEFAULT_WIDTH_M / VehicleCapability.FT_TO_M)
                 )
             } else 0.0,
-            wingWidthM = if (defaults.canTreat) {
+            wingLeftWidthM = if (defaults.canTreat) {
                 VehicleCapability.feetToMeters(
-                    wingWidthFt.text.toString().trim().toDoubleOrNull() ?: 0.0
+                    wingLeftWidthFt.text.toString().trim().toDoubleOrNull() ?: 0.0
+                )
+            } else 0.0,
+            wingRightWidthM = if (defaults.canTreat) {
+                VehicleCapability.feetToMeters(
+                    wingRightWidthFt.text.toString().trim().toDoubleOrNull() ?: 0.0
                 )
             } else 0.0,
             towWidthM = if (defaults.canTreat) {
@@ -168,6 +154,9 @@ class SetupPanel(
         )
 
         controller.capabilityStore.save(cap)
+        // Clear wing extended state if a side was uninstalled.
+        if (cap.wingLeftWidthM <= 0.0) controller.equipment.setWingLeft(false)
+        if (cap.wingRightWidthM <= 0.0) controller.equipment.setWingRight(false)
         controller.prefs.ttsEnabled = ttsEnabled.isChecked
         controller.prefs.taskingSnoozeMinutes =
             taskingSnooze.text.toString().trim().toIntOrNull() ?: 15

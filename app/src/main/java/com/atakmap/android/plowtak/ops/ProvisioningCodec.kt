@@ -24,7 +24,7 @@ import java.util.Locale
  *   "capability": {
  *     "type": "plow", "hasBlade": true, "hasSalt": true,
  *     "canSendDistress": true, "publishPresence": true,
- *     "plowWidthM": 3.7, "wingWidthM": 4.9, "towWidthM": 0,
+ *     "plowWidthM": 3.7, "wingLeftWidthM": 4.9, "wingRightWidthM": 4.9, "towWidthM": 0,
  *     "callsign": "CTR-Plow", "vehicleId": "", "contractor": true
  *   },
  *   "cycleTimes": { "default": 45, "p1": 30, "p2": 45, "p3": 90 },
@@ -93,7 +93,12 @@ object ProvisioningCodec {
                 publishPresence = MiniJson.bool(o["publishPresence"])
                     ?: defaults.publishPresence,
                 plowWidthM = MiniJson.double(o["plowWidthM"]) ?: defaults.plowWidthM,
-                wingWidthM = MiniJson.double(o["wingWidthM"]) ?: defaults.wingWidthM,
+                wingLeftWidthM = MiniJson.double(o["wingLeftWidthM"])
+                    ?: MiniJson.double(o["wingWidthM"])
+                    ?: defaults.wingLeftWidthM,
+                wingRightWidthM = MiniJson.double(o["wingRightWidthM"])
+                    ?: MiniJson.double(o["wingWidthM"])
+                    ?: defaults.wingRightWidthM,
                 towWidthM = MiniJson.double(o["towWidthM"]) ?: defaults.towWidthM,
                 callsign = MiniJson.string(o["callsign"]) ?: "",
                 vehicleId = MiniJson.string(o["vehicleId"]) ?: "",
@@ -173,7 +178,8 @@ object ProvisioningCodec {
             sb.append("    \"canSendDistress\": ").append(cap.canSendDistress).append(",\n")
             sb.append("    \"publishPresence\": ").append(cap.publishPresence).append(",\n")
             sb.append("    \"plowWidthM\": ").append(num(cap.plowWidthM)).append(",\n")
-            sb.append("    \"wingWidthM\": ").append(num(cap.wingWidthM)).append(",\n")
+            sb.append("    \"wingLeftWidthM\": ").append(num(cap.wingLeftWidthM)).append(",\n")
+            sb.append("    \"wingRightWidthM\": ").append(num(cap.wingRightWidthM)).append(",\n")
             sb.append("    \"towWidthM\": ").append(num(cap.towWidthM)).append(",\n")
             sb.append("    \"callsign\": ").append(MiniJson.quote(cap.callsign)).append(",\n")
             sb.append("    \"vehicleId\": ").append(MiniJson.quote(cap.vehicleId)).append(",\n")

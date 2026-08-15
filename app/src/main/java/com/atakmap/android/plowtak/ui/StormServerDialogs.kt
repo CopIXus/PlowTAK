@@ -23,8 +23,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 /**
  * Shared dialogs for starting / joining storms and picking the Data Sync server.
  *
- * Start-storm wizard: server → active accessible channel → name
- * (auto PlowTAK Storm YY.MM.DD.HH).
+ * Start-storm wizard: server → channel → optional 2h join-or-new → name
+ * (auto PlowTAK Storm yyyy.MMdd.HHmm; Data Sync mission = stamp).
  */
 object StormServerDialogs {
 
@@ -79,7 +79,7 @@ object StormServerDialogs {
             controller.prefs.dataSyncServerConnectString = server.connectString
             pickChannel(hostContext, server) { channel ->
                 if (channel == null) return@pickChannel
-                nameAndStartStorm(controller, hostContext, channel, onChanged)
+                maybeJoinRecentOrStartNew(controller, hostContext, channel, onChanged)
             }
         }
     }
@@ -275,6 +275,96 @@ object StormServerDialogs {
             .show()
     }
 
+    /**
+     * If an active storm was heard or exists on the server within 2 hours,
+     * offer Join vs Start new; otherwise go straight to naming.
+     */
+    private fun maybeJoinRecentOrStartNew(
+        controller: PlowTakController,
+        hostContext: Context,
+        channel: String,
+        onChanged: (() -> Unit)?
+    ) {
+        val now = System.currentTimeMillis()
+        val windowMs = 2L * 60L * 60L * 1000L
+        val heard = controller.stormManager.knownStorms()
+            .filter { it.isActive && now - it.startTimeMs in 0..windowMs }
+            .sortedByDescending { it.startTimeMs }
+
+        fun continueWithCandidates(extra: List<com.atakmap.android.plowtak.model.StormSession>) {
+            val candidates = (heard + extra)
+                .distinctBy { it.id }
+                .sortedByDescending { it.startTimeMs }
+            if (candidates.isEmpty()) {
+                nameAndStartStorm(controller, hostContext, channel, onChanged)
+                return
+            }
+            val best = candidates.first()
+            val mission = MissionCoverageCodec.effectiveMissionName(best.id, best.missionName)
+            AlertDialog.Builder(hostContext)
+                .setTitle("Storm already active")
+                .setMessage(
+                    "A storm already exists (${best.displayName()} / mission $mission) " +
+                        "within the last 2 hours. Join it, or start a new storm?"
+                )
+                .setPositiveButton("Join") { _, _ ->
+                    if (best.missionName.isNotBlank() &&
+                        best.missionName.matches(Regex("""\d{4}\.\d{4}\.\d{4}"""))
+                    ) {
+                        controller.joinStormFromServerMission(best.missionName) { session ->
+                            Toast.makeText(
+                                hostContext,
+                                if (session != null) "Joined ${session.displayName()}"
+                                else "Could not join ${best.displayName()}",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            onChanged?.invoke()
+                        }
+                    } else {
+                        controller.joinStormSession(best)
+                        Toast.makeText(
+                            hostContext,
+                            "Joined ${best.displayName()}",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        onChanged?.invoke()
+                    }
+                }
+                .setNeutralButton("Start new") { _, _ ->
+                    nameAndStartStorm(controller, hostContext, channel, onChanged)
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+        }
+
+        // Best-effort server scan; fail open to heard-only / create.
+        controller.listServerPlowTakMissions { missions ->
+            val fromServer = missions.mapNotNull { missionName ->
+                val start = parseStampToMs(missionName) ?: return@mapNotNull null
+                if (now - start !in 0..windowMs) return@mapNotNull null
+                com.atakmap.android.plowtak.model.StormSession(
+                    id = missionName,
+                    startTimeMs = start,
+                    label = "PlowTAK Storm $missionName",
+                    missionName = missionName,
+                    channel = channel
+                )
+            }
+            continueWithCandidates(fromServer)
+        }
+    }
+
+    /** Parse yyyy.MMdd.HHmm mission stamp to epoch ms; null if not that shape. */
+    private fun parseStampToMs(stamp: String): Long? {
+        return try {
+            val fmt = SimpleDateFormat("yyyy.MMdd.HHmm", Locale.US)
+            fmt.isLenient = false
+            fmt.parse(stamp.trim())?.time
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     private fun nameAndStartStorm(
         controller: PlowTakController,
         hostContext: Context,
@@ -282,7 +372,9 @@ object StormServerDialogs {
         onChanged: (() -> Unit)?
     ) {
         val pad = dp(hostContext, 16)
-        val defaultName = defaultStormName(System.currentTimeMillis())
+        val now = System.currentTimeMillis()
+        val defaultName = defaultStormName(now)
+        val stamp = stormNameStamp(now)
         val name = EditText(hostContext).apply {
             setText(defaultName)
             setSingleLine()
@@ -292,21 +384,33 @@ object StormServerDialogs {
             hint = "Agency (optional, e.g. VDOT)"
             setSingleLine()
         }
-        val cycle = EditText(hostContext).apply {
-            hint = "Cycle minutes (default ${controller.prefs.cycleTimeMinutes})"
+        val green = EditText(hostContext).apply {
+            hint = "Green until (min) — track stays green after plow"
+            setText(controller.prefs.greenUntilMinutes.toString())
+            setSingleLine()
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+        }
+        val yellow = EditText(hostContext).apply {
+            hint = "Yellow until (min) — aging band before red"
+            setText(controller.prefs.yellowUntilMinutes.toString())
+            setSingleLine()
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+        }
+        val red = EditText(hostContext).apply {
+            hint = "Red after (min) — needs plow again"
             setText(controller.prefs.cycleTimeMinutes.toString())
             setSingleLine()
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
         }
         val retain = EditText(hostContext).apply {
-            hint = "Clear coverage after hours (0 = keep red)"
+            hint = "Remove after (hours) — 0 = keep red forever"
             setText(formatRetention(controller.prefs.retentionHours))
             setSingleLine()
             inputType = android.text.InputType.TYPE_CLASS_NUMBER or
                 android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
         }
         val condTtl = EditText(hostContext).apply {
-            hint = "Road condition TTL minutes"
+            hint = "Road condition report TTL (minutes)"
             setText(controller.prefs.roadConditionStaleMinutes.toString())
             setSingleLine()
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
@@ -316,21 +420,27 @@ object StormServerDialogs {
             setPadding(pad, pad / 2, pad, 0)
             addView(name)
             addView(agency)
-            addView(cycle)
+            addView(green)
+            addView(yellow)
+            addView(red)
             addView(retain)
             addView(condTtl)
         }
         AlertDialog.Builder(hostContext)
-            .setTitle("3/3 — Name storm")
+            .setTitle("Name storm")
             .setMessage(
-                "Creates a Data Sync mission on channel \"$channel\".\n" +
-                    "Cycle / clear timers are shared with every joined device.\n\n" +
+                "Creates Data Sync mission \"$stamp\" on channel \"$channel\".\n" +
+                    "Plow-track timers are shared with every joined device.\n\n" +
                     currentServerSummary(controller)
             )
             .setView(column)
             .setPositiveButton("Start") { _, _ ->
                 val label = name.text.toString().trim().ifEmpty { defaultName }
-                val mins = cycle.text.toString().toIntOrNull()
+                val g = green.text.toString().toIntOrNull()
+                    ?: controller.prefs.greenUntilMinutes
+                val y = yellow.text.toString().toIntOrNull()
+                    ?: controller.prefs.yellowUntilMinutes
+                val mins = red.text.toString().toIntOrNull()
                     ?: controller.prefs.cycleTimeMinutes
                 val retainH = retain.text.toString().toDoubleOrNull()
                     ?: controller.prefs.retentionHours
@@ -339,8 +449,10 @@ object StormServerDialogs {
                 val session = controller.startStormSession(
                     label = label,
                     agency = agency.text.toString(),
-                    missionName = label,
+                    missionName = stamp,
                     channel = channel,
+                    greenUntilMinutes = g,
+                    yellowUntilMinutes = y,
                     cycleMinutes = mins,
                     coverageRetentionHours = retainH,
                     roadConditionTtlMinutes = ttl
@@ -558,8 +670,14 @@ object StormServerDialogs {
 
     /** Auto storm label: PlowTAK Storm YY.MM.DD.HH (local device time). */
     fun defaultStormName(nowMs: Long): String {
-        val fmt = SimpleDateFormat("yy.MM.dd.HH", Locale.US)
-        return "PlowTAK Storm ${fmt.format(Date(nowMs))}"
+        val stamp = stormNameStamp(nowMs)
+        return "PlowTAK Storm $stamp"
+    }
+
+    /** Data Sync mission name stamp: yyyy.MMdd.HHmm (local 24h). */
+    fun stormNameStamp(nowMs: Long): String {
+        val fmt = SimpleDateFormat("yyyy.MMdd.HHmm", Locale.US)
+        return fmt.format(Date(nowMs))
     }
 
     private fun cachedServerGroups(connectString: String): List<String> {
@@ -598,32 +716,44 @@ object StormServerDialogs {
     ) {
         val storm = controller.stormManager.activeSession()
         val pad = dp(hostContext, 16)
+        val green = EditText(hostContext).apply {
+            hint = "Green until (min)"
+            setText((storm?.greenUntilMinutes ?: controller.prefs.greenUntilMinutes).toString())
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            setSingleLine()
+        }
+        val yellow = EditText(hostContext).apply {
+            hint = "Yellow until (min)"
+            setText((storm?.yellowUntilMinutes ?: controller.prefs.yellowUntilMinutes).toString())
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            setSingleLine()
+        }
         val cycle = EditText(hostContext).apply {
-            hint = "Cycle minutes"
+            hint = "Red after (min)"
             setText((storm?.cycleMinutes ?: controller.prefs.cycleTimeMinutes).toString())
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
             setSingleLine()
         }
         val p1 = EditText(hostContext).apply {
-            hint = "P1 cycle min (0 = default)"
+            hint = "P1 red-after min (0 = default)"
             setText((storm?.cycleP1Minutes ?: controller.prefs.cycleP1Minutes).toString())
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
             setSingleLine()
         }
         val p2 = EditText(hostContext).apply {
-            hint = "P2 cycle min (0 = default)"
+            hint = "P2 red-after min (0 = default)"
             setText((storm?.cycleP2Minutes ?: controller.prefs.cycleP2Minutes).toString())
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
             setSingleLine()
         }
         val p3 = EditText(hostContext).apply {
-            hint = "P3 cycle min (0 = default)"
+            hint = "P3 red-after min (0 = default)"
             setText((storm?.cycleP3Minutes ?: controller.prefs.cycleP3Minutes).toString())
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
             setSingleLine()
         }
         val retain = EditText(hostContext).apply {
-            hint = "Clear coverage after hours (0 = keep red)"
+            hint = "Remove after hours (0 = keep red)"
             setText(
                 formatRetention(storm?.coverageRetentionHours ?: controller.prefs.retentionHours)
             )
@@ -632,7 +762,7 @@ object StormServerDialogs {
             setSingleLine()
         }
         val condTtl = EditText(hostContext).apply {
-            hint = "Road condition TTL minutes"
+            hint = "Road condition report TTL minutes"
             setText(
                 (storm?.roadConditionTtlMinutes ?: controller.prefs.roadConditionStaleMinutes)
                     .toString()
@@ -643,6 +773,8 @@ object StormServerDialogs {
         val column = LinearLayout(hostContext).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(pad, pad / 2, pad, 0)
+            addView(green)
+            addView(yellow)
             addView(cycle)
             addView(p1)
             addView(p2)
@@ -660,15 +792,19 @@ object StormServerDialogs {
             .setMessage(msg)
             .setView(column)
             .setPositiveButton("Apply") { _, _ ->
+                val g = green.text.toString().toIntOrNull()
+                    ?: controller.prefs.greenUntilMinutes
+                val y = yellow.text.toString().toIntOrNull()
+                    ?: controller.prefs.yellowUntilMinutes
                 val mins = cycle.text.toString().toIntOrNull()
                 if (mins == null || mins < 5) {
-                    Toast.makeText(hostContext, "Cycle must be at least 5 minutes", Toast.LENGTH_SHORT)
+                    Toast.makeText(hostContext, "Red after must be at least 5 minutes", Toast.LENGTH_SHORT)
                         .show()
                     return@setPositiveButton
                 }
                 val retainH = retain.text.toString().toDoubleOrNull() ?: 0.0
                 if (retainH < 0 || retainH > 72) {
-                    Toast.makeText(hostContext, "Clear-after must be 0–72 hours", Toast.LENGTH_SHORT)
+                    Toast.makeText(hostContext, "Remove-after must be 0–72 hours", Toast.LENGTH_SHORT)
                         .show()
                     return@setPositiveButton
                 }
@@ -679,6 +815,8 @@ object StormServerDialogs {
                 val p3m = p3.text.toString().toIntOrNull() ?: 0
                 if (storm != null) {
                     controller.updateStormCoverageSettings(
+                        greenUntilMinutes = g,
+                        yellowUntilMinutes = y,
                         cycleMinutes = mins,
                         cycleP1Minutes = p1m,
                         cycleP2Minutes = p2m,
@@ -688,10 +826,12 @@ object StormServerDialogs {
                     )
                     Toast.makeText(
                         hostContext,
-                        "Storm settings synced (cycle ${mins}m, clear ${formatRetention(retainH)}h)",
+                        "Storm settings synced (red ${mins}m, remove ${formatRetention(retainH)}h)",
                         Toast.LENGTH_SHORT
                     ).show()
                 } else {
+                    controller.prefs.greenUntilMinutes = g
+                    controller.prefs.yellowUntilMinutes = y
                     controller.prefs.cycleTimeMinutes = mins
                     controller.prefs.cycleP1Minutes = p1m
                     controller.prefs.cycleP2Minutes = p2m

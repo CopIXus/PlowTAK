@@ -30,33 +30,28 @@
     <string name="setup_save">Save and continue</string>
 
     <string name="setup_map_hud_enabled">Mini plow HUD on map (while on shift)</string>
-    <string name="setup_condition_stale_label">Road condition stale (minutes)</string>
-    <string name="setup_condition_stale_hint">Minutes until a road condition is deleted (default 120)</string>
+    <string name="setup_condition_stale_label">Road condition report TTL (minutes)</string>
+    <string name="setup_condition_stale_hint">Deletes Bare/Wet/Ice reports after this many minutes — not plow paint (default 120)</string>
 
     <!-- Storm screen -->
     <string name="storm_screen_title">Storm / Data Sync</string>
     <string name="storm_section_server">SERVER</string>
     <string name="storm_section_channel">CHANNEL</string>
     <string name="storm_section_storms">STORMS</string>
-    <string name="storm_section_new">NEW STORM</string>
+    <string name="storm_section_new">CREATE NEW STORM</string>
     <string name="storm_new_name_hint">Storm name</string>
-    <string name="storm_create">Create storm + Data Sync mission</string>
+    <string name="storm_create">Create storm</string>
     <string name="storm_leave">Leave storm</string>
     <string name="storm_end">End storm…</string>
     <string name="storm_done">Done</string>
-    <string name="setup_wing_width">Wing width (ft) — 0 if not fitted</string>
+    <string name="setup_wing_left_width">Left wing width (ft) — 0 if not fitted</string>
+    <string name="setup_wing_right_width">Right wing width (ft) — 0 if not fitted</string>
     <string name="setup_wing_width_hint">0 = not fitted</string>
     <string name="setup_tow_width">Tow plow width (ft) — 0 if not fitted</string>
     <string name="setup_tow_width_hint">0 = not fitted</string>
     <string name="setup_tts_enabled">Voice alerts (tasks, overdue, distress)</string>
     <string name="setup_roadsnap_enabled">Snap GPS to roads (GraphHopper pack)</string>
     <string name="setup_roadsnap_dir_hint">Pack folder (contains nodes/edges/geometry)</string>
-    <string name="setup_demo_section">Demo storm fleet</string>
-    <string name="setup_demo_intro">Spawns ~30 DemoPlow units near your map position (GPS, self marker, or map center). Works without VNS — geodesic motion by default; optional GraphHopper pack for on-road driving. Units plow/salt, change status, and publish CoT to connected peers.</string>
-    <string name="setup_demo_start">Start demo fleet</string>
-    <string name="setup_demo_stop">Stop demo fleet</string>
-    <string name="setup_demo_starting">Starting demo fleet…</string>
-
     <!-- Driver panel -->
     <string name="driver_blade">BLADE</string>
     <string name="driver_blade_down">BLADE DOWN</string>

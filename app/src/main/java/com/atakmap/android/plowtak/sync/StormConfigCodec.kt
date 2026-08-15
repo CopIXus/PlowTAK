@@ -1,31 +1,35 @@
 package com.atakmap.android.plowtak.sync
 
+import com.atakmap.android.plowtak.coverage.StormDefaults
 import com.atakmap.android.plowtak.gis.MiniJson
 import com.atakmap.android.plowtak.model.StormSession
 
-/** Mission file `storm-config.json` — shared cycle + metadata for a storm. */
+/** Mission file `storm-config.json` — shared plow-track timers + metadata. */
 object StormConfigCodec {
 
     const val FILENAME = "storm-config.json"
 
     fun encode(session: StormSession): ByteArray {
+        val s = session.sanitized()
         val json = buildString {
             append('{')
-            append("\"id\":").append(quote(session.id)).append(',')
-            append("\"agency\":").append(quote(session.agency)).append(',')
-            append("\"label\":").append(quote(session.label)).append(',')
-            append("\"channel\":").append(quote(session.channel)).append(',')
-            append("\"mission\":").append(quote(session.missionName)).append(',')
-            append("\"cycleMinutes\":").append(session.cycleMinutes).append(',')
-            append("\"cycleP1Minutes\":").append(session.cycleP1Minutes).append(',')
-            append("\"cycleP2Minutes\":").append(session.cycleP2Minutes).append(',')
-            append("\"cycleP3Minutes\":").append(session.cycleP3Minutes).append(',')
+            append("\"id\":").append(quote(s.id)).append(',')
+            append("\"agency\":").append(quote(s.agency)).append(',')
+            append("\"label\":").append(quote(s.label)).append(',')
+            append("\"channel\":").append(quote(s.channel)).append(',')
+            append("\"mission\":").append(quote(s.missionName)).append(',')
+            append("\"greenUntilMinutes\":").append(s.greenUntilMinutes).append(',')
+            append("\"yellowUntilMinutes\":").append(s.yellowUntilMinutes).append(',')
+            append("\"cycleMinutes\":").append(s.cycleMinutes).append(',')
+            append("\"cycleP1Minutes\":").append(s.cycleP1Minutes).append(',')
+            append("\"cycleP2Minutes\":").append(s.cycleP2Minutes).append(',')
+            append("\"cycleP3Minutes\":").append(s.cycleP3Minutes).append(',')
             append("\"coverageRetentionHours\":")
-                .append(session.coverageRetentionHours).append(',')
+                .append(s.coverageRetentionHours).append(',')
             append("\"roadConditionTtlMinutes\":")
-                .append(session.roadConditionTtlMinutes).append(',')
-            append("\"startTimeMs\":").append(session.startTimeMs).append(',')
-            append("\"startedBy\":").append(quote(session.startedBy))
+                .append(s.roadConditionTtlMinutes).append(',')
+            append("\"startTimeMs\":").append(s.startTimeMs).append(',')
+            append("\"startedBy\":").append(quote(s.startedBy))
             append('}')
         }
         return json.toByteArray(Charsets.UTF_8)
@@ -35,13 +39,27 @@ object StormConfigCodec {
         val text = bytes.toString(Charsets.UTF_8)
         val map = MiniJson.parseObject(text) ?: return null
         val id = map["id"] as? String ?: return null
+        val cycle = (map["cycleMinutes"] as? Number)?.toInt() ?: StormDefaults.RED_AFTER_MIN
+        val hasGreen = map.containsKey("greenUntilMinutes")
+        val hasYellow = map.containsKey("yellowUntilMinutes")
+        val migrated = if (!hasGreen || !hasYellow) {
+            com.atakmap.android.plowtak.coverage.FreshnessModel.fromLegacyCycle(cycle)
+        } else {
+            null
+        }
         return StormConfig(
             id = id,
             agency = map["agency"] as? String ?: "",
             label = map["label"] as? String ?: "",
             channel = map["channel"] as? String ?: "",
             mission = map["mission"] as? String ?: "",
-            cycleMinutes = (map["cycleMinutes"] as? Number)?.toInt() ?: 45,
+            greenUntilMinutes = (map["greenUntilMinutes"] as? Number)?.toInt()
+                ?: migrated?.greenUntilMinutes
+                ?: StormDefaults.GREEN_UNTIL_MIN,
+            yellowUntilMinutes = (map["yellowUntilMinutes"] as? Number)?.toInt()
+                ?: migrated?.yellowUntilMinutes
+                ?: StormDefaults.YELLOW_UNTIL_MIN,
+            cycleMinutes = cycle,
             cycleP1Minutes = (map["cycleP1Minutes"] as? Number)?.toInt() ?: 0,
             cycleP2Minutes = (map["cycleP2Minutes"] as? Number)?.toInt() ?: 0,
             cycleP3Minutes = (map["cycleP3Minutes"] as? Number)?.toInt() ?: 0,
@@ -60,6 +78,8 @@ object StormConfigCodec {
         val label: String,
         val channel: String,
         val mission: String,
+        val greenUntilMinutes: Int = StormDefaults.GREEN_UNTIL_MIN,
+        val yellowUntilMinutes: Int = StormDefaults.YELLOW_UNTIL_MIN,
         val cycleMinutes: Int,
         val cycleP1Minutes: Int = 0,
         val cycleP2Minutes: Int = 0,
@@ -79,13 +99,15 @@ object StormConfigCodec {
             agency = agency,
             missionName = mission,
             channel = channel,
-            cycleMinutes = cycleMinutes.coerceIn(5, 24 * 60),
-            cycleP1Minutes = cycleP1Minutes.coerceIn(0, 24 * 60),
-            cycleP2Minutes = cycleP2Minutes.coerceIn(0, 24 * 60),
-            cycleP3Minutes = cycleP3Minutes.coerceIn(0, 24 * 60),
-            coverageRetentionHours = coverageRetentionHours.coerceIn(0.0, 72.0),
-            roadConditionTtlMinutes = roadConditionTtlMinutes.coerceIn(15, 24 * 60)
-        )
+            greenUntilMinutes = greenUntilMinutes,
+            yellowUntilMinutes = yellowUntilMinutes,
+            cycleMinutes = cycleMinutes,
+            cycleP1Minutes = cycleP1Minutes,
+            cycleP2Minutes = cycleP2Minutes,
+            cycleP3Minutes = cycleP3Minutes,
+            coverageRetentionHours = coverageRetentionHours,
+            roadConditionTtlMinutes = roadConditionTtlMinutes
+        ).sanitized()
     }
 
     private fun quote(s: String): String =

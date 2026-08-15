@@ -47,26 +47,35 @@ class ManualEquipmentProvider(
         }
     )
 
-    fun setWingLeft(extended: Boolean) = update(
-        state.copy(
-            wingLeftExtended = extended,
-            widthPreset = when {
-                extended || state.wingRightExtended -> WidthPreset.WING
-                else -> WidthPreset.STANDARD
-            }
+    fun setWingLeft(extended: Boolean) {
+        if (extended && !wingLeftAllowed()) return
+        update(
+            state.copy(
+                wingLeftExtended = extended,
+                widthPreset = when {
+                    extended || state.wingRightExtended -> WidthPreset.WING
+                    else -> WidthPreset.STANDARD
+                }
+            )
         )
-    )
+    }
 
-    fun setWingRight(extended: Boolean) = update(
-        state.copy(
-            wingRightExtended = extended,
-            widthPreset = when {
-                extended || state.wingLeftExtended -> WidthPreset.WING
-                else -> WidthPreset.STANDARD
-            }
+    fun setWingRight(extended: Boolean) {
+        if (extended && !wingRightAllowed()) return
+        update(
+            state.copy(
+                wingRightExtended = extended,
+                widthPreset = when {
+                    extended || state.wingLeftExtended -> WidthPreset.WING
+                    else -> WidthPreset.STANDARD
+                }
+            )
         )
-    )
+    }
 
+    /** Optional gating from vehicle capability (0 width = not fitted). */
+    var wingLeftAllowed: () -> Boolean = { true }
+    var wingRightAllowed: () -> Boolean = { true }
     /**
      * Merge a Bluetooth controller report (Phase 3). The hardware state
      * lands on the same channels as manual taps, so the driver's toggles

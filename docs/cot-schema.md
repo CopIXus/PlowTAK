@@ -14,7 +14,7 @@ never string XML templating.
 
 | Event | CoT type | Detail payload |
 |-------|----------|----------------|
-| Vehicle PLI | `a-f-G-E-V-C` | `<vehicle>` `<status>` `<geom>` `<ops>` `<operator>` |
+| Vehicle PLI | `a-f-G-E-V-C` | `contact` + `remarks` (unit status label) |
 | Coverage batch | `b-i-x-plowtak-cov` | `<coverage>` with `<segment>` children |
 | Storm session | `b-i-x-plowtak-storm` | `<storm>` |
 | Distress alert | `b-a-o-tbl` (911-alert convention) | `<alert>` |
@@ -36,18 +36,16 @@ network output receives the event (see “Sending CoT Messages through ATAK”).
 
 ## PLI example
 
+Self PLI is a stock `a-f-G-E-V-C` event with `contact` callsign and a `remarks`
+element set to the current unit-status label (e.g. Driving / Loading). Blade /
+spread / detailed status for peers still syncs via Data Sync `{uid}-status.json`.
+
 ```xml
 <event version="2.0" uid="PLOWTAK-T-1042" type="a-f-G-E-V-C" how="m-g" ...>
   <point lat="36.1627" lon="-86.7816" hae="9999999.0" ce="9999999.0" le="9999999.0"/>
   <detail>
     <contact callsign="Plow-12"/>
-    <__plowtak>
-      <vehicle type="plow" hasBlade="true" hasSalt="true" canTreat="true" role="treating"/>
-      <status blade="down" salt="on" material="salt" mode="treating"/>
-      <geom plowWidthM="3.0" heading="87.2"/>
-      <ops stormId="2026-01-15-1736951234"/>
-      <operator id="op-77" name="J. Smith"/>
-    </__plowtak>
+    <remarks>Driving</remarks>
   </detail>
 </event>
 ```

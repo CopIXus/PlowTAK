@@ -22,7 +22,7 @@ class ProvisioningCodecTest {
             VehicleCapability.defaultsFor(VehicleType.PLOW).copy(
                 hasSalt = true,
                 plowWidthM = 3.7,
-                wingWidthM = 4.9,
+                wingLeftWidthM = 4.9, wingRightWidthM = 4.9,
                 callsign = "CTR-Plow",
                 contractor = true
             )

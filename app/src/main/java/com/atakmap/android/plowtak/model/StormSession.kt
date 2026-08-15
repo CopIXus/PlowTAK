@@ -1,6 +1,7 @@
 package com.atakmap.android.plowtak.model
 
 import com.atakmap.android.plowtak.coverage.CycleTimes
+import com.atakmap.android.plowtak.coverage.StormDefaults
 
 /**
  * A storm ops session that trucks may join for coverage tagging and Data Sync.
@@ -8,8 +9,8 @@ import com.atakmap.android.plowtak.coverage.CycleTimes
  * Multiple agencies may broadcast concurrent storms; each device explicitly
  * joins one reporting storm (see [com.atakmap.android.plowtak.ops.StormSessionManager]).
  *
- * Cycle / retention / road-condition TTL are **storm-level**: every joined
- * device follows [storm-config.json] / CoT, not each tablet's Settings.
+ * Plow-track color timers are **storm-level**: every joined device follows
+ * [storm-config.json] / CoT, not each tablet's Settings.
  */
 data class StormSession(
     /** Stable id, e.g. "2026-01-15-1736951234". */
@@ -30,15 +31,23 @@ data class StormSession(
     val missionName: String = "",
     /** CoT channel the Data Sync mission belongs to (access control). */
     val channel: String = "",
-    /** Freshness cycle minutes for this storm (shared via storm-config.json). */
-    val cycleMinutes: Int = 45,
-    /** Per-priority cycle override minutes; 0 = use [cycleMinutes]. */
+    /** Minutes after plow that track stays green. */
+    val greenUntilMinutes: Int = StormDefaults.GREEN_UNTIL_MIN,
+    /** Minutes after plow that yellow phase is labeled through (paint stays yellow until red). */
+    val yellowUntilMinutes: Int = StormDefaults.YELLOW_UNTIL_MIN,
+    /**
+     * Minutes after plow when track goes red (needs plow again).
+     * Wire name remains `cycleMinutes` in storm-config / CoT for compatibility.
+     * P1/P2/P3 override this red-after only.
+     */
+    val cycleMinutes: Int = StormDefaults.RED_AFTER_MIN,
+    /** Per-priority red-after override minutes; 0 = use [cycleMinutes]. */
     val cycleP1Minutes: Int = 0,
     val cycleP2Minutes: Int = 0,
     val cycleP3Minutes: Int = 0,
     /**
      * Hours after which overdue coverage is cleared from the map / store.
-     * **0 = never clear** (lines stay red after the cycle). Shared via
+     * **0 = never clear** (lines stay red after red-after). Shared via
      * storm-config.json.
      */
     val coverageRetentionHours: Double = DEFAULT_COVERAGE_RETENTION_HOURS,
@@ -50,11 +59,39 @@ data class StormSession(
 ) {
     companion object {
         const val DEFAULT_ROAD_CONDITION_TTL_MINUTES = 120
-        /** 0 = keep overdue coverage on the map as red forever. */
-        const val DEFAULT_COVERAGE_RETENTION_HOURS = 0.0
+        /** New storms default to 8h remove-after; 0 = keep red forever. */
+        const val DEFAULT_COVERAGE_RETENTION_HOURS = StormDefaults.RETENTION_HOURS
+
+        fun sanitizeTimers(
+            green: Int,
+            yellow: Int,
+            red: Int,
+            retentionHours: Double
+        ): Quad {
+            var g = green.coerceIn(1, 24 * 60)
+            var y = yellow.coerceIn(1, 24 * 60)
+            var r = red.coerceIn(5, 24 * 60)
+            if (y < g) y = g
+            if (r < y) r = y
+            var retain = retentionHours.coerceIn(0.0, 72.0)
+            if (retain > 0 && retain < r / 60.0) {
+                retain = (r / 60.0).coerceAtLeast(0.1)
+            }
+            return Quad(g, y, r, retain)
+        }
+
+        data class Quad(
+            val green: Int,
+            val yellow: Int,
+            val red: Int,
+            val retentionHours: Double
+        )
     }
 
     val isActive: Boolean get() = endTimeMs == 0L
+
+    /** Red-after minutes (alias for [cycleMinutes]). */
+    val redAfterMinutes: Int get() = cycleMinutes
 
     fun cycleTimes(): CycleTimes = CycleTimes(
         defaultMinutes = cycleMinutes,
@@ -62,6 +99,18 @@ data class StormSession(
         p2Minutes = cycleP2Minutes,
         p3Minutes = cycleP3Minutes
     )
+
+    fun sanitized(): StormSession {
+        val t = sanitizeTimers(
+            greenUntilMinutes, yellowUntilMinutes, cycleMinutes, coverageRetentionHours
+        )
+        return copy(
+            greenUntilMinutes = t.green,
+            yellowUntilMinutes = t.yellow,
+            cycleMinutes = t.red,
+            coverageRetentionHours = t.retentionHours
+        )
+    }
 
     /** Short UI label: agency · designator · id (skipping blanks). */
     fun displayName(): String {

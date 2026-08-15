@@ -273,7 +273,9 @@ class StormSessionManagerTest {
         assertEquals(45, s.cycleMinutes)
         assertEquals(120, s.roadConditionTtlMinutes)
         assertEquals(0, s.cycleP1Minutes)
-        assertEquals(0.0, s.coverageRetentionHours, 0.0)
+        assertEquals(30, s.greenUntilMinutes)
+        assertEquals(33, s.yellowUntilMinutes)
+        assertEquals(8.0, s.coverageRetentionHours, 0.0)
     }
 }
 

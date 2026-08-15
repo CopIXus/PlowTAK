@@ -30,12 +30,12 @@ import com.atakmap.coremap.maps.time.CoordinatedTime
 
 /**
  * Publishes this unit's outbound traffic:
- *  - **TAK CoT (external):** location-only self PLI, distress alerts, storm
- *    session announce (discovery / SA).
+ *  - **TAK CoT (external):** self PLI (callsign + unit-status remarks),
+ *    distress alerts, storm session announce (discovery / SA).
  *  - **Local-only CoT:** map markers for hazards / road conditions so the
  *    reporter sees them immediately.
  *  - **Data Sync:** blade/spread/status, coverage, routes, zones, tasks,
- *    hazards, conditions, and demo fleet — see [MissionCoverageSync].
+ *    hazards, and conditions — see [MissionCoverageSync].
  *
  * Driven by the 1 Hz [SelfTracker] tick — no timers of its own. External
  * sends go through [OutboundCotQueue] for offline queueing.
@@ -97,6 +97,9 @@ class PlowCotPublisher(
         val contact = CotDetail("contact")
         contact.setAttribute("callsign", cap.callsign.ifEmpty { selfUid })
         root.addChild(contact)
+        val remarks = CotDetail("remarks")
+        remarks.innerText = statusManager.current.label
+        root.addChild(remarks)
         event.detail = root
 
         queue.send(event, alsoInternal = false) // self marker already local

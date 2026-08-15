@@ -2,53 +2,95 @@ package com.atakmap.android.plowtak.coverage
 
 /** Freshness buckets for coverage coloring. */
 enum class Freshness {
-    /** Treated within the cycle time — good. */
+    /** Treated recently — within green-until. */
     GREEN,
-    /** Aging; due soon (past [FreshnessModel.dueSoonFraction] of cycle). */
+    /** Aging; still before red-after (includes yellow-until through red). */
     YELLOW,
-    /** Overdue — older than the cycle time. */
+    /** Overdue — at/after red-after. */
     RED,
     /** Beyond the retention window — drop from map and store. */
     EXPIRED
 }
 
 /**
- * Maps segment age to a freshness bucket relative to the cycle-time setting.
- * "Never treated this storm" is the *absence* of segments, which renderers
- * treat as RED-equivalent; this model only classifies segments that exist.
+ * Maps segment age (now − last plow) to a freshness bucket using absolute
+ * storm timers: green until / yellow until / red after / remove after.
+ *
+ * [classify] with an override uses that value as a **red-after** cap
+ * (priority / zone), keeping green/yellow from the storm model.
  */
 class FreshnessModel(
-    /** Target revisit interval, minutes (per-priority overrides in Phase 2). */
-    var cycleTimeMinutes: Int = 45,
-    /** Fraction of the cycle after which a segment shows as due soon. */
-    var dueSoonFraction: Double = 0.75,
+    var greenUntilMinutes: Int = 30,
+    var yellowUntilMinutes: Int = 50,
+    var redAfterMinutes: Int = 60,
     /** Drop segments older than this many hours; 0 = never expire (stay RED). */
-    var retentionHours: Double = 0.0
+    var retentionHours: Double = 8.0
 ) {
 
+    /** Alias for [redAfterMinutes] (legacy cycle / P1–P3 override hook). */
+    var cycleTimeMinutes: Int
+        get() = redAfterMinutes
+        set(value) {
+            redAfterMinutes = value.coerceAtLeast(1)
+        }
+
     fun classify(segmentEndTimeMs: Long, nowMs: Long): Freshness =
-        classify(segmentEndTimeMs, nowMs, cycleTimeMinutes)
+        classify(segmentEndTimeMs, nowMs, redAfterMinutes)
 
     /**
-     * Classify against an explicit cycle time (per-priority override or a
-     * special-zone tightened cycle from `CycleResolver`). Retention stays
-     * global — zones change how fast coverage goes RED, not how long it is
-     * kept. [retentionHours] <= 0 means never expire (stay RED after cycle).
+     * @param redAfterOverride minutes; when > 0, effective red is
+     *   `min(storm redAfter, override)` so zones/priorities can only tighten.
      */
-    fun classify(segmentEndTimeMs: Long, nowMs: Long, cycleMinutes: Int): Freshness {
+    fun classify(segmentEndTimeMs: Long, nowMs: Long, redAfterOverride: Int): Freshness {
         val ageMs = nowMs - segmentEndTimeMs
         if (ageMs < 0) return Freshness.GREEN // clock skew — be generous
 
-        val cycleMs = cycleMinutes * 60_000L
         if (retentionHours > 0) {
             val retentionMs = (retentionHours * 3_600_000L).toLong()
             if (ageMs > retentionMs) return Freshness.EXPIRED
         }
 
+        val stormRed = redAfterMinutes.coerceAtLeast(1)
+        val red = if (redAfterOverride > 0) {
+            minOf(stormRed, redAfterOverride.coerceAtLeast(1))
+        } else {
+            stormRed
+        }
+        val green = greenUntilMinutes.coerceIn(1, red)
+        // yellowUntil is stored for UI/sync; paint stays yellow until redAfter.
+        @Suppress("UNUSED_VARIABLE")
+        val yellow = yellowUntilMinutes.coerceIn(green, red)
+
         return when {
-            ageMs >= cycleMs -> Freshness.RED
-            ageMs >= (cycleMs * dueSoonFraction).toLong() -> Freshness.YELLOW
-            else -> Freshness.GREEN
+            ageMs < green * 60_000L -> Freshness.GREEN
+            ageMs < red * 60_000L -> Freshness.YELLOW
+            else -> Freshness.RED
         }
     }
+
+    companion object {
+        /** Map a legacy single cycle into green / yellow / red timers. */
+        fun fromLegacyCycle(
+            cycleMinutes: Int,
+            retentionHours: Double = StormDefaults.RETENTION_HOURS
+        ): FreshnessModel {
+            val red = cycleMinutes.coerceAtLeast(5)
+            val yellow = maxOf(1, (red * 0.75).toInt())
+            val green = minOf(30, yellow).coerceAtLeast(1)
+            return FreshnessModel(
+                greenUntilMinutes = green,
+                yellowUntilMinutes = maxOf(green, yellow),
+                redAfterMinutes = red,
+                retentionHours = retentionHours
+            )
+        }
+    }
+}
+
+/** New-storm timer defaults. */
+object StormDefaults {
+    const val GREEN_UNTIL_MIN = 30
+    const val YELLOW_UNTIL_MIN = 50
+    const val RED_AFTER_MIN = 60
+    const val RETENTION_HOURS = 8.0
 }

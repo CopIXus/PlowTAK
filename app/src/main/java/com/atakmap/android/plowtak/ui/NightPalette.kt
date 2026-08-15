@@ -10,12 +10,15 @@ import android.widget.TextView
  * Night high-contrast palette for the driver panel: pure black background
  * with dim amber text to protect dark adaptation in the cab. Applied by
  * walking the view tree; day mode restores the standard palette colors.
+ * Section headings tagged `plowtak_heading` stay tan (dimmed at night).
  */
 object NightPalette {
 
     private const val NIGHT_BG = 0xFF000000.toInt()
     private const val NIGHT_TEXT = 0xFFFFB000.toInt()
     private const val NIGHT_BUTTON = 0xFF1A1200.toInt()
+    private const val NIGHT_HEADING = 0xFFA89060.toInt()
+    private const val DAY_HEADING = 0xFFC9B896.toInt()
 
     private const val DAY_BG = 0xFF000000.toInt()   // plowtak_bg (ATAK black)
     private const val DAY_TEXT = 0xFFF5F5F5.toInt() // plowtak_text
@@ -45,7 +48,13 @@ object NightPalette {
                 }
             }
             is EditText -> view.setTextColor(if (night) NIGHT_TEXT else DAY_TEXT)
-            is TextView -> view.setTextColor(if (night) NIGHT_TEXT else DAY_TEXT)
+            is TextView -> {
+                if (view.tag == "plowtak_heading") {
+                    view.setTextColor(if (night) NIGHT_HEADING else DAY_HEADING)
+                } else {
+                    view.setTextColor(if (night) NIGHT_TEXT else DAY_TEXT)
+                }
+            }
         }
     }
 

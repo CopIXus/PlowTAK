@@ -59,7 +59,9 @@ class StormSessionManager(
         agency: String = "",
         missionName: String = "",
         channel: String = "",
-        cycleMinutes: Int = 45,
+        greenUntilMinutes: Int = com.atakmap.android.plowtak.coverage.StormDefaults.GREEN_UNTIL_MIN,
+        yellowUntilMinutes: Int = com.atakmap.android.plowtak.coverage.StormDefaults.YELLOW_UNTIL_MIN,
+        cycleMinutes: Int = com.atakmap.android.plowtak.coverage.StormDefaults.RED_AFTER_MIN,
         cycleP1Minutes: Int = 0,
         cycleP2Minutes: Int = 0,
         cycleP3Minutes: Int = 0,
@@ -74,13 +76,15 @@ class StormSessionManager(
             agency = agency.trim(),
             missionName = missionName.trim(),
             channel = channel.trim(),
-            cycleMinutes = cycleMinutes.coerceIn(5, 24 * 60),
+            greenUntilMinutes = greenUntilMinutes,
+            yellowUntilMinutes = yellowUntilMinutes,
+            cycleMinutes = cycleMinutes,
             cycleP1Minutes = cycleP1Minutes.coerceIn(0, 24 * 60),
             cycleP2Minutes = cycleP2Minutes.coerceIn(0, 24 * 60),
             cycleP3Minutes = cycleP3Minutes.coerceIn(0, 24 * 60),
-            coverageRetentionHours = coverageRetentionHours.coerceIn(0.0, 72.0),
+            coverageRetentionHours = coverageRetentionHours,
             roadConditionTtlMinutes = roadConditionTtlMinutes.coerceIn(15, 24 * 60)
-        )
+        ).sanitized()
         remember(s)
         session = s
         save()
@@ -101,6 +105,8 @@ class StormSessionManager(
      * the current value unchanged.
      */
     fun updateCoverageSettings(
+        greenUntilMinutes: Int? = null,
+        yellowUntilMinutes: Int? = null,
         cycleMinutes: Int? = null,
         cycleP1Minutes: Int? = null,
         cycleP2Minutes: Int? = null,
@@ -110,15 +116,16 @@ class StormSessionManager(
     ): StormSession? {
         val active = session?.takeIf { it.isActive } ?: return null
         val next = active.copy(
-            cycleMinutes = cycleMinutes?.coerceIn(5, 24 * 60) ?: active.cycleMinutes,
+            greenUntilMinutes = greenUntilMinutes ?: active.greenUntilMinutes,
+            yellowUntilMinutes = yellowUntilMinutes ?: active.yellowUntilMinutes,
+            cycleMinutes = cycleMinutes ?: active.cycleMinutes,
             cycleP1Minutes = cycleP1Minutes?.coerceIn(0, 24 * 60) ?: active.cycleP1Minutes,
             cycleP2Minutes = cycleP2Minutes?.coerceIn(0, 24 * 60) ?: active.cycleP2Minutes,
             cycleP3Minutes = cycleP3Minutes?.coerceIn(0, 24 * 60) ?: active.cycleP3Minutes,
-            coverageRetentionHours = coverageRetentionHours?.coerceIn(0.0, 72.0)
-                ?: active.coverageRetentionHours,
+            coverageRetentionHours = coverageRetentionHours ?: active.coverageRetentionHours,
             roadConditionTtlMinutes = roadConditionTtlMinutes?.coerceIn(15, 24 * 60)
                 ?: active.roadConditionTtlMinutes
-        )
+        ).sanitized()
         if (next == active) return active
         remember(next)
         session = next
@@ -255,7 +262,9 @@ class StormSessionManager(
                 s.cycleP1Minutes.toString(),
                 s.cycleP2Minutes.toString(),
                 s.cycleP3Minutes.toString(),
-                s.coverageRetentionHours.toString()
+                s.coverageRetentionHours.toString(),
+                s.greenUntilMinutes.toString(),
+                s.yellowUntilMinutes.toString()
             ).joinToString("|")
 
         fun decodeSession(line: String): StormSession? {
@@ -272,7 +281,7 @@ class StormSessionManager(
                 agency = if (f.size > 5) unesc(f[5]) else "",
                 missionName = if (f.size > 6) unesc(f[6]) else "",
                 channel = if (f.size > 7) unesc(f[7]) else "",
-                cycleMinutes = if (f.size > 8) f[8].toIntOrNull() ?: 45 else 45,
+                cycleMinutes = if (f.size > 8) f[8].toIntOrNull() ?: 60 else 60,
                 roadConditionTtlMinutes = if (f.size > 9) {
                     f[9].toIntOrNull() ?: StormSession.DEFAULT_ROAD_CONDITION_TTL_MINUTES
                 } else {
@@ -285,8 +294,20 @@ class StormSessionManager(
                     f[13].toDoubleOrNull() ?: StormSession.DEFAULT_COVERAGE_RETENTION_HOURS
                 } else {
                     StormSession.DEFAULT_COVERAGE_RETENTION_HOURS
-                }
-            )
+                },
+                greenUntilMinutes = if (f.size > 14) f[14].toIntOrNull() ?: 30 else 30,
+                yellowUntilMinutes = if (f.size > 15) f[15].toIntOrNull() ?: 50 else 50
+            ).let { s ->
+                if (f.size <= 14) {
+                    val m = com.atakmap.android.plowtak.coverage.FreshnessModel.fromLegacyCycle(
+                        s.cycleMinutes, s.coverageRetentionHours
+                    )
+                    s.copy(
+                        greenUntilMinutes = m.greenUntilMinutes,
+                        yellowUntilMinutes = m.yellowUntilMinutes
+                    )
+                } else s
+            }.sanitized()
         }
 
         private fun esc(s: String) = s.replace("|", "&#124;").replace("\n", "&#10;")

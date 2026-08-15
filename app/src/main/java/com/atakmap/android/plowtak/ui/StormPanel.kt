@@ -289,17 +289,21 @@ class StormPanel(
         }
         val channel = channels.getOrNull(channelSpinner.selectedItemPosition)
             ?: controller.prefs.stormChannel.ifBlank { "__ANON__" }
+        val now = System.currentTimeMillis()
         val label = newName.text.toString().trim().ifEmpty {
-            StormServerDialogs.defaultStormName(System.currentTimeMillis())
+            StormServerDialogs.defaultStormName(now)
         }
+        val stamp = StormServerDialogs.stormNameStamp(now)
         controller.prefs.dataSyncServerConnectString = server.connectString
         controller.prefs.stormChannel = channel
         persistSelections()
         val session = controller.startStormSession(
             label = label,
             agency = "",
-            missionName = label,
+            missionName = stamp,
             channel = channel,
+            greenUntilMinutes = controller.prefs.greenUntilMinutes,
+            yellowUntilMinutes = controller.prefs.yellowUntilMinutes,
             cycleMinutes = controller.prefs.cycleTimeMinutes,
             cycleP1Minutes = controller.prefs.cycleP1Minutes,
             cycleP2Minutes = controller.prefs.cycleP2Minutes,
@@ -326,7 +330,8 @@ class StormPanel(
     private fun refreshStatus() {
         val active = controller.stormManager.activeSession()
         val stormText = if (active != null) {
-            "Joined: ${active.displayName()} · ${active.cycleMinutes}m cycle · " +
+            "Joined: ${active.displayName()} · red ${active.cycleMinutes}m · " +
+                "G${active.greenUntilMinutes}/Y${active.yellowUntilMinutes} · " +
                 retentionLabel(active.coverageRetentionHours)
         } else {
             "No storm joined"

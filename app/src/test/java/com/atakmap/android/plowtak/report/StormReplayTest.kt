@@ -64,7 +64,7 @@ class StormReplayTest {
 
     private fun replay() = StormReplay(
         data(),
-        FreshnessModel(cycleTimeMinutes = 45, retentionHours = 12.0)
+        FreshnessModel(redAfterMinutes = 45, retentionHours = 12.0)
     )
 
     @Test

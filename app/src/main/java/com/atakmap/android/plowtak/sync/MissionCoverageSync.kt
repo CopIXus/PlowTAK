@@ -22,7 +22,7 @@ import java.util.zip.GZIPInputStream
 /**
  * TAK Data Sync bridge while a storm is joined:
  *  - **Upload** this unit's coverage, status, hazards, conditions (TTL-filtered),
- *    ops snapshot, and (when running) demo fleet positions.
+ *    and ops snapshot.
  *  - **Pull** peer files from the mission and hand them to [MissionPullSink].
  *
  * Real-unit location PLI stays on TAK CoT; everything else in this class is
@@ -37,7 +37,6 @@ class MissionCoverageSync(
     private val hazards: () -> List<HazardEvent> = { emptyList() },
     private val conditions: () -> List<RoadConditionReport> = { emptyList() },
     private val selfStatus: () -> PlowVehicle? = { null },
-    private val demoVehicles: () -> List<PlowVehicle> = { emptyList() },
     private val routes: () -> List<RouteAssignment> = { emptyList() },
     private val zones: () -> List<SpecialZone> = { emptyList() },
     private val tasks: () -> List<TaskEvent> = { emptyList() },
@@ -208,33 +207,6 @@ class MissionCoverageSync(
             OpsMissionCodec.encode(stormId, routes(), zones(), tasks(), snoozes()),
             uid, "application/json", KEY_LAST_OPS_HASH
         )
-
-        val demos = demoVehicles()
-        if (demos.isNotEmpty()) {
-            uploadIfChanged(
-                client, mission, UnitStatusMissionCodec.demoFilename(uid),
-                UnitStatusMissionCodec.encodeDemoFleet(stormId, uid, demos),
-                uid, "application/geo+json", KEY_LAST_DEMO_HASH
-            )
-            val demoSegs = MissionCoverageCodec.segmentsInCurrentHour(coverageStore.all(), now)
-                .filter { it.vehicleUid.startsWith("plowtak-demo-") }
-            if (demoSegs.isNotEmpty()) {
-                val demoCovName = "${sanitize(uid)}-demo-${MissionCoverageCodec.hourLabelUtc(now)}-live.geojson"
-                val demoCovBytes = MissionCoverageCodec.encodeBytes(
-                    stormId, uid, MissionCoverageCodec.hourStartMs(now), demoSegs,
-                    gzip = false,
-                    styleNowMs = now,
-                    cycleMinutes = session.cycleMinutes,
-                    retentionHours = session.coverageRetentionHours,
-                    cycleMinutesFor = cycleMinutesFor
-                )
-                uploadNamedIfChanged(
-                    client, mission, demoCovName, demoCovBytes, uid,
-                    "application/geo+json", null,
-                    KEY_LAST_DEMO_COV_HASH, KEY_LAST_DEMO_COV_FILENAME, KEY_LAST_MISSION
-                )
-            }
-        }
     }
 
     /** One file attached to a mission. */
@@ -306,15 +278,8 @@ class MissionCoverageSync(
     ) {
         val entries = listMissionContents(client, mission)
         for ((filename, hash, creator) in entries) {
-            if (creator == selfUid && !filename.contains("-demo-")) {
-                // Skip our own non-demo uploads (we already have them locally).
-                // Still pull peer + foreign demo hosts.
-                if (!filename.endsWith("-demo-fleet.geojson") &&
-                    !filename.contains("-demo-")
-                ) {
-                    continue
-                }
-            }
+            // Skip our own uploads (we already have them locally).
+            if (creator == selfUid) continue
             val lastSeen = prefs.getString(KEY_PULL_PREFIX + hash)
             if (lastSeen == "1") continue
             val bytes = downloadContent(client, hash) ?: continue
@@ -341,9 +306,6 @@ class MissionCoverageSync(
             filename.endsWith("-status.json") -> {
                 val v = UnitStatusMissionCodec.decodeStatus(bytes) ?: return
                 sink.onUnitStatusPulled(v)
-            }
-            filename.endsWith("-demo-fleet.geojson") -> {
-                sink.onDemoFleetPulled(UnitStatusMissionCodec.decodeDemoFleet(bytes))
             }
             filename.endsWith("-hazards.geojson") || filename == HazardMissionCodec.FILENAME -> {
                 sink.onHazardsPulled(HazardMissionCodec.decode(bytes))
@@ -726,8 +688,7 @@ class MissionCoverageSync(
             KEY_COV_INDEX,
             KEY_LAST_HASH, KEY_LAST_FILENAME, KEY_LAST_MISSION,
             KEY_LAST_CONFIG_HASH, KEY_LAST_HAZARD_HASH, KEY_LAST_CONDITION_HASH,
-            KEY_LAST_STATUS_HASH, KEY_LAST_OPS_HASH, KEY_LAST_DEMO_HASH,
-            KEY_LAST_DEMO_COV_HASH, KEY_LAST_DEMO_COV_FILENAME
+            KEY_LAST_STATUS_HASH, KEY_LAST_OPS_HASH
         ).forEach {
             prefs.remove(it)
             prefs.remove("$it.server")
@@ -836,9 +797,6 @@ class MissionCoverageSync(
         const val KEY_LAST_CONDITION_HASH = "plowtak.mission_cov.last_condition_hash"
         const val KEY_LAST_STATUS_HASH = "plowtak.mission_cov.last_status_hash"
         const val KEY_LAST_OPS_HASH = "plowtak.mission_cov.last_ops_hash"
-        const val KEY_LAST_DEMO_HASH = "plowtak.mission_cov.last_demo_hash"
-        const val KEY_LAST_DEMO_COV_HASH = "plowtak.mission_cov.last_demo_cov_hash"
-        const val KEY_LAST_DEMO_COV_FILENAME = "plowtak.mission_cov.last_demo_cov_filename"
         const val KEY_DATASYNC_SERVER = "plowtak.datasync.server"
         private const val KEY_PULL_PREFIX = "plowtak.mission_pull."
         private const val KEY_COV_HASH_PREFIX = "plowtak.mission_cov.hour."
@@ -853,7 +811,6 @@ class MissionCoverageSync(
 interface MissionPullSink {
     fun onStormConfigPulled(cfg: StormConfigCodec.StormConfig) {}
     fun onUnitStatusPulled(vehicle: PlowVehicle) {}
-    fun onDemoFleetPulled(units: List<PlowVehicle>) {}
     fun onHazardsPulled(hazards: List<HazardEvent>) {}
     fun onConditionsPulled(conditions: List<RoadConditionReport>) {}
     fun onConditionsPruned(fresh: List<RoadConditionReport>) {}

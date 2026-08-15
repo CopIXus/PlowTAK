@@ -135,7 +135,7 @@ class CycleResolverTest {
 
     @Test
     fun `freshness model honors resolved cycle`() {
-        val model = FreshnessModel(cycleTimeMinutes = 120, retentionHours = 12.0)
+        val model = FreshnessModel(redAfterMinutes = 120, retentionHours = 12.0)
         val endMs = 0L
         val nowMs = 70 * 60_000L // 70 minutes later
 

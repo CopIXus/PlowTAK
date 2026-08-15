@@ -17,8 +17,6 @@ import com.atakmap.android.plowtak.coverage.SwathBuilder
 import com.atakmap.android.maps.MapGroup
 import com.atakmap.android.maps.MapItem
 import com.atakmap.android.maps.Polyline
-import com.atakmap.android.plowtak.demo.DemoFleetSimulator
-import com.atakmap.android.plowtak.demo.DemoRoadWalker
 import com.atakmap.android.plowtak.equipment.BluetoothEquipmentProvider
 import com.atakmap.android.plowtak.equipment.ManualEquipmentProvider
 import com.atakmap.android.plowtak.gis.LaneModel
@@ -46,6 +44,7 @@ import com.atakmap.android.plowtak.model.TaskKind
 import com.atakmap.android.plowtak.model.TreatSegment
 import com.atakmap.android.plowtak.model.VehicleStatus
 import com.atakmap.android.plowtak.model.VehicleType
+import com.atakmap.android.plowtak.model.WidthPreset
 import com.atakmap.android.plowtak.model.PlowVehicle
 import com.atakmap.android.plowtak.ops.AlertManager
 import com.atakmap.android.plowtak.ops.FacilityGeofences
@@ -109,7 +108,10 @@ class PlowTakController(
     }
 
     // -------------------------------------------------------------- state
-    val equipment = ManualEquipmentProvider()
+    val equipment = ManualEquipmentProvider().also { eq ->
+        eq.wingLeftAllowed = { capabilityStore.load().wingLeftWidthM > 0.0 }
+        eq.wingRightAllowed = { capabilityStore.load().wingRightWidthM > 0.0 }
+    }
     val statusManager = StatusManager()
     val shiftLog = ShiftLog(prefs)
     val stormManager = StormSessionManager(prefs)
@@ -128,7 +130,11 @@ class PlowTakController(
 
     // ----------------------------------------------------------- coverage
     val freshnessModel = FreshnessModel(
-        cycleTimeMinutes = prefs.cycleTimeMinutes,
+        greenUntilMinutes = prefs.greenUntilMinutes,
+        yellowUntilMinutes = prefs.yellowUntilMinutes,
+        redAfterMinutes = prefs.cycleTimeMinutes,
+        retentionHours = prefs.retentionHours
+    )
         retentionHours = prefs.retentionHours
     )
     val coverageStore = CoverageStore(File(pluginContext.filesDir, "plowtak"))
@@ -179,6 +185,22 @@ class PlowTakController(
             val c = capabilityStore.load()
             c.hasBlade && c.towWidthM > 0.0
         },
+        hasWingLeft = {
+            val c = capabilityStore.load()
+            c.hasBlade && c.wingLeftWidthM > 0.0
+        },
+        hasWingRight = {
+            val c = capabilityStore.load()
+            c.hasBlade && c.wingRightWidthM > 0.0
+        },
+        canSendDistress = { capabilityStore.load().canSendDistress },
+        hasOwnDistress = {
+            val uid = AlertEvent.makeUid(capabilityStore.vehicleUid)
+            alertManager.get(uid)?.state == AlertState.ACTIVE
+        },
+        onMayday = { send ->
+            if (send) sendDistress() else clearOwnDistress()
+        },
         isEnabled = { prefs.mapHudEnabled }
     )
     val hazardReporter = HazardReporter(cotQueue)
@@ -189,35 +211,6 @@ class PlowTakController(
         reportHazard(type, photoName, attachQuickPic = true)
     }
 
-    /** Synthetic storm fleet for demos / sales walkthroughs. */
-    val demoFleet = DemoFleetSimulator(
-        fleetManager = fleetManager,
-        coverageStore = coverageStore,
-        hazardReporter = hazardReporter,
-        stormIdProvider = { stormManager.activeStormId },
-        anchorProvider = {
-            // GPS sample → self marker → map center. Demo must start without VNS
-            // and without a warm GPS fix (common on indoor Fold demos).
-            fun geoPair(p: com.atakmap.coremap.maps.coords.GeoPoint?): Pair<Double, Double>? {
-                if (p == null || !p.isValid) return null
-                return p.latitude to p.longitude
-            }
-            lastPositionSample?.let { it.lat to it.lon }
-                ?: geoPair(mapView.selfMarker?.point)
-                ?: geoPair(mapView.centerPoint?.get())
-        },
-        packDirResolver = {
-            val vnsGh = try {
-                File(FileSystemUtils.getItem("tools"), "VNS/GH")
-            } catch (e: Exception) {
-                null
-            }
-            DemoRoadWalker.resolvePackDir(prefs.roadSnapDir, vnsGh)
-        },
-        scheduler = { timers },
-        onHazard = { hazard -> synchronized(hazardLog) { hazardLog[hazard.uid] = hazard } }
-    )
-
     val missionCoverageSync = MissionCoverageSync(
         appContext = mapView.context,
         prefs = prefs,
@@ -227,7 +220,6 @@ class PlowTakController(
         hazards = { synchronized(hazardLog) { hazardLog.values.toList() } },
         conditions = { synchronized(conditionLog) { conditionLog.values.toList() } },
         selfStatus = { buildSelfStatusVehicle() },
-        demoVehicles = { demoFleet.snapshotVehicles() },
         routes = { routeAssignments.all() },
         zones = { zoneManager.all() },
         tasks = { taskManager.all() },
@@ -252,13 +244,6 @@ class PlowTakController(
                     )
                 } else {
                     fleetManager.update(vehicle)
-                }
-            }
-
-            override fun onDemoFleetPulled(units: List<PlowVehicle>) {
-                for (u in units) {
-                    if (u.uid == selfUid()) continue
-                    fleetManager.update(u)
                 }
             }
 
@@ -523,11 +508,6 @@ class PlowTakController(
     fun dispose() {
         Log.i(TAG, "disposing PlowTak engine")
         try {
-            demoFleet.stop()
-        } catch (e: Exception) {
-            Log.w(TAG, "demo fleet stop on dispose failed", e)
-        }
-        try {
             swathBuilder.flush()
         } catch (e: Exception) {
             Log.w(TAG, "flush on dispose failed", e)
@@ -553,29 +533,6 @@ class PlowTakController(
         voiceAlerts.shutdown()
         PlowTakShiftService.stop(mapView.context)
         PlowTakSettingsBackup.export(pluginContext)
-    }
-
-    /**
-     * Start/stop the showcase fleet on a background thread (GraphHopper pack
-     * open can take a moment). [onDone] is posted to the map UI thread.
-     */
-    fun toggleDemoFleet(onDone: (DemoFleetSimulator.StartResult) -> Unit) {
-        if (demoFleet.isRunning) {
-            val msg = demoFleet.stop()
-            mapView.post {
-                onDone(DemoFleetSimulator.StartResult(true, msg, 0, false))
-            }
-            return
-        }
-        background.execute {
-            val result = try {
-                demoFleet.start(DemoFleetSimulator.DEFAULT_UNIT_COUNT)
-            } catch (e: Exception) {
-                Log.e(TAG, "demo fleet start failed", e)
-                DemoFleetSimulator.StartResult(false, "Demo start failed: ${e.message}")
-            }
-            mapView.post { onDone(result) }
-        }
     }
 
     /**
@@ -700,6 +657,8 @@ class PlowTakController(
         agency: String = "",
         missionName: String = "",
         channel: String = "",
+        greenUntilMinutes: Int = prefs.greenUntilMinutes,
+        yellowUntilMinutes: Int = prefs.yellowUntilMinutes,
         cycleMinutes: Int = prefs.cycleTimeMinutes,
         cycleP1Minutes: Int = prefs.cycleP1Minutes,
         cycleP2Minutes: Int = prefs.cycleP2Minutes,
@@ -715,6 +674,8 @@ class PlowTakController(
             agency = agency,
             missionName = missionName,
             channel = channel,
+            greenUntilMinutes = greenUntilMinutes,
+            yellowUntilMinutes = yellowUntilMinutes,
             cycleMinutes = cycleMinutes,
             cycleP1Minutes = cycleP1Minutes,
             cycleP2Minutes = cycleP2Minutes,
@@ -749,6 +710,8 @@ class PlowTakController(
      * for the next storm, republish CoT + storm-config.json, and recolor.
      */
     fun updateStormCoverageSettings(
+        greenUntilMinutes: Int? = null,
+        yellowUntilMinutes: Int? = null,
         cycleMinutes: Int? = null,
         cycleP1Minutes: Int? = null,
         cycleP2Minutes: Int? = null,
@@ -757,6 +720,8 @@ class PlowTakController(
         roadConditionTtlMinutes: Int? = null
     ): StormSession? {
         val session = stormManager.updateCoverageSettings(
+            greenUntilMinutes = greenUntilMinutes,
+            yellowUntilMinutes = yellowUntilMinutes,
             cycleMinutes = cycleMinutes,
             cycleP1Minutes = cycleP1Minutes,
             cycleP2Minutes = cycleP2Minutes,
@@ -1456,7 +1421,13 @@ class PlowTakController(
             material = CapabilityRules.materialMode(
                 cap, paint.bladePainting, paint.spreadPainting
             ),
-            widthM = cap.widthFor(widthPreset),
+            widthM = when (widthPreset) {
+                WidthPreset.WING -> {
+                    val wing = cap.effectiveWingWidthM(eq.wingLeftExtended, eq.wingRightExtended)
+                    if (wing > 0.0) wing else cap.widthFor(WidthPreset.STANDARD)
+                }
+                else -> cap.widthFor(widthPreset)
+            },
             spreadMaterial = if (paint.spreadPainting) eq.material else null
         )
 
@@ -1586,16 +1557,22 @@ class PlowTakController(
     fun syncFreshnessFromStorm() {
         val storm = stormManager.activeSession()
         if (storm != null) {
-            freshnessModel.cycleTimeMinutes = storm.cycleMinutes
+            freshnessModel.greenUntilMinutes = storm.greenUntilMinutes
+            freshnessModel.yellowUntilMinutes = storm.yellowUntilMinutes
+            freshnessModel.redAfterMinutes = storm.cycleMinutes
             freshnessModel.retentionHours = storm.coverageRetentionHours
         } else {
-            freshnessModel.cycleTimeMinutes = prefs.cycleTimeMinutes
+            freshnessModel.greenUntilMinutes = prefs.greenUntilMinutes
+            freshnessModel.yellowUntilMinutes = prefs.yellowUntilMinutes
+            freshnessModel.redAfterMinutes = prefs.cycleTimeMinutes
             freshnessModel.retentionHours = prefs.retentionHours
         }
     }
 
     /** Mirror storm timers into device prefs (defaults for the next storm). */
     fun applyStormTimersToPrefs(session: StormSession) {
+        prefs.greenUntilMinutes = session.greenUntilMinutes
+        prefs.yellowUntilMinutes = session.yellowUntilMinutes
         prefs.cycleTimeMinutes = session.cycleMinutes
         prefs.cycleP1Minutes = session.cycleP1Minutes
         prefs.cycleP2Minutes = session.cycleP2Minutes
@@ -1606,20 +1583,20 @@ class PlowTakController(
 
     /** Apply a pulled storm-config.json onto the joined storm + local defaults. */
     fun applyStormConfig(cfg: StormConfigCodec.StormConfig) {
-        if (cfg.cycleMinutes > 0 || cfg.roadConditionTtlMinutes > 0 ||
-            cfg.coverageRetentionHours >= 0
-        ) {
-            stormManager.updateCoverageSettings(
-                cycleMinutes = cfg.cycleMinutes.takeIf { it > 0 },
-                cycleP1Minutes = cfg.cycleP1Minutes,
-                cycleP2Minutes = cfg.cycleP2Minutes,
-                cycleP3Minutes = cfg.cycleP3Minutes,
-                coverageRetentionHours = cfg.coverageRetentionHours,
-                roadConditionTtlMinutes = cfg.roadConditionTtlMinutes.takeIf { it > 0 }
-            )
-        }
+        stormManager.updateCoverageSettings(
+            greenUntilMinutes = cfg.greenUntilMinutes,
+            yellowUntilMinutes = cfg.yellowUntilMinutes,
+            cycleMinutes = cfg.cycleMinutes.takeIf { it > 0 },
+            cycleP1Minutes = cfg.cycleP1Minutes,
+            cycleP2Minutes = cfg.cycleP2Minutes,
+            cycleP3Minutes = cfg.cycleP3Minutes,
+            coverageRetentionHours = cfg.coverageRetentionHours,
+            roadConditionTtlMinutes = cfg.roadConditionTtlMinutes.takeIf { it > 0 }
+        )
         stormManager.activeSession()?.let { applyStormTimersToPrefs(it) }
             ?: run {
+                prefs.greenUntilMinutes = cfg.greenUntilMinutes
+                prefs.yellowUntilMinutes = cfg.yellowUntilMinutes
                 if (cfg.cycleMinutes > 0) prefs.cycleTimeMinutes = cfg.cycleMinutes
                 prefs.cycleP1Minutes = cfg.cycleP1Minutes
                 prefs.cycleP2Minutes = cfg.cycleP2Minutes

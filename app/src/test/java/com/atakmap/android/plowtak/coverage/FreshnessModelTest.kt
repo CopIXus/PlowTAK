@@ -6,9 +6,10 @@ import org.junit.Test
 class FreshnessModelTest {
 
     private val model = FreshnessModel(
-        cycleTimeMinutes = 45,
-        dueSoonFraction = 0.75,
-        retentionHours = 12.0
+        greenUntilMinutes = 30,
+        yellowUntilMinutes = 50,
+        redAfterMinutes = 60,
+        retentionHours = 8.0
     )
 
     private val now = 1_700_000_000_000L
@@ -18,34 +19,38 @@ class FreshnessModelTest {
     fun `fresh segment is green`() {
         assertEquals(Freshness.GREEN, model.classify(ageMin(0.0), now))
         assertEquals(Freshness.GREEN, model.classify(ageMin(20.0), now))
-        // Just below the due-soon threshold (45 * 0.75 = 33.75 min)
-        assertEquals(Freshness.GREEN, model.classify(ageMin(33.7), now))
+        assertEquals(Freshness.GREEN, model.classify(ageMin(29.9), now))
     }
 
     @Test
-    fun `due-soon segment is yellow`() {
-        assertEquals(Freshness.YELLOW, model.classify(ageMin(33.75), now))
-        assertEquals(Freshness.YELLOW, model.classify(ageMin(40.0), now))
-        assertEquals(Freshness.YELLOW, model.classify(ageMin(44.9), now))
+    fun `aging segment is yellow through red-after`() {
+        assertEquals(Freshness.YELLOW, model.classify(ageMin(30.0), now))
+        assertEquals(Freshness.YELLOW, model.classify(ageMin(50.0), now))
+        assertEquals(Freshness.YELLOW, model.classify(ageMin(59.9), now))
     }
 
     @Test
     fun `overdue segment is red`() {
-        assertEquals(Freshness.RED, model.classify(ageMin(45.0), now))
+        assertEquals(Freshness.RED, model.classify(ageMin(60.0), now))
         assertEquals(Freshness.RED, model.classify(ageMin(120.0), now))
-        assertEquals(Freshness.RED, model.classify(ageMin(11.9 * 60), now))
+        assertEquals(Freshness.RED, model.classify(ageMin(7.9 * 60), now))
     }
 
     @Test
     fun `beyond retention is expired`() {
-        assertEquals(Freshness.EXPIRED, model.classify(ageMin(12.1 * 60), now))
+        assertEquals(Freshness.EXPIRED, model.classify(ageMin(8.1 * 60), now))
         assertEquals(Freshness.EXPIRED, model.classify(ageMin(48.0 * 60), now))
     }
 
     @Test
     fun `retention zero never expires`() {
-        val keep = FreshnessModel(cycleTimeMinutes = 45, retentionHours = 0.0)
-        assertEquals(Freshness.RED, keep.classify(ageMin(45.0), now))
+        val keep = FreshnessModel(
+            greenUntilMinutes = 30,
+            yellowUntilMinutes = 50,
+            redAfterMinutes = 60,
+            retentionHours = 0.0
+        )
+        assertEquals(Freshness.RED, keep.classify(ageMin(60.0), now))
         assertEquals(Freshness.RED, keep.classify(ageMin(12.1 * 60), now))
         assertEquals(Freshness.RED, keep.classify(ageMin(100.0 * 60), now))
     }
@@ -56,10 +61,18 @@ class FreshnessModelTest {
     }
 
     @Test
-    fun `cycle time change moves thresholds`() {
-        model.cycleTimeMinutes = 180 // residential route
-        assertEquals(Freshness.GREEN, model.classify(ageMin(100.0), now))
-        assertEquals(Freshness.YELLOW, model.classify(ageMin(140.0), now))
-        assertEquals(Freshness.RED, model.classify(ageMin(181.0), now))
+    fun `red-after override can only tighten`() {
+        // Zone red-after 45 → red sooner; green still 30.
+        assertEquals(Freshness.GREEN, model.classify(ageMin(20.0), now, 45))
+        assertEquals(Freshness.YELLOW, model.classify(ageMin(40.0), now, 45))
+        assertEquals(Freshness.RED, model.classify(ageMin(45.0), now, 45))
+    }
+
+    @Test
+    fun `legacy cycle migrates to absolute timers`() {
+        val legacy = FreshnessModel.fromLegacyCycle(45, retentionHours = 12.0)
+        assertEquals(30, legacy.greenUntilMinutes)
+        assertEquals(33, legacy.yellowUntilMinutes)
+        assertEquals(45, legacy.redAfterMinutes)
     }
 }

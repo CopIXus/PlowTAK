@@ -95,7 +95,7 @@ class CoverageStoreTest {
         store.addLocal(old)
         store.addLocal(fresh)
 
-        store.pruneExpired(FreshnessModel(45, 0.75, retentionHours = 12.0), now)
+        store.pruneExpired(FreshnessModel(redAfterMinutes = 45, retentionHours = 12.0), now)
         assertEquals(1, store.size())
         assertEquals(fresh.id, store.all()[0].id)
     }
@@ -167,7 +167,7 @@ class CoverageStoreTest {
         store.mergeRemote(segment("SALT-9", now))
         assertEquals(listOf(localSeg.id to true, segment("SALT-9", now).id to false), added)
 
-        store.pruneExpired(FreshnessModel(45, 0.75, retentionHours = 0.0001), now + 3_600_000L)
+        store.pruneExpired(FreshnessModel(redAfterMinutes = 45, retentionHours = 0.0001), now + 3_600_000L)
         assertEquals(2, removed.size)
     }
 }
