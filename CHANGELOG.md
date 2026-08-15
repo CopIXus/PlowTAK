@@ -7,6 +7,19 @@ Plugin versions use **yy.mmdd.HHmm** UTC (build timestamp), e.g. `26.0809.0935`.
 
 ## [Unreleased]
 
+## [0.1.7] — 2026-08-15 (TPC `tpc-0.1.7`)
+
+TPC job `amos-halava1-leo-gov-20260815-214930` →
+`PlowTAK-26.0815.2149-ATAK-5.8.0-civ-release.apk`
+([release](https://github.com/CopIXus/PlowTAK/releases/tag/tpc-0.1.7)).
+
+### Added
+- Freeform plow / wing / tow widths in Setup (feet; 0 = not fitted).
+- Tow plow bar on the driver/HUD graphic when tow width is configured.
+
+### Fixed
+- Tasks screen crash (plugin strings resolved via plugin context).
+
 ## [0.1.6] — 2026-08-15 (TPC `tpc-0.1.6`)
 
 TPC job `amos-halava1-leo-gov-20260815-205020` →
