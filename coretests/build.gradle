@@ -53,6 +53,8 @@ sourceSets {
     test {
         kotlin {
             srcDirs = ['../app/src/test/java']
+            // TakServerTargets needs ATAK CotMapComponent — not in coretests.
+            exclude 'com/atakmap/android/plowtak/sync/TakServerTargetsUrlTest.kt'
         }
     }
 }

@@ -58,14 +58,16 @@ object MetricsCalculator {
         cycles: CycleTimes,
         zones: List<SpecialZone>,
         nowMs: Long,
-        priority: RoutePriority = RoutePriority.DEFAULT
+        priority: RoutePriority = RoutePriority.DEFAULT,
+        priorityFor: ((TreatSegment) -> RoutePriority)? = null
     ): Double {
         var totalM = 0.0
         var freshM = 0.0
         for (seg in segments) {
             val lengthM = segmentLengthM(seg)
             totalM += lengthM
-            val cycleMs = CycleResolver.resolveForSegment(cycles, priority, zones, seg) * 60_000L
+            val p = priorityFor?.invoke(seg) ?: priority
+            val cycleMs = CycleResolver.resolveForSegment(cycles, p, zones, seg) * 60_000L
             if (nowMs - seg.endTimeMs <= cycleMs) freshM += lengthM
         }
         return if (totalM <= 0.0) 1.0 else freshM / totalM
@@ -81,7 +83,8 @@ object MetricsCalculator {
         cycles: CycleTimes,
         zones: List<SpecialZone>,
         nowMs: Long,
-        windowMs: Long = 3_600_000L
+        windowMs: Long = 3_600_000L,
+        priorityFor: ((TreatSegment) -> RoutePriority)? = null
     ): StormMetrics {
         val sinceMs = nowMs - windowMs
         val milesInWindow = laneMiles(segments, sinceMs, nowMs)
@@ -94,7 +97,9 @@ object MetricsCalculator {
         return StormMetrics(
             laneMilesTreated = segments.sumOf { segmentLengthM(it) } / METERS_PER_MILE,
             laneMilesPerHour = if (hours > 0.0) milesInWindow / hours else 0.0,
-            coverageWithinCycle = coverageWithinCycle(segments, cycles, zones, nowMs),
+            coverageWithinCycle = coverageWithinCycle(
+                segments, cycles, zones, nowMs, priorityFor = priorityFor
+            ),
             reloadsByTruck = reloads,
             segmentCount = segments.size,
             activeTruckCount = vehicles.count { it.stormId.isNotEmpty() }

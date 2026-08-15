@@ -28,6 +28,8 @@ class ProvisioningCodecTest {
             )
         ),
         cycleTimes = CycleTimes(defaultMinutes = 45, p1Minutes = 30, p3Minutes = 90),
+        coverageRetentionHours = 0.0,
+        roadConditionTtlMinutes = 120,
         facilities = listOf(
             Facility("f1", "North Dome", FacilityType.SALT_DOME, 40.1, -83.1, 80.0)
         ),
@@ -54,6 +56,8 @@ class ProvisioningCodecTest {
         assertEquals(orig.createdMs, back.createdMs)
         assertEquals(orig.capability, back.capability)
         assertEquals(orig.cycleTimes, back.cycleTimes)
+        assertEquals(orig.coverageRetentionHours, back.coverageRetentionHours)
+        assertEquals(orig.roadConditionTtlMinutes, back.roadConditionTtlMinutes)
         assertEquals(orig.facilities, back.facilities)
         assertEquals(orig.zones, back.zones)
     }
@@ -73,6 +77,19 @@ class ProvisioningCodecTest {
         assertEquals(30, back.cycleTimes!!.defaultMinutes)
         assertTrue(back.facilities.isEmpty())
         assertTrue(back.zones.isEmpty())
+    }
+
+    @Test
+    fun `retention and condition ttl round-trip`() {
+        val p = ProvisioningProfile(
+            cycleTimes = CycleTimes(defaultMinutes = 40),
+            coverageRetentionHours = 0.0,
+            roadConditionTtlMinutes = 90
+        )
+        val back = ProvisioningCodec.decode(ProvisioningCodec.encode(p))!!
+        assertEquals(0.0, back.coverageRetentionHours!!, 0.0)
+        assertEquals(90, back.roadConditionTtlMinutes)
+        assertEquals(40, back.cycleTimes!!.defaultMinutes)
     }
 
     @Test

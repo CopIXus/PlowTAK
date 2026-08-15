@@ -9,8 +9,9 @@ import com.atakmap.android.plowtak.model.ZoneType
 import com.atakmap.android.plowtak.ops.RouteAssignment
 
 /**
- * Per-unit ops snapshot for Data Sync: route assignments, zones, and tasks
- * this device authored or currently holds. Peers merge on pull.
+ * Per-unit ops snapshot for Data Sync: route assignments, zones, tasks,
+ * and tasking snoozes this device authored or currently holds. Peers merge
+ * on pull.
  */
 object OpsMissionCodec {
 
@@ -21,7 +22,8 @@ object OpsMissionCodec {
         stormId: String,
         routes: List<RouteAssignment>,
         zones: List<SpecialZone>,
-        tasks: List<TaskEvent>
+        tasks: List<TaskEvent>,
+        snoozes: Map<String, Long> = emptyMap()
     ): ByteArray {
         val sb = StringBuilder()
         sb.append('{')
@@ -70,6 +72,14 @@ object OpsMissionCodec {
             sb.append("\"stateBy\":").append(q(t.stateBy))
             sb.append('}')
         }
+        sb.append("],\"snoozes\":[")
+        snoozes.entries.forEachIndexed { i, (id, dueByMs) ->
+            if (i > 0) sb.append(',')
+            sb.append('{')
+            sb.append("\"id\":").append(q(id)).append(',')
+            sb.append("\"dueByMs\":").append(dueByMs)
+            sb.append('}')
+        }
         sb.append("]}")
         return sb.toString().toByteArray(Charsets.UTF_8)
     }
@@ -78,7 +88,8 @@ object OpsMissionCodec {
         val stormId: String,
         val routes: List<RouteAssignment>,
         val zones: List<SpecialZone>,
-        val tasks: List<TaskEvent>
+        val tasks: List<TaskEvent>,
+        val snoozes: Map<String, Long> = emptyMap()
     )
 
     fun decode(bytes: ByteArray): Snapshot? {
@@ -145,7 +156,14 @@ object OpsMissionCodec {
                 )
             )
         }
-        return Snapshot(stormId, routes, zones, tasks)
+        val snoozes = LinkedHashMap<String, Long>()
+        for (item in MiniJson.array(map["snoozes"]).orEmpty()) {
+            val o = MiniJson.obj(item) ?: continue
+            val id = MiniJson.string(o["id"]) ?: continue
+            val due = (o["dueByMs"] as? Number)?.toLong() ?: continue
+            snoozes[id] = due
+        }
+        return Snapshot(stormId, routes, zones, tasks, snoozes)
     }
 
     private fun sanitizeUid(uid: String): String =

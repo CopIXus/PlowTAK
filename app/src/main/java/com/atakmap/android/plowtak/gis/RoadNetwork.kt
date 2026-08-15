@@ -2,6 +2,7 @@ package com.atakmap.android.plowtak.gis
 
 import com.atakmap.android.plowtak.coverage.GeoMath
 import com.atakmap.android.plowtak.model.RoutePriority
+import com.atakmap.android.plowtak.model.TreatSegment
 import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.max
@@ -157,6 +158,20 @@ class RoadNetwork(
     /** Priority at a point when the GIS attributes one; null otherwise. */
     fun priorityAt(lat: Double, lon: Double, maxDistM: Double = DEFAULT_MATCH_DIST_M): RoutePriority? =
         nearest(lat, lon, maxDistM)?.road?.priority
+
+    /**
+     * Priority for a treated segment (midpoint match). Falls back to
+     * [RoutePriority.DEFAULT] when the network has no attribute nearby.
+     */
+    fun priorityForSegment(
+        segment: TreatSegment,
+        maxDistM: Double = DEFAULT_MATCH_DIST_M
+    ): RoutePriority {
+        val pts = segment.points
+        if (pts.isEmpty()) return RoutePriority.DEFAULT
+        val mid = pts[pts.size / 2]
+        return priorityAt(mid.lat, mid.lon, maxDistM) ?: RoutePriority.DEFAULT
+    }
 
     // ------------------------------------------------------------ internal
 

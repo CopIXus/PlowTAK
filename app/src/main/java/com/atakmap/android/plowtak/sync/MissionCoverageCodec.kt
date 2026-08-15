@@ -1,5 +1,7 @@
 package com.atakmap.android.plowtak.sync
 
+import com.atakmap.android.plowtak.coverage.CoverageStyle
+import com.atakmap.android.plowtak.coverage.FreshnessModel
 import com.atakmap.android.plowtak.model.TreatSegment
 import java.io.ByteArrayOutputStream
 import java.security.MessageDigest
@@ -15,6 +17,8 @@ import java.util.zip.GZIPOutputStream
  *
  * One FeatureCollection of treated LineStrings for the current UTC hour
  * window; bytes are optionally gzip-compressed for mission upload.
+ * Features carry stroke style so stock ATAK / Data Sync peers paint the
+ * same green / yellow / red as the PlowTAK overlay.
  */
 object MissionCoverageCodec {
 
@@ -69,13 +73,42 @@ object MissionCoverageCodec {
         return segments.filter { it.startTimeMs < end && it.endTimeMs >= start }
     }
 
+    /**
+     * @param generatedAtMs hour-window label / plowtak.generatedAt (usually hour start)
+     * @param styleNowMs wall clock for freshness coloring (defaults to [generatedAtMs])
+     * @param cycleMinutes storm default cycle for green→yellow→red
+     * @param retentionHours 0 = never expire (stay red); >0 drops EXPIRED features
+     * @param cycleMinutesFor optional per-segment cycle (zones / priority); overrides
+     *   [cycleMinutes] when provided
+     */
     fun encodeGeoJson(
         stormId: String,
         vehicleUid: String,
         generatedAtMs: Long,
-        segments: List<TreatSegment>
+        segments: List<TreatSegment>,
+        styleNowMs: Long = generatedAtMs,
+        cycleMinutes: Int = 45,
+        retentionHours: Double = 0.0,
+        cycleMinutesFor: ((TreatSegment) -> Int)? = null
     ): String {
-        val features = segments.joinToString(",") { segmentFeature(it) }
+        val fallbackCycle = cycleMinutes.coerceAtLeast(1)
+        val model = FreshnessModel(
+            cycleTimeMinutes = fallbackCycle,
+            retentionHours = retentionHours
+        )
+        fun cycleFor(seg: TreatSegment): Int =
+            (cycleMinutesFor?.invoke(seg) ?: fallbackCycle).coerceAtLeast(1)
+        val kept = if (retentionHours > 0) {
+            segments.filter {
+                model.classify(it.endTimeMs, styleNowMs, cycleFor(it)) !=
+                    com.atakmap.android.plowtak.coverage.Freshness.EXPIRED
+            }
+        } else {
+            segments
+        }
+        val features = kept.joinToString(",") {
+            segmentFeature(it, model, styleNowMs, cycleFor(it))
+        }
         val header = listOf(
             "\"type\":\"FeatureCollection\"",
             "\"plowtak\":{" + props(
@@ -96,10 +129,19 @@ object MissionCoverageCodec {
         vehicleUid: String,
         generatedAtMs: Long,
         segments: List<TreatSegment>,
-        gzip: Boolean = true
+        gzip: Boolean = true,
+        styleNowMs: Long = generatedAtMs,
+        cycleMinutes: Int = 45,
+        retentionHours: Double = 0.0,
+        cycleMinutesFor: ((TreatSegment) -> Int)? = null
     ): ByteArray {
-        val json = encodeGeoJson(stormId, vehicleUid, generatedAtMs, segments)
-            .toByteArray(Charsets.UTF_8)
+        val json = encodeGeoJson(
+            stormId, vehicleUid, generatedAtMs, segments,
+            styleNowMs = styleNowMs,
+            cycleMinutes = cycleMinutes,
+            retentionHours = retentionHours,
+            cycleMinutesFor = cycleMinutesFor
+        ).toByteArray(Charsets.UTF_8)
         return if (gzip) gzip(json) else json
     }
 
@@ -124,7 +166,12 @@ object MissionCoverageCodec {
         return bytes
     }
 
-    private fun segmentFeature(seg: TreatSegment): String {
+    private fun segmentFeature(
+        seg: TreatSegment,
+        model: FreshnessModel,
+        styleNowMs: Long,
+        cycleMinutes: Int
+    ): String {
         val coords = seg.points.joinToString(",") { p ->
             "[${num(p.lon)},${num(p.lat)}]"
         }
@@ -133,6 +180,9 @@ object MissionCoverageCodec {
             append(" · ")
             append(seg.material.wireName)
         }
+        val freshness = model.classify(seg.endTimeMs, styleNowMs, cycleMinutes)
+        val argb = CoverageStyle.colorFor(freshness, seg)
+        val width = CoverageStyle.strokeWeightFor(seg)
         val propMap = linkedMapOf(
             "type" to "segment",
             "name" to label,
@@ -147,7 +197,8 @@ object MissionCoverageCodec {
         )
         val numeric = "\"widthM\":" + num(seg.widthM, 2) +
                 ",\"startMs\":" + seg.startTimeMs +
-                ",\"endMs\":" + seg.endTimeMs
+                ",\"endMs\":" + seg.endTimeMs +
+                "," + CoverageStyle.geoJsonStyleProps(argb, width)
         return "{\"type\":\"Feature\",\"geometry\":{\"type\":\"LineString\"," +
                 "\"coordinates\":[" + coords + "]},\"properties\":{" +
                 props(propMap) + "," + numeric + "}}"

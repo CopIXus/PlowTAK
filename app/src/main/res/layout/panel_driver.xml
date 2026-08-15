@@ -52,6 +52,29 @@
                     android:textSize="9sp" />
             </LinearLayout>
 
+            <LinearLayout
+                android:id="@+id/driver_tasks_btn"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?android:attr/selectableItemBackground"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <ImageView
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
+                    android:contentDescription="@string/driver_tasks_label"
+                    android:src="@drawable/ic_plowtak_tasks" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:includeFontPadding="false"
+                    android:text="@string/driver_tasks_label"
+                    android:textColor="@color/plowtak_text"
+                    android:textSize="9sp" />
+            </LinearLayout>
+
             <ToggleButton
                 android:id="@+id/driver_night_toggle"
                 android:layout_width="48dp"

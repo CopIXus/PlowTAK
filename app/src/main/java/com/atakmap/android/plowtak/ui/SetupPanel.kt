@@ -41,6 +41,7 @@ class SetupPanel(
     private val presence = view.findViewById<CheckBox>(R.id.setup_presence)
     private val distress = view.findViewById<CheckBox>(R.id.setup_distress)
     private val ttsEnabled = view.findViewById<CheckBox>(R.id.setup_tts)
+    private val taskingSnooze = view.findViewById<EditText>(R.id.setup_tasking_snooze)
     private val mapHud = view.findViewById<CheckBox>(R.id.setup_map_hud)
     private val conditionStale = view.findViewById<EditText>(R.id.setup_condition_stale)
     private val roadSnap = view.findViewById<CheckBox>(R.id.setup_roadsnap)
@@ -107,6 +108,7 @@ class SetupPanel(
             widthSpinner.setSelection(1) // 10 ft default
         }
         ttsEnabled.isChecked = controller.prefs.ttsEnabled
+        taskingSnooze.setText(controller.prefs.taskingSnoozeMinutes.toString())
         mapHud.isChecked = controller.prefs.mapHudEnabled
         conditionStale.setText(controller.prefs.roadConditionStaleMinutes.toString())
         roadSnap.isChecked = controller.prefs.roadSnapEnabled
@@ -194,14 +196,20 @@ class SetupPanel(
 
         controller.capabilityStore.save(cap)
         controller.prefs.ttsEnabled = ttsEnabled.isChecked
+        controller.prefs.taskingSnoozeMinutes =
+            taskingSnooze.text.toString().trim().toIntOrNull() ?: 15
         controller.prefs.mapHudEnabled = mapHud.isChecked
         controller.plowStatusHud.refreshVisibility()
         val staleMin = conditionStale.text.toString().trim().toIntOrNull() ?: 120
         controller.prefs.roadConditionStaleMinutes = staleMin
-        // Keep a joined storm's TTL in sync with the setting.
-        controller.stormManager.updateRoadConditionTtlMinutes(
-            controller.prefs.roadConditionStaleMinutes
-        )
+        // Keep a joined storm's TTL in sync and republish CoT + storm-config.
+        if (controller.stormManager.activeSession() != null) {
+            controller.updateStormCoverageSettings(roadConditionTtlMinutes = staleMin)
+        } else {
+            controller.stormManager.updateRoadConditionTtlMinutes(
+                controller.prefs.roadConditionStaleMinutes
+            )
+        }
         controller.prefs.roadSnapEnabled = roadSnap.isChecked
         controller.prefs.roadSnapDir = roadSnapDir.text.toString().trim()
         controller.prefs.btEquipmentEnabled = btEnabled.isChecked

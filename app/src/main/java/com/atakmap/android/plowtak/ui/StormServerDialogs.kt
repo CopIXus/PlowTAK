@@ -39,7 +39,9 @@ object StormServerDialogs {
             "Start storm…",
             "Join / pick storm…",
             "Data Sync server…",
-            "Storm cycle minutes…",
+            "Storm coverage settings…",
+            "Import provisioning…",
+            "Export provisioning…",
             "End storm / delete Data Sync…"
         )
         AlertDialog.Builder(hostContext)
@@ -49,8 +51,10 @@ object StormServerDialogs {
                     0 -> showStartStormWizard(controller, hostContext, onChanged)
                     1 -> showJoinStormDialog(controller, hostContext, onChanged)
                     2 -> showDataSyncServerPicker(controller, hostContext, onChanged)
-                    3 -> showCycleMinutesDialog(controller, hostContext, onChanged)
-                    4 -> {
+                    3 -> showCoverageSettingsDialog(controller, hostContext, onChanged)
+                    4 -> showImportProvisioningDialog(controller, hostContext, onChanged)
+                    5 -> showExportProvisioningDialog(controller, hostContext)
+                    6 -> {
                         showEndStormDialog(controller, hostContext)
                         onChanged?.invoke()
                     }
@@ -290,6 +294,20 @@ object StormServerDialogs {
         }
         val cycle = EditText(hostContext).apply {
             hint = "Cycle minutes (default ${controller.prefs.cycleTimeMinutes})"
+            setText(controller.prefs.cycleTimeMinutes.toString())
+            setSingleLine()
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+        }
+        val retain = EditText(hostContext).apply {
+            hint = "Clear coverage after hours (0 = keep red)"
+            setText(formatRetention(controller.prefs.retentionHours))
+            setSingleLine()
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or
+                android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+        }
+        val condTtl = EditText(hostContext).apply {
+            hint = "Road condition TTL minutes"
+            setText(controller.prefs.roadConditionStaleMinutes.toString())
             setSingleLine()
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
         }
@@ -299,11 +317,14 @@ object StormServerDialogs {
             addView(name)
             addView(agency)
             addView(cycle)
+            addView(retain)
+            addView(condTtl)
         }
         AlertDialog.Builder(hostContext)
             .setTitle("3/3 — Name storm")
             .setMessage(
-                "Creates a Data Sync mission on channel \"$channel\".\n\n" +
+                "Creates a Data Sync mission on channel \"$channel\".\n" +
+                    "Cycle / clear timers are shared with every joined device.\n\n" +
                     currentServerSummary(controller)
             )
             .setView(column)
@@ -311,13 +332,18 @@ object StormServerDialogs {
                 val label = name.text.toString().trim().ifEmpty { defaultName }
                 val mins = cycle.text.toString().toIntOrNull()
                     ?: controller.prefs.cycleTimeMinutes
-                // Mission name mirrors the storm label so Data Sync is easy to find.
+                val retainH = retain.text.toString().toDoubleOrNull()
+                    ?: controller.prefs.retentionHours
+                val ttl = condTtl.text.toString().toIntOrNull()
+                    ?: controller.prefs.roadConditionStaleMinutes
                 val session = controller.startStormSession(
                     label = label,
                     agency = agency.text.toString(),
                     missionName = label,
                     channel = channel,
-                    cycleMinutes = mins
+                    cycleMinutes = mins,
+                    coverageRetentionHours = retainH,
+                    roadConditionTtlMinutes = ttl
                 )
                 if (session == null) {
                     Toast.makeText(hostContext, "Cannot start storm", Toast.LENGTH_SHORT).show()
@@ -415,7 +441,9 @@ object StormServerDialogs {
             val ch = if (s.channel.isNotBlank()) " · ch ${s.channel}" else ""
             labels.add(
                 "$mark${s.displayName()}  [$state]\n" +
-                    "by ${s.startedBy.ifBlank { "?" }} · mission $mission$ch · ${s.cycleMinutes}m"
+                    "by ${s.startedBy.ifBlank { "?" }} · mission $mission$ch · ${s.cycleMinutes}m" +
+                        if (s.coverageRetentionHours <= 0) " · keep red"
+                        else " · clear ${s.coverageRetentionHours}h"
             )
             actions.add {
                 if (!s.isActive) {
@@ -556,38 +584,182 @@ object StormServerDialogs {
         hostContext: Context,
         onChanged: (() -> Unit)? = null
     ) {
+        showCoverageSettingsDialog(controller, hostContext, onChanged)
+    }
+
+    /**
+     * Edit storm-level coverage timers (cycle, P1–P3, clear-after, condition TTL).
+     * Changes republish to every joined device via CoT + storm-config.json.
+     */
+    fun showCoverageSettingsDialog(
+        controller: PlowTakController,
+        hostContext: Context,
+        onChanged: (() -> Unit)? = null
+    ) {
+        val storm = controller.stormManager.activeSession()
         val pad = dp(hostContext, 16)
-        val input = EditText(hostContext).apply {
+        val cycle = EditText(hostContext).apply {
             hint = "Cycle minutes"
-            setText(controller.prefs.cycleTimeMinutes.toString())
+            setText((storm?.cycleMinutes ?: controller.prefs.cycleTimeMinutes).toString())
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
             setSingleLine()
-            setSelection(text.length)
         }
-        val wrap = LinearLayout(hostContext).apply {
+        val p1 = EditText(hostContext).apply {
+            hint = "P1 cycle min (0 = default)"
+            setText((storm?.cycleP1Minutes ?: controller.prefs.cycleP1Minutes).toString())
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            setSingleLine()
+        }
+        val p2 = EditText(hostContext).apply {
+            hint = "P2 cycle min (0 = default)"
+            setText((storm?.cycleP2Minutes ?: controller.prefs.cycleP2Minutes).toString())
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            setSingleLine()
+        }
+        val p3 = EditText(hostContext).apply {
+            hint = "P3 cycle min (0 = default)"
+            setText((storm?.cycleP3Minutes ?: controller.prefs.cycleP3Minutes).toString())
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            setSingleLine()
+        }
+        val retain = EditText(hostContext).apply {
+            hint = "Clear coverage after hours (0 = keep red)"
+            setText(
+                formatRetention(storm?.coverageRetentionHours ?: controller.prefs.retentionHours)
+            )
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or
+                android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+            setSingleLine()
+        }
+        val condTtl = EditText(hostContext).apply {
+            hint = "Road condition TTL minutes"
+            setText(
+                (storm?.roadConditionTtlMinutes ?: controller.prefs.roadConditionStaleMinutes)
+                    .toString()
+            )
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            setSingleLine()
+        }
+        val column = LinearLayout(hostContext).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(pad, pad / 2, pad, 0)
-            addView(input)
+            addView(cycle)
+            addView(p1)
+            addView(p2)
+            addView(p3)
+            addView(retain)
+            addView(condTtl)
+        }
+        val msg = if (storm != null) {
+            "Applies to joined storm \"${storm.displayName()}\" and syncs to all devices."
+        } else {
+            "No storm joined — saved as defaults for the next storm you start."
         }
         AlertDialog.Builder(hostContext)
-            .setTitle("Storm cycle minutes")
-            .setMessage("Freshness cycle for the active storm (also default for new storms).")
-            .setView(wrap)
+            .setTitle("Storm coverage settings")
+            .setMessage(msg)
+            .setView(column)
             .setPositiveButton("Apply") { _, _ ->
-                val mins = input.text.toString().toIntOrNull()
+                val mins = cycle.text.toString().toIntOrNull()
                 if (mins == null || mins < 5) {
-                    Toast.makeText(hostContext, "Enter at least 5 minutes", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(hostContext, "Cycle must be at least 5 minutes", Toast.LENGTH_SHORT)
+                        .show()
                     return@setPositiveButton
                 }
-                controller.prefs.cycleTimeMinutes = mins
-                controller.updateStormCycleMinutes(mins)
-                Toast.makeText(hostContext, "Cycle set to $mins min", Toast.LENGTH_SHORT).show()
+                val retainH = retain.text.toString().toDoubleOrNull() ?: 0.0
+                if (retainH < 0 || retainH > 72) {
+                    Toast.makeText(hostContext, "Clear-after must be 0–72 hours", Toast.LENGTH_SHORT)
+                        .show()
+                    return@setPositiveButton
+                }
+                val ttl = condTtl.text.toString().toIntOrNull()
+                    ?: controller.prefs.roadConditionStaleMinutes
+                val p1m = p1.text.toString().toIntOrNull() ?: 0
+                val p2m = p2.text.toString().toIntOrNull() ?: 0
+                val p3m = p3.text.toString().toIntOrNull() ?: 0
+                if (storm != null) {
+                    controller.updateStormCoverageSettings(
+                        cycleMinutes = mins,
+                        cycleP1Minutes = p1m,
+                        cycleP2Minutes = p2m,
+                        cycleP3Minutes = p3m,
+                        coverageRetentionHours = retainH,
+                        roadConditionTtlMinutes = ttl
+                    )
+                    Toast.makeText(
+                        hostContext,
+                        "Storm settings synced (cycle ${mins}m, clear ${formatRetention(retainH)}h)",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    controller.prefs.cycleTimeMinutes = mins
+                    controller.prefs.cycleP1Minutes = p1m
+                    controller.prefs.cycleP2Minutes = p2m
+                    controller.prefs.cycleP3Minutes = p3m
+                    controller.prefs.retentionHours = retainH
+                    controller.prefs.roadConditionStaleMinutes = ttl
+                    controller.syncFreshnessFromStorm()
+                    controller.coverageOverlay.recolorAll(System.currentTimeMillis())
+                    Toast.makeText(hostContext, "Defaults saved for next storm", Toast.LENGTH_SHORT)
+                        .show()
+                }
                 onChanged?.invoke()
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
     }
 
+    private fun formatRetention(hours: Double): String =
+        if (hours == hours.toLong().toDouble()) hours.toLong().toString()
+        else hours.toString()
+
     private fun dp(ctx: Context, value: Int): Int =
         (value * ctx.resources.displayMetrics.density).toInt()
+
+    fun showExportProvisioningDialog(controller: PlowTakController, hostContext: Context) {
+        val path = controller.exportProvisioningFile(
+            name = "PlowTAK provisioning",
+            agency = controller.stormManager.activeSession()?.agency.orEmpty()
+        )
+        if (path != null) {
+            Toast.makeText(
+                hostContext,
+                "Wrote provisioning to $path",
+                Toast.LENGTH_LONG
+            ).show()
+        } else {
+            Toast.makeText(hostContext, "Provisioning export failed", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun showImportProvisioningDialog(
+        controller: PlowTakController,
+        hostContext: Context,
+        onChanged: (() -> Unit)? = null
+    ) {
+        val files = controller.listProvisioningFiles()
+        if (files.isEmpty()) {
+            Toast.makeText(
+                hostContext,
+                "No *.ipprov.json in tools/plowtak — export one or copy a package there",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+        val labels = files.map { it.name }.toTypedArray()
+        AlertDialog.Builder(hostContext)
+            .setTitle("Import provisioning")
+            .setItems(labels) { _, which ->
+                val file = files.getOrNull(which) ?: return@setItems
+                val ok = controller.importProvisioningFile(file.absolutePath)
+                Toast.makeText(
+                    hostContext,
+                    if (ok) "Applied ${file.name}" else "Import failed: ${file.name}",
+                    Toast.LENGTH_LONG
+                ).show()
+                if (ok) onChanged?.invoke()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
 }

@@ -41,6 +41,8 @@ class MissionCoverageSync(
     private val routes: () -> List<RouteAssignment> = { emptyList() },
     private val zones: () -> List<SpecialZone> = { emptyList() },
     private val tasks: () -> List<TaskEvent> = { emptyList() },
+    private val snoozes: () -> Map<String, Long> = { emptyMap() },
+    private val cycleMinutesFor: ((TreatSegment) -> Int)? = null,
     private val sink: MissionPullSink = MissionPullSink.NOOP
 ) {
 
@@ -203,7 +205,7 @@ class MissionCoverageSync(
 
         uploadIfChanged(
             client, mission, OpsMissionCodec.filename(uid),
-            OpsMissionCodec.encode(stormId, routes(), zones(), tasks()),
+            OpsMissionCodec.encode(stormId, routes(), zones(), tasks(), snoozes()),
             uid, "application/json", KEY_LAST_OPS_HASH
         )
 
@@ -219,7 +221,12 @@ class MissionCoverageSync(
             if (demoSegs.isNotEmpty()) {
                 val demoCovName = "${sanitize(uid)}-demo-${MissionCoverageCodec.hourLabelUtc(now)}-live.geojson"
                 val demoCovBytes = MissionCoverageCodec.encodeBytes(
-                    stormId, uid, MissionCoverageCodec.hourStartMs(now), demoSegs, gzip = false
+                    stormId, uid, MissionCoverageCodec.hourStartMs(now), demoSegs,
+                    gzip = false,
+                    styleNowMs = now,
+                    cycleMinutes = session.cycleMinutes,
+                    retentionHours = session.coverageRetentionHours,
+                    cycleMinutesFor = cycleMinutesFor
                 )
                 uploadNamedIfChanged(
                     client, mission, demoCovName, demoCovBytes, uid,
@@ -461,6 +468,10 @@ class MissionCoverageSync(
         uid: String,
         nowMs: Long
     ) {
+        val session = activeStorm()
+        val cycleMinutes = session?.cycleMinutes ?: 45
+        val retentionHours = session?.coverageRetentionHours
+            ?: StormSession.DEFAULT_COVERAGE_RETENTION_HOURS
         val segs = coverageStore.all().filter { it.vehicleUid == uid }
         if (segs.isEmpty()) return
         val earliest = maxOf(
@@ -475,8 +486,14 @@ class MissionCoverageSync(
             val inHour = segs.filter { it.startTimeMs < hourEnd && it.endTimeMs >= hourStart }
             if (inHour.isNotEmpty()) {
                 val filename = MissionCoverageCodec.liveFilename(uid, hourStart, gzip = false)
+                // Wall-clock styleNowMs so older hour files recolor green→red.
                 val bytes = MissionCoverageCodec.encodeBytes(
-                    stormId, uid, hourStart, inHour, gzip = false
+                    stormId, uid, hourStart, inHour,
+                    gzip = false,
+                    styleNowMs = nowMs,
+                    cycleMinutes = cycleMinutes,
+                    retentionHours = retentionHours,
+                    cycleMinutesFor = cycleMinutesFor
                 )
                 uploadHourChunk(client, mission, filename, bytes, uid)
                 uploaded.add(filename)

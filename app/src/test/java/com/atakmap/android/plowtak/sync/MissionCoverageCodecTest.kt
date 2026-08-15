@@ -94,7 +94,10 @@ class MissionCoverageCodecTest {
         val now = 1_735_689_600_000L
         val json = MissionCoverageCodec.encodeGeoJson(
             "storm-A", "PLOWTAK-T-1", now,
-            listOf(seg("s1", now + 1_000L, now + 2_000L))
+            listOf(seg("s1", now + 1_000L, now + 2_000L)),
+            styleNowMs = now + 2_000L,
+            cycleMinutes = 45,
+            retentionHours = 0.0
         )
         assertTrue(json.contains("\"type\":\"FeatureCollection\""))
         assertTrue(json.contains("\"kind\":\"mission-coverage-live\""))
@@ -103,7 +106,40 @@ class MissionCoverageCodecTest {
         assertTrue(json.contains("\"id\":\"s1\""))
         assertTrue(json.contains("\"name\":"))
         assertTrue(json.contains("\"title\":"))
+        assertTrue(json.contains("\"stroke\":\"#2ECC40\""))
+        assertTrue(json.contains("\"strokeColor\":"))
+        assertTrue(json.contains("\"ogr_style\":"))
         assertFalse(json.contains("\n"))
+    }
+
+    @Test
+    fun encodeGeoJsonColorsOverdueSegmentRed() {
+        val end = 1_735_689_600_000L
+        val now = end + 60 * 60_000L // 60 min later, cycle 45 → RED
+        val json = MissionCoverageCodec.encodeGeoJson(
+            "storm-A", "PLOWTAK-T-1", end,
+            listOf(seg("s1", end - 1_000L, end)),
+            styleNowMs = now,
+            cycleMinutes = 45,
+            retentionHours = 0.0
+        )
+        assertTrue(json.contains("\"stroke\":\"#FF4136\""))
+        assertTrue(json.contains("\"id\":\"s1\""))
+    }
+
+    @Test
+    fun encodeGeoJsonDropsExpiredWhenRetentionSet() {
+        val end = 1_735_689_600_000L
+        val now = end + 13 * 3_600_000L
+        val json = MissionCoverageCodec.encodeGeoJson(
+            "storm-A", "PLOWTAK-T-1", end,
+            listOf(seg("s1", end - 1_000L, end)),
+            styleNowMs = now,
+            cycleMinutes = 45,
+            retentionHours = 12.0
+        )
+        assertFalse(json.contains("\"id\":\"s1\""))
+        assertTrue(json.contains("\"features\":[]"))
     }
 
     @Test
@@ -142,5 +178,23 @@ class MissionCoverageCodecTest {
         val b = MissionCoverageCodec.encodeBytes("storm-A", "PLOWTAK-T-1", now, segs, gzip = false)
         assertEquals(MissionCoverageCodec.sha256Hex(a), MissionCoverageCodec.sha256Hex(b))
         assertTrue(a.toString(Charsets.UTF_8).startsWith("{"))
+    }
+
+    @Test
+    fun encodeGeoJsonUsesPerSegmentCycleForStroke() {
+        val now = 1_735_689_780_000L
+        // 20 minutes old — green at 45 min cycle, red at 15 min cycle
+        val s = seg("s1", now - 25 * 60_000L, now - 20 * 60_000L)
+        val flat = MissionCoverageCodec.encodeGeoJson(
+            "storm-A", "PLOWTAK-T-1", now, listOf(s),
+            styleNowMs = now, cycleMinutes = 45, retentionHours = 0.0
+        )
+        assertTrue(flat.contains("\"stroke\":\"#2ECC40\""))
+        val tight = MissionCoverageCodec.encodeGeoJson(
+            "storm-A", "PLOWTAK-T-1", now, listOf(s),
+            styleNowMs = now, cycleMinutes = 45, retentionHours = 0.0,
+            cycleMinutesFor = { 15 }
+        )
+        assertTrue(tight.contains("\"stroke\":\"#FF4136\""))
     }
 }

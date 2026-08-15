@@ -28,6 +28,8 @@ import java.util.Locale
  *     "callsign": "CTR-Plow", "vehicleId": "", "contractor": true
  *   },
  *   "cycleTimes": { "default": 45, "p1": 30, "p2": 45, "p3": 90 },
+ *   "coverageRetentionHours": 0,
+ *   "roadConditionTtlMinutes": 120,
  *   "facilities": [
  *     { "id": "f1", "name": "Dome", "type": "salt_dome",
  *       "lat": 40.1, "lon": -83.1, "radiusM": 80 }
@@ -68,6 +70,8 @@ object ProvisioningCodec {
             createdMs = MiniJson.double(root["created"])?.toLong() ?: 0L,
             capability = MiniJson.obj(root["capability"])?.let { decodeCapability(it) },
             cycleTimes = MiniJson.obj(root["cycleTimes"])?.let { decodeCycles(it) },
+            coverageRetentionHours = MiniJson.double(root["coverageRetentionHours"]),
+            roadConditionTtlMinutes = MiniJson.int(root["roadConditionTtlMinutes"]),
             facilities = MiniJson.array(root["facilities"])
                 ?.mapNotNull { MiniJson.obj(it)?.let { o -> decodeFacility(o) } }
                 ?: emptyList(),
@@ -184,6 +188,12 @@ object ProvisioningCodec {
             sb.append(", \"p1\": ").append(c.p1Minutes)
             sb.append(", \"p2\": ").append(c.p2Minutes)
             sb.append(", \"p3\": ").append(c.p3Minutes).append(" }")
+        }
+        profile.coverageRetentionHours?.let { h ->
+            sb.append(",\n  \"coverageRetentionHours\": ").append(num(h))
+        }
+        profile.roadConditionTtlMinutes?.let { m ->
+            sb.append(",\n  \"roadConditionTtlMinutes\": ").append(m)
         }
         if (profile.facilities.isNotEmpty()) {
             sb.append(",\n  \"facilities\": [\n")

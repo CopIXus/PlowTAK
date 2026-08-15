@@ -101,6 +101,7 @@ class SupervisorPanel(
         if (cycles.p1Minutes > 0) cycleP1.setText(cycles.p1Minutes.toString())
         if (cycles.p2Minutes > 0) cycleP2.setText(cycles.p2Minutes.toString())
         if (cycles.p3Minutes > 0) cycleP3.setText(cycles.p3Minutes.toString())
+        bindCycleFieldsFromStorm()
 
         stormButton.setOnClickListener { toggleStorm() }
         view.findViewById<Button>(R.id.sup_storm_join).setOnClickListener {
@@ -185,6 +186,7 @@ class SupervisorPanel(
             stormButton.text = view.context.getString(R.string.sup_storm_start)
         }
         dataSyncLine.text = StormServerDialogs.currentServerSummary(controller)
+        bindCycleFieldsFromStorm()
 
         val now = System.currentTimeMillis()
         val staleAfter = controller.fleetManager.staleAfterMs
@@ -213,6 +215,16 @@ class SupervisorPanel(
         fleetAdapter.notifyDataSetChanged()
 
         refreshMetrics()
+    }
+
+    /** Prefer joined-storm timers so Apply does not republish stale prefs. */
+    private fun bindCycleFieldsFromStorm() {
+        val session = controller.stormManager.activeSession()
+        val cycles = session?.cycleTimes() ?: controller.prefs.cycleTimes()
+        cycleTime.setText(cycles.defaultMinutes.toString())
+        cycleP1.setText(if (cycles.p1Minutes > 0) cycles.p1Minutes.toString() else "")
+        cycleP2.setText(if (cycles.p2Minutes > 0) cycles.p2Minutes.toString() else "")
+        cycleP3.setText(if (cycles.p3Minutes > 0) cycles.p3Minutes.toString() else "")
     }
 
     private fun refreshMetrics() {
@@ -261,16 +273,34 @@ class SupervisorPanel(
                 .show()
             return
         }
-        controller.prefs.cycleTimeMinutes = minutes
-        controller.freshnessModel.cycleTimeMinutes = minutes
-        // Per-priority overrides: blank / 0 falls back to the default.
-        controller.prefs.cycleP1Minutes = cycleP1.text.toString().toIntOrNull() ?: 0
-        controller.prefs.cycleP2Minutes = cycleP2.text.toString().toIntOrNull() ?: 0
-        controller.prefs.cycleP3Minutes = cycleP3.text.toString().toIntOrNull() ?: 0
-        controller.coverageOverlay.recolorAll(System.currentTimeMillis())
-        Toast.makeText(
-            controller.mapView.context, "Cycle time: $minutes min", Toast.LENGTH_SHORT
-        ).show()
+        val p1 = cycleP1.text.toString().toIntOrNull() ?: 0
+        val p2 = cycleP2.text.toString().toIntOrNull() ?: 0
+        val p3 = cycleP3.text.toString().toIntOrNull() ?: 0
+        if (controller.stormManager.activeSession() != null) {
+            controller.updateStormCoverageSettings(
+                cycleMinutes = minutes,
+                cycleP1Minutes = p1,
+                cycleP2Minutes = p2,
+                cycleP3Minutes = p3
+            )
+            Toast.makeText(
+                controller.mapView.context,
+                "Storm cycle: $minutes min (synced to fleet)",
+                Toast.LENGTH_SHORT
+            ).show()
+        } else {
+            controller.prefs.cycleTimeMinutes = minutes
+            controller.prefs.cycleP1Minutes = p1
+            controller.prefs.cycleP2Minutes = p2
+            controller.prefs.cycleP3Minutes = p3
+            controller.freshnessModel.cycleTimeMinutes = minutes
+            controller.coverageOverlay.recolorAll(System.currentTimeMillis())
+            Toast.makeText(
+                controller.mapView.context,
+                "Cycle time: $minutes min (default for next storm)",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
     }
 
     private fun addZone() {
@@ -342,12 +372,15 @@ class SupervisorPanel(
                     ).show()
                     return@setPositiveButton
                 }
+                val source = controller.resolveRouteSource(routeId)
                 controller.assignRoute(
-                    vehicle.uid, vehicle.callsign, routeId, RouteAssignment.Source.GIS
+                    vehicle.uid, vehicle.callsign, routeId, source
                 )
+                val srcLabel = if (source == RouteAssignment.Source.DRAWN) "drawn" else "GIS"
                 Toast.makeText(
                     controller.mapView.context,
-                    "Assigned $routeId to ${vehicle.callsign}", Toast.LENGTH_SHORT
+                    "Assigned $routeId ($srcLabel) to ${vehicle.callsign}",
+                    Toast.LENGTH_SHORT
                 ).show()
                 refresh()
             }

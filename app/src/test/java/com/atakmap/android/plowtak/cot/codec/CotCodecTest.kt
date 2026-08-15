@@ -193,7 +193,12 @@ class CotCodecTest {
             startedBy = "Sup-1",
             label = "I-81 North",
             agency = "VDOT",
-            missionName = "vdot-i81-north"
+            missionName = "vdot-i81-north",
+            cycleMinutes = 30,
+            cycleP1Minutes = 20,
+            cycleP3Minutes = 90,
+            coverageRetentionHours = 6.0,
+            roadConditionTtlMinutes = 90
         )
         assertEquals(session, StormCotCodec.decode(StormCotCodec.encode(session)))
 
@@ -222,6 +227,8 @@ class CotCodecTest {
         assertEquals("", decoded.label)
         assertEquals("", decoded.agency)
         assertEquals("", decoded.missionName)
+        assertEquals(0.0, decoded.coverageRetentionHours, 0.0)
+        assertEquals(0, decoded.cycleP1Minutes)
     }
 
     // ------------------------------------------------------ HazardCotCodec

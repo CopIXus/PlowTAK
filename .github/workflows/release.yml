@@ -1,12 +1,9 @@
 name: Release
 
-# Hold GitHub Releases until a TPC-signed APK is downloaded from tak.gov.
-# Main pushes still build a CopIX-signed APK artifact for smoke tests.
-# Publish only via workflow_dispatch with publish_release=true (or a v* tag
-# after the tak.gov artifact is ready to attach).
+# Do not build on main push. Sign via TAK.gov TPC, then publish the signed APK
+# with workflow_dispatch (publish_release=true) or a v* tag when ready.
 on:
   push:
-    branches: [main]
     tags:
       - "v*"
   workflow_dispatch:

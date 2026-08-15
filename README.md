@@ -136,13 +136,20 @@ flowchart TB
 
 | Color | Meaning |
 |-------|---------|
-| **Green** | Treated within the cycle time |
-| **Yellow** | Aging / due soon |
-| **Red** | Overdue or untreated this storm |
-| **Grey** | Past retention |
+| **Green** | Treated within the storm cycle time |
+| **Yellow** | Aging / due soon (75% of cycle) |
+| **Red** | Overdue past the cycle — **stays on the map** unless the storm sets a clear window |
 
-Direction-aware half-treated lines show one travel direction painted. Cycle
-time and P1/P2/P3 overrides live in Settings / Tool Preferences.
+Cycle time, P1/P2/P3, and coverage clear-after hours are **storm-level** (shared via
+`storm-config.json` / CoT). Default clear-after is **0** (never drop; stay red).
+Edit under **Storm → Storm coverage settings…** or seed via an `ipprov.json`
+provisioning datapackage (`cycleTimes`, `coverageRetentionHours`,
+`roadConditionTtlMinutes`). Device Settings hold defaults for the next storm only.
+
+Data Sync GeoJSON coverage files carry the same stroke color so peers without
+PlowTAK still see green / yellow / red (not a default black line).
+
+Direction-aware half-treated lines show one travel direction painted.
 
 ---
 

@@ -8,12 +8,17 @@ import com.atakmap.android.plowtak.model.VehicleCapability
 /**
  * Everything an agency pushes onto a device in one file: an optional
  * capability profile (the truck's role/equipment — omitted for generic
- * fleet-wide config), cycle times, facility geofences, and special zones.
+ * fleet-wide config), cycle times, coverage retention, facility geofences,
+ * and special zones.
  *
  * The on-disk format is plain JSON (see [ProvisioningCodec]) so it is
  * TAK-agnostic: it can ride inside an ATAK data package, be opened from a
  * file picker, or arrive via a QR deep-link. Contractor onboarding is the
  * same file with `capability.contractor = true`.
+ *
+ * Coverage timers (`cycleTimes`, [coverageRetentionHours],
+ * [roadConditionTtlMinutes]) become device defaults and, when a storm is
+ * joined, are written onto that storm and republished to the fleet.
  */
 data class ProvisioningProfile(
     /** Free-text label shown at import ("City of X — Contractor loadout"). */
@@ -26,10 +31,18 @@ data class ProvisioningProfile(
     val capability: VehicleCapability? = null,
     /** Cycle times to apply; null = leave alone. */
     val cycleTimes: CycleTimes? = null,
+    /**
+     * Coverage clear-after hours; null = leave alone.
+     * **0 = never clear** (overdue lines stay red).
+     */
+    val coverageRetentionHours: Double? = null,
+    /** Road-condition TTL minutes; null = leave alone. */
+    val roadConditionTtlMinutes: Int? = null,
     val facilities: List<Facility> = emptyList(),
     val zones: List<SpecialZone> = emptyList()
 ) {
     val isEmpty: Boolean
         get() = capability == null && cycleTimes == null &&
+                coverageRetentionHours == null && roadConditionTtlMinutes == null &&
                 facilities.isEmpty() && zones.isEmpty()
 }

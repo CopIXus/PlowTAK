@@ -60,6 +60,10 @@ class StormSessionManager(
         missionName: String = "",
         channel: String = "",
         cycleMinutes: Int = 45,
+        cycleP1Minutes: Int = 0,
+        cycleP2Minutes: Int = 0,
+        cycleP3Minutes: Int = 0,
+        coverageRetentionHours: Double = StormSession.DEFAULT_COVERAGE_RETENTION_HOURS,
         roadConditionTtlMinutes: Int = StormSession.DEFAULT_ROAD_CONDITION_TTL_MINUTES
     ): StormSession {
         val s = StormSession(
@@ -71,6 +75,10 @@ class StormSessionManager(
             missionName = missionName.trim(),
             channel = channel.trim(),
             cycleMinutes = cycleMinutes.coerceIn(5, 24 * 60),
+            cycleP1Minutes = cycleP1Minutes.coerceIn(0, 24 * 60),
+            cycleP2Minutes = cycleP2Minutes.coerceIn(0, 24 * 60),
+            cycleP3Minutes = cycleP3Minutes.coerceIn(0, 24 * 60),
+            coverageRetentionHours = coverageRetentionHours.coerceIn(0.0, 72.0),
             roadConditionTtlMinutes = roadConditionTtlMinutes.coerceIn(15, 24 * 60)
         )
         remember(s)
@@ -81,22 +89,37 @@ class StormSessionManager(
     }
 
     /** Update cycle minutes on the joined storm (persisted + catalogued). */
-    fun updateCycleMinutes(minutes: Int): StormSession? {
-        val active = session?.takeIf { it.isActive } ?: return null
-        val next = active.copy(cycleMinutes = minutes.coerceIn(5, 24 * 60))
-        remember(next)
-        session = next
-        save()
-        notifyChanged()
-        return next
-    }
+    fun updateCycleMinutes(minutes: Int): StormSession? =
+        updateCoverageSettings(cycleMinutes = minutes)
 
     /** Update road-condition Data Sync TTL on the joined storm. */
-    fun updateRoadConditionTtlMinutes(minutes: Int): StormSession? {
+    fun updateRoadConditionTtlMinutes(minutes: Int): StormSession? =
+        updateCoverageSettings(roadConditionTtlMinutes = minutes)
+
+    /**
+     * Patch coverage / cycle settings on the joined storm. Null args leave
+     * the current value unchanged.
+     */
+    fun updateCoverageSettings(
+        cycleMinutes: Int? = null,
+        cycleP1Minutes: Int? = null,
+        cycleP2Minutes: Int? = null,
+        cycleP3Minutes: Int? = null,
+        coverageRetentionHours: Double? = null,
+        roadConditionTtlMinutes: Int? = null
+    ): StormSession? {
         val active = session?.takeIf { it.isActive } ?: return null
         val next = active.copy(
-            roadConditionTtlMinutes = minutes.coerceIn(15, 24 * 60)
+            cycleMinutes = cycleMinutes?.coerceIn(5, 24 * 60) ?: active.cycleMinutes,
+            cycleP1Minutes = cycleP1Minutes?.coerceIn(0, 24 * 60) ?: active.cycleP1Minutes,
+            cycleP2Minutes = cycleP2Minutes?.coerceIn(0, 24 * 60) ?: active.cycleP2Minutes,
+            cycleP3Minutes = cycleP3Minutes?.coerceIn(0, 24 * 60) ?: active.cycleP3Minutes,
+            coverageRetentionHours = coverageRetentionHours?.coerceIn(0.0, 72.0)
+                ?: active.coverageRetentionHours,
+            roadConditionTtlMinutes = roadConditionTtlMinutes?.coerceIn(15, 24 * 60)
+                ?: active.roadConditionTtlMinutes
         )
+        if (next == active) return active
         remember(next)
         session = next
         save()
@@ -228,7 +251,11 @@ class StormSessionManager(
                 esc(s.missionName),
                 esc(s.channel),
                 s.cycleMinutes.toString(),
-                s.roadConditionTtlMinutes.toString()
+                s.roadConditionTtlMinutes.toString(),
+                s.cycleP1Minutes.toString(),
+                s.cycleP2Minutes.toString(),
+                s.cycleP3Minutes.toString(),
+                s.coverageRetentionHours.toString()
             ).joinToString("|")
 
         fun decodeSession(line: String): StormSession? {
@@ -250,6 +277,14 @@ class StormSessionManager(
                     f[9].toIntOrNull() ?: StormSession.DEFAULT_ROAD_CONDITION_TTL_MINUTES
                 } else {
                     StormSession.DEFAULT_ROAD_CONDITION_TTL_MINUTES
+                },
+                cycleP1Minutes = if (f.size > 10) f[10].toIntOrNull() ?: 0 else 0,
+                cycleP2Minutes = if (f.size > 11) f[11].toIntOrNull() ?: 0 else 0,
+                cycleP3Minutes = if (f.size > 12) f[12].toIntOrNull() ?: 0 else 0,
+                coverageRetentionHours = if (f.size > 13) {
+                    f[13].toDoubleOrNull() ?: StormSession.DEFAULT_COVERAGE_RETENTION_HOURS
+                } else {
+                    StormSession.DEFAULT_COVERAGE_RETENTION_HOURS
                 }
             )
         }

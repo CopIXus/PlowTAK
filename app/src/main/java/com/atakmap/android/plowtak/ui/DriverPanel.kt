@@ -33,7 +33,8 @@ import com.atakmap.android.plowtak.plugin.PluginLayoutInflater
 class DriverPanel(
     private val controller: PlowTakController,
     private val onOpenSettings: () -> Unit,
-    private val onOpenStorm: () -> Unit
+    private val onOpenStorm: () -> Unit,
+    private val onOpenTasks: () -> Unit = {}
 ) {
 
     val view: View = PluginLayoutInflater.inflate(
@@ -107,6 +108,7 @@ class DriverPanel(
         distressButton.setOnClickListener { onDistress() }
         view.findViewById<View>(R.id.driver_settings_btn).setOnClickListener { onOpenSettings() }
         view.findViewById<View>(R.id.driver_storm_btn).setOnClickListener { onOpenStorm() }
+        view.findViewById<View>(R.id.driver_tasks_btn).setOnClickListener { onOpenTasks() }
 
         taskAck.setOnClickListener {
             currentTask?.let { controller.ackTask(it.uid) }

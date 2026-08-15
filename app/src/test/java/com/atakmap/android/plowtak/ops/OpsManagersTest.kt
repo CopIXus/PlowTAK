@@ -234,7 +234,9 @@ class StormSessionManagerTest {
     fun `session persists across restart`() {
         val persistence = InMemoryPersistence()
         val started = StormSessionManager(persistence).startSession(
-            "Sup-1", 1000L, label = "South", agency = "VDOT", missionName = "vdot-south"
+            "Sup-1", 1000L, label = "South", agency = "VDOT", missionName = "vdot-south",
+            cycleMinutes = 30, cycleP1Minutes = 15, coverageRetentionHours = 0.0,
+            roadConditionTtlMinutes = 90
         )
 
         val reloaded = StormSessionManager(persistence)
@@ -242,6 +244,36 @@ class StormSessionManagerTest {
         assertEquals("VDOT", reloaded.activeSession()?.agency)
         assertEquals("South", reloaded.activeSession()?.label)
         assertEquals("vdot-south", reloaded.activeSession()?.missionName)
+        assertEquals(30, reloaded.activeSession()?.cycleMinutes)
+        assertEquals(15, reloaded.activeSession()?.cycleP1Minutes)
+        assertEquals(0.0, reloaded.activeSession()?.coverageRetentionHours ?: -1.0, 0.0)
+        assertEquals(90, reloaded.activeSession()?.roadConditionTtlMinutes)
+    }
+
+    @Test
+    fun `updateCoverageSettings patches timers`() {
+        val mgr = StormSessionManager(InMemoryPersistence())
+        mgr.startSession("Sup-1", 1000L)
+        val next = mgr.updateCoverageSettings(
+            cycleMinutes = 20,
+            cycleP1Minutes = 10,
+            coverageRetentionHours = 8.0,
+            roadConditionTtlMinutes = 60
+        )!!
+        assertEquals(20, next.cycleMinutes)
+        assertEquals(10, next.cycleP1Minutes)
+        assertEquals(8.0, next.coverageRetentionHours, 0.0)
+        assertEquals(60, next.roadConditionTtlMinutes)
+    }
+
+    @Test
+    fun `legacy pipe line without new fields still decodes`() {
+        val legacy = "id1|1000|0|Sup|Lab|Ag|miss|ch|45|120"
+        val s = StormSessionManager.decodeSession(legacy)!!
+        assertEquals(45, s.cycleMinutes)
+        assertEquals(120, s.roadConditionTtlMinutes)
+        assertEquals(0, s.cycleP1Minutes)
+        assertEquals(0.0, s.coverageRetentionHours, 0.0)
     }
 }
 

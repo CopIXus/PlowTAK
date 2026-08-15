@@ -186,7 +186,8 @@ class StormPanel(
             val mission = MissionCoverageCodec.effectiveMissionName(s.id, s.missionName)
             addStormRow(
                 title = "$mark${s.displayName()}  [ACTIVE]",
-                subtitle = "heard on CoT · mission $mission · ${s.cycleMinutes}m",
+                subtitle = "heard on CoT · mission $mission · ${s.cycleMinutes}m · " +
+                    retentionLabel(s.coverageRetentionHours),
                 highlighted = s.id == joinedId
             ) {
                 controller.joinStormSession(s)
@@ -299,7 +300,12 @@ class StormPanel(
             agency = "",
             missionName = label,
             channel = channel,
-            cycleMinutes = controller.prefs.cycleTimeMinutes
+            cycleMinutes = controller.prefs.cycleTimeMinutes,
+            cycleP1Minutes = controller.prefs.cycleP1Minutes,
+            cycleP2Minutes = controller.prefs.cycleP2Minutes,
+            cycleP3Minutes = controller.prefs.cycleP3Minutes,
+            coverageRetentionHours = controller.prefs.retentionHours,
+            roadConditionTtlMinutes = controller.prefs.roadConditionStaleMinutes
         )
         if (session == null) {
             Toast.makeText(hostContext, "Cannot start storm", Toast.LENGTH_SHORT).show()
@@ -320,12 +326,17 @@ class StormPanel(
     private fun refreshStatus() {
         val active = controller.stormManager.activeSession()
         val stormText = if (active != null) {
-            "Joined: ${active.displayName()}"
+            "Joined: ${active.displayName()} · ${active.cycleMinutes}m cycle · " +
+                retentionLabel(active.coverageRetentionHours)
         } else {
             "No storm joined"
         }
         statusLine.text = stormText + "\n" + StormServerDialogs.currentServerSummary(controller)
     }
+
+    private fun retentionLabel(hours: Double): String =
+        if (hours <= 0) "keep red"
+        else "clear ${if (hours == hours.toLong().toDouble()) hours.toLong() else hours}h"
 
     /** Mirror server/channel picks to the uninstall-proof settings backup. */
     private fun persistSelections() {

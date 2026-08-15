@@ -20,6 +20,7 @@ class PlowTakDropDownReceiver(
 ) : DropDownReceiver(mapView), OnStateListener {
 
     private var opsPanel: DriverPanel? = null
+    private var taskingPanel: TaskingPanel? = null
 
     override fun disposeImpl() {
         disposePanels()
@@ -44,8 +45,8 @@ class PlowTakDropDownReceiver(
         if (!controller.capabilityStore.isConfigured) {
             return SetupPanel(controller) { show(selectView()) }.view
         }
-        opsPanel?.dispose()
-        return DriverPanel(controller, ::openSettings, ::openStorm)
+        disposePanels()
+        return DriverPanel(controller, ::openSettings, ::openStorm, ::openTasks)
             .also { opsPanel = it }.view
     }
 
@@ -57,15 +58,26 @@ class PlowTakDropDownReceiver(
         show(StormPanel(controller) { show(selectView()) }.view)
     }
 
+    private fun openTasks() {
+        taskingPanel?.dispose()
+        taskingPanel = TaskingPanel(controller) { show(selectView()) }
+        show(taskingPanel!!.view)
+    }
+
     private fun disposePanels() {
         opsPanel?.dispose()
         opsPanel = null
+        taskingPanel?.dispose()
+        taskingPanel = null
     }
 
     override fun onDropDownSelectionRemoved() {}
 
     override fun onDropDownVisible(visible: Boolean) {
-        if (visible) opsPanel?.refresh()
+        if (visible) {
+            opsPanel?.refresh()
+            taskingPanel?.refresh()
+        }
         controller.plowStatusHud.setPanelOpen(visible)
     }
 

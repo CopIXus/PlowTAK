@@ -45,13 +45,19 @@ Ops panel; **Storm** (create / join / leave / end) is available to all.
 
 ## 3. Reading the coverage map
 
-- **Green** — treated within the cycle time.
-- **Yellow** — aging, due soon.
-- **Red** — overdue, or never treated this storm.
-- **Grey/transparent** — expired beyond the retention window.
+- **Green** — treated within the storm cycle time.
+- **Yellow** — aging, due soon (about 75% of the cycle).
+- **Red** — overdue past the cycle. Lines **stay red** by default; they only
+  clear from the map if the storm’s **coverage clear-after** hours is set
+  greater than zero.
 - Dashed “half-treated” lines indicate only one travel direction has been painted.
 - Special zones (bridge / ramp / hill / school) tighten the cycle for segments inside
   them; priority classes (P1/P2/P3) can override the default cycle.
+- Cycle, P1/P2/P3, clear-after, and road-condition TTL are set on the **storm**
+  (**Storm → Storm coverage settings…**) and sync to every joined device via
+  `storm-config.json`. An agency **provisioning datapackage** (`*.ipprov.json`)
+  can pre-set the same keys (`cycleTimes`, `coverageRetentionHours`,
+  `roadConditionTtlMinutes`).
 
 ## 4. Storms, agencies, and Data Sync
 
@@ -62,7 +68,8 @@ not auto-join** remote storms — each device picks what it reports into.
 1. Open PlowTAK → **Storm**.
 2. Confirm the **Data Sync server**, enter **Agency** and a **designator**.
 3. Optional: mission name override (otherwise derived from the storm label /
-   `plowtak-coverage-{stormId}`).
+   `plowtak-coverage-{stormId}`). Set cycle / clear-after when prompted (or later
+   under **Storm coverage settings…**).
 4. Create — PlowTAK creates the Marti mission and announces the storm.
 
 ### Join a storm
@@ -80,7 +87,29 @@ server until an admin removes it.
   required for PlowTAK’s Marti path. Uploads are fail-open if the server is
   unavailable. Ending a storm does **not** delete the mission (admin-only).
 
-## 5. Distress alerts
+## 5. Tasks screen (needs treated)
+
+Open **Tasks** on the driver header. The list is **mine-first**: your pending
+assigned tasks and unfinished assigned route (closest first), then nearby overdue
+(red) coverage gaps sorted by distance. Tap a row to pan/zoom the map. Tap **+**
+to push that item’s due time out by the snooze step (default **15 minutes**, set
+under **Vehicle setup** as “Task snooze step”). Snoozes sync to the storm’s Data
+Sync ops snapshot so peers honor the same deferral. Deferred items stay hidden
+until the new due time. Overdue rows use the same per-segment cycle as the map
+(zones and P1–P3 when the road network attributes priority).
+
+**Voice alerts** (tasks, overdue, distress) use the single **Voice alerts**
+checkbox in Vehicle setup / ATAK **Tools → PlowTAK** preferences — there is no
+second toggle on the Tasks screen.
+
+### Provisioning datapackage
+
+Under **Storm → Import / Export provisioning…**, agencies can seed cycle times,
+coverage clear-after, road-condition TTL, facilities, and zones from a
+`*.ipprov.json` file in `tools/plowtak`. Export writes the current storm (or
+device defaults) to that folder for redistribution.
+
+## 6. Distress alerts
 
 One tap sends a Mayday with your location, vehicle type, and last equipment state to
 the fleet. Peers see the alert on the map. TTS can announce nearby
@@ -88,7 +117,7 @@ distress when enabled.
 
 > Distress is a situational-awareness assist, **not** a substitute for radio/911 SOP.
 
-## 6. Offline operation
+## 7. Offline operation
 
 PlowTAK keeps recording coverage with no connectivity. Outbound CoT is held in a
 **durable on-disk queue** and flushed when a TAK server reconnects; after restart,
@@ -96,7 +125,7 @@ local coverage is re-queued for share (see [cot-schema.md](cot-schema.md)).
 Coverage segments themselves persist on disk for the active storm. VNS provides the
 offline basemap / GraphHopper packs.
 
-## 7. Peer dependency — VNS
+## 8. Peer dependency — VNS
 
 Road-snap (optional) reads GraphHopper packs from the VNS install path. See
 [vns-install.md](vns-install.md). Only one VNS region is active at a time.

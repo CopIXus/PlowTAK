@@ -46,10 +46,14 @@ class PlowTakPreferences(context: Context) : KeyValuePersistence {
         get() = prefs.getInt(KEY_CYCLE_TIME, 45)
         set(v) = prefs.edit().putInt(KEY_CYCLE_TIME, v.coerceIn(5, 24 * 60)).apply()
 
-    /** Coverage retention window, hours. */
+    /**
+     * Default coverage clear window for **new** storms, hours.
+     * **0 = never clear** (overdue lines stay red). Joined storms use
+     * [com.atakmap.android.plowtak.model.StormSession.coverageRetentionHours].
+     */
     var retentionHours: Double
-        get() = prefs.getFloat(KEY_RETENTION_H, 12f).toDouble()
-        set(v) = prefs.edit().putFloat(KEY_RETENTION_H, v.toFloat().coerceIn(1f, 72f)).apply()
+        get() = prefs.getFloat(KEY_RETENTION_H, 0f).toDouble()
+        set(v) = prefs.edit().putFloat(KEY_RETENTION_H, v.toFloat().coerceIn(0f, 72f)).apply()
 
     /** Configurable treating rule for capable units. */
     var treatRule: TreatRule
@@ -93,6 +97,11 @@ class PlowTakPreferences(context: Context) : KeyValuePersistence {
         p2Minutes = cycleP2Minutes,
         p3Minutes = cycleP3Minutes
     )
+
+    /** Minutes added when the driver taps + on a tasking row (5–60). */
+    var taskingSnoozeMinutes: Int
+        get() = prefs.getInt(KEY_TASKING_SNOOZE, 15)
+        set(v) = prefs.edit().putInt(KEY_TASKING_SNOOZE, v.coerceIn(5, 60)).apply()
 
     /** Voice (TTS) alerts for tasks / overdue / distress. */
     var ttsEnabled: Boolean
@@ -226,6 +235,7 @@ class PlowTakPreferences(context: Context) : KeyValuePersistence {
         private const val KEY_CYCLE_P2 = "plowtak.cycle_p2_min"
         private const val KEY_CYCLE_P3 = "plowtak.cycle_p3_min"
         private const val KEY_TTS = "plowtak.tts_enabled"
+        private const val KEY_TASKING_SNOOZE = "plowtak.tasking_snooze_min"
         private const val KEY_NIGHT = "plowtak.night_mode"
         private const val KEY_MAP_HUD = "plowtak.map_hud_enabled"
         private const val KEY_COND_STALE = "plowtak.road_condition_stale_min"

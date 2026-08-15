@@ -10,8 +10,13 @@ import com.atakmap.android.plowtak.coverage.CycleResolver
 import com.atakmap.android.plowtak.coverage.DirectionModel
 import com.atakmap.android.plowtak.coverage.Freshness
 import com.atakmap.android.plowtak.coverage.FreshnessModel
+import com.atakmap.android.plowtak.coverage.GeoMath
 import com.atakmap.android.plowtak.coverage.RoadSnapper
+import com.atakmap.android.plowtak.coverage.SegmentIndex
 import com.atakmap.android.plowtak.coverage.SwathBuilder
+import com.atakmap.android.maps.MapGroup
+import com.atakmap.android.maps.MapItem
+import com.atakmap.android.maps.Polyline
 import com.atakmap.android.plowtak.demo.DemoFleetSimulator
 import com.atakmap.android.plowtak.demo.DemoRoadWalker
 import com.atakmap.android.plowtak.equipment.BluetoothEquipmentProvider
@@ -19,6 +24,7 @@ import com.atakmap.android.plowtak.equipment.ManualEquipmentProvider
 import com.atakmap.android.plowtak.gis.LaneModel
 import com.atakmap.android.plowtak.gis.RoadNetwork
 import com.atakmap.android.plowtak.gis.RoadNetworkImporter
+import com.atakmap.android.plowtak.gis.RoadPoint
 import com.atakmap.android.plowtak.map.AlertOverlay
 import com.atakmap.android.plowtak.map.CoverageOverlay
 import com.atakmap.android.plowtak.map.FleetMarkerManager
@@ -51,6 +57,9 @@ import com.atakmap.android.plowtak.ops.RouteAssignmentManager
 import com.atakmap.android.plowtak.ops.RouteCoverage
 import com.atakmap.android.plowtak.ops.RouteCoverageResult
 import com.atakmap.android.plowtak.ops.ShiftLog
+import com.atakmap.android.plowtak.ops.SnoozeStore
+import com.atakmap.android.plowtak.ops.TaskingItem
+import com.atakmap.android.plowtak.ops.TaskingListBuilder
 import com.atakmap.android.plowtak.ops.StatusManager
 import com.atakmap.android.plowtak.ops.StormSessionManager
 import com.atakmap.android.plowtak.ops.TaskManager
@@ -110,6 +119,7 @@ class PlowTakController(
     val zoneManager = ZoneManager(prefs)
     val taskManager = TaskManager(escalateAfterMs = prefs.taskEscalateMinutes * 60_000L)
     val routeAssignments = RouteAssignmentManager(prefs)
+    val snoozeStore = SnoozeStore(prefs)
     private val toggleSanity = ToggleSanity(
         ToggleSanity.Config(maxPlowSpeedMps = prefs.maxPlowSpeedMph * MPS_PER_MPH)
     )
@@ -217,15 +227,11 @@ class PlowTakController(
         routes = { routeAssignments.all() },
         zones = { zoneManager.all() },
         tasks = { taskManager.all() },
+        snoozes = { snoozeStore.all() },
+        cycleMinutesFor = { seg -> cycleMinutesForSegment(seg) },
         sink = object : MissionPullSink {
             override fun onStormConfigPulled(cfg: StormConfigCodec.StormConfig) {
-                if (cfg.cycleMinutes > 0) {
-                    prefs.cycleTimeMinutes = cfg.cycleMinutes
-                    stormManager.updateCycleMinutes(cfg.cycleMinutes)
-                }
-                if (cfg.roadConditionTtlMinutes > 0) {
-                    stormManager.updateRoadConditionTtlMinutes(cfg.roadConditionTtlMinutes)
-                }
+                applyStormConfig(cfg)
             }
 
             override fun onUnitStatusPulled(vehicle: PlowVehicle) {
@@ -299,6 +305,9 @@ class PlowTakController(
                 for (r in snapshot.routes) routeAssignments.onRemote(r)
                 for (z in snapshot.zones) zoneManager.onRemote(z, removed = false)
                 for (t in snapshot.tasks) taskManager.onRemote(t)
+                if (snapshot.snoozes.isNotEmpty()) {
+                    snoozeStore.mergeRemote(snapshot.snoozes)
+                }
             }
 
             override fun onCoveragePulled(segments: List<TreatSegment>) {
@@ -328,13 +337,12 @@ class PlowTakController(
         PlowTakSettingsBackup.export(pluginContext)
 
         coverageStore.setStorm(stormManager.activeStormId)
+        syncFreshnessFromStorm()
 
         // Phase 2 overlay hooks: per-segment cycle time (priority + zones)
         // and direction-split (half-treated) rendering.
         coverageOverlay.cycleMinutesHook = { segment ->
-            CycleResolver.resolveForSegment(
-                prefs.cycleTimes(), RoutePriority.DEFAULT, zoneManager.all(), segment
-            )
+            cycleMinutesForSegment(segment)
         }
         refreshDirectionHook()
 
@@ -389,6 +397,8 @@ class PlowTakController(
         stormManager.addListener { session ->
             swathBuilder.flush()
             coverageStore.setStorm(session?.takeIf { it.isActive }?.id ?: "")
+            syncFreshnessFromStorm()
+            coverageOverlay.recolorAll(System.currentTimeMillis())
             val activeId = session?.takeIf { it.isActive }?.id
             if (activeId != null) {
                 background.execute { missionCoverageSync.onStormStarted(activeId) }
@@ -469,14 +479,16 @@ class PlowTakController(
         exec.scheduleWithFixedDelay({
             try {
                 val now = System.currentTimeMillis()
-                freshnessModel.cycleTimeMinutes = prefs.cycleTimeMinutes
-                freshnessModel.retentionHours = prefs.retentionHours
+                syncFreshnessFromStorm()
                 fleetManager.staleAfterMs = prefs.staleAfterS * 1000L
                 taskManager.escalateAfterMs = prefs.taskEscalateMinutes * 60_000L
                 refreshDirectionHook()
                 coverageOverlay.recolorAll(now)
                 fleetMarkers.refreshStaleness(now)
-                coverageStore.pruneExpired(freshnessModel, now)
+                // Only prune when the storm (or device default) sets a clear window.
+                if (freshnessModel.retentionHours > 0) {
+                    coverageStore.pruneExpired(freshnessModel, now)
+                }
                 coverageStore.pruneOverCount(prefs.maxRetainedSegments)
                 taskManager.tick(now)
                 taskManager.pruneTerminal(now)
@@ -684,7 +696,12 @@ class PlowTakController(
         agency: String = "",
         missionName: String = "",
         channel: String = "",
-        cycleMinutes: Int = prefs.cycleTimeMinutes
+        cycleMinutes: Int = prefs.cycleTimeMinutes,
+        cycleP1Minutes: Int = prefs.cycleP1Minutes,
+        cycleP2Minutes: Int = prefs.cycleP2Minutes,
+        cycleP3Minutes: Int = prefs.cycleP3Minutes,
+        coverageRetentionHours: Double = prefs.retentionHours,
+        roadConditionTtlMinutes: Int = prefs.roadConditionStaleMinutes
     ): StormSession? {
         val cap = capabilityStore.load()
         val session = stormManager.startSession(
@@ -695,9 +712,14 @@ class PlowTakController(
             missionName = missionName,
             channel = channel,
             cycleMinutes = cycleMinutes,
-            roadConditionTtlMinutes = prefs.roadConditionStaleMinutes
+            cycleP1Minutes = cycleP1Minutes,
+            cycleP2Minutes = cycleP2Minutes,
+            cycleP3Minutes = cycleP3Minutes,
+            coverageRetentionHours = coverageRetentionHours,
+            roadConditionTtlMinutes = roadConditionTtlMinutes
         )
-        prefs.cycleTimeMinutes = session.cycleMinutes
+        applyStormTimersToPrefs(session)
+        syncFreshnessFromStorm()
         broadcastStorm(session)
         background.execute { missionCoverageSync.onStormStarted(session.id) }
         return session
@@ -715,9 +737,32 @@ class PlowTakController(
         return session
     }
 
-    fun updateStormCycleMinutes(minutes: Int): StormSession? {
-        val session = stormManager.updateCycleMinutes(minutes) ?: return null
-        prefs.cycleTimeMinutes = session.cycleMinutes
+    fun updateStormCycleMinutes(minutes: Int): StormSession? =
+        updateStormCoverageSettings(cycleMinutes = minutes)
+
+    /**
+     * Update coverage timers on the joined storm, persist as device defaults
+     * for the next storm, republish CoT + storm-config.json, and recolor.
+     */
+    fun updateStormCoverageSettings(
+        cycleMinutes: Int? = null,
+        cycleP1Minutes: Int? = null,
+        cycleP2Minutes: Int? = null,
+        cycleP3Minutes: Int? = null,
+        coverageRetentionHours: Double? = null,
+        roadConditionTtlMinutes: Int? = null
+    ): StormSession? {
+        val session = stormManager.updateCoverageSettings(
+            cycleMinutes = cycleMinutes,
+            cycleP1Minutes = cycleP1Minutes,
+            cycleP2Minutes = cycleP2Minutes,
+            cycleP3Minutes = cycleP3Minutes,
+            coverageRetentionHours = coverageRetentionHours,
+            roadConditionTtlMinutes = roadConditionTtlMinutes
+        ) ?: return null
+        applyStormTimersToPrefs(session)
+        syncFreshnessFromStorm()
+        coverageOverlay.recolorAll(System.currentTimeMillis())
         background.execute { missionCoverageSync.onStormStarted(session.id) }
         broadcastStorm(session)
         return session
@@ -727,6 +772,9 @@ class PlowTakController(
     fun joinStormSession(session: StormSession): Boolean {
         val changed = stormManager.join(session)
         if (changed && session.isActive) {
+            applyStormTimersToPrefs(session)
+            syncFreshnessFromStorm()
+            coverageOverlay.recolorAll(System.currentTimeMillis())
             background.execute { missionCoverageSync.onStormStarted(session.id) }
         }
         return changed
@@ -759,18 +807,10 @@ class PlowTakController(
         background.execute {
             val cfg = missionCoverageSync.fetchStormConfig(missionName)
             val session = if (cfg != null && cfg.id.isNotBlank()) {
-                StormSession(
-                    id = cfg.id,
-                    startTimeMs = if (cfg.startTimeMs > 0) cfg.startTimeMs
-                    else System.currentTimeMillis(),
-                    startedBy = cfg.startedBy,
-                    label = cfg.label,
-                    agency = cfg.agency,
+                cfg.toSession().copy(
                     missionName = cfg.mission.ifBlank { missionName },
-                    channel = cfg.channel,
                     cycleMinutes = if (cfg.cycleMinutes > 0) cfg.cycleMinutes
-                    else prefs.cycleTimeMinutes,
-                    roadConditionTtlMinutes = cfg.roadConditionTtlMinutes
+                    else prefs.cycleTimeMinutes
                 )
             } else {
                 StormSession(
@@ -778,11 +818,18 @@ class PlowTakController(
                     startTimeMs = System.currentTimeMillis(),
                     label = missionName,
                     missionName = missionName,
-                    cycleMinutes = prefs.cycleTimeMinutes
+                    cycleMinutes = prefs.cycleTimeMinutes,
+                    cycleP1Minutes = prefs.cycleP1Minutes,
+                    cycleP2Minutes = prefs.cycleP2Minutes,
+                    cycleP3Minutes = prefs.cycleP3Minutes,
+                    coverageRetentionHours = prefs.retentionHours,
+                    roadConditionTtlMinutes = prefs.roadConditionStaleMinutes
                 )
             }
             main.post {
                 joinStormSession(session)
+                applyStormTimersToPrefs(session)
+                syncFreshnessFromStorm()
                 onDone(session)
             }
         }
@@ -875,6 +922,283 @@ class PlowTakController(
         taskManager.decline(uid, capabilityStore.load().callsign, System.currentTimeMillis())
     }
 
+    /** Mine-first needs-treated list for the Tasks screen. */
+    fun buildTaskingList(): List<TaskingItem> {
+        val now = System.currentTimeMillis()
+        snoozeStore.pruneExpired(now)
+        val fix = selfLatLonOrNull()
+        val hasFix = fix != null
+        val selfLat = fix?.first ?: 0.0
+        val selfLon = fix?.second ?: 0.0
+        val cycle = stormManager.activeSession()?.cycleMinutes ?: prefs.cycleTimeMinutes
+        val asg = routeAssignments.assignmentFor(selfUid())
+        val routePolys = asg?.let { routePolylines(it) }.orEmpty()
+        val myRoute = asg?.let { assignment ->
+            val polys = routePolys
+            val anchor = polys.firstOrNull()?.firstOrNull()?.let { it.lat to it.lon }
+                ?: resolveRouteAnchor(assignment.routeId, assignment.source)
+                ?: (selfLat to selfLon)
+            val pct = if (polys.isNotEmpty()) {
+                val index = SegmentIndex()
+                for (seg in coverageStore.all()) index.add(seg)
+                RouteCoverage.forPolylines(
+                    polys, index,
+                    stormManager.activeStormId.takeIf { it.isNotEmpty() }
+                ).percent
+            } else null
+            TaskingListBuilder.RouteInput(
+                routeId = assignment.routeId,
+                lat = anchor.first,
+                lon = anchor.second,
+                coveragePercent = pct
+            )
+        }
+        return TaskingListBuilder.build(
+            TaskingListBuilder.Input(
+                selfUid = selfUid(),
+                selfLat = selfLat,
+                selfLon = selfLon,
+                nowMs = now,
+                escalateAfterMs = prefs.taskEscalateMinutes * 60_000L,
+                cycleMinutes = cycle,
+                tasks = taskManager.all(),
+                myRoute = myRoute,
+                segments = coverageStore.all(),
+                snoozes = snoozeStore.all(),
+                classify = { seg ->
+                    freshnessModel.classify(
+                        seg.endTimeMs, now, cycleMinutesForSegment(seg)
+                    )
+                },
+                cycleMinutesFor = { seg -> cycleMinutesForSegment(seg) },
+                suppressOverdue = { seg ->
+                    routePolys.isNotEmpty() && segmentNearRoute(seg, routePolys)
+                },
+                hasSelfFix = hasFix
+            )
+        )
+    }
+
+    /**
+     * Defer a tasking row by [PlowTakPreferences.taskingSnoozeMinutes].
+     * Returns minutes applied. Re-uploads ops snapshot when a storm is joined.
+     */
+    fun snoozeTaskingItem(itemId: String): Int {
+        val mins = prefs.taskingSnoozeMinutes
+        snoozeStore.bump(itemId, mins, System.currentTimeMillis())
+        background.execute {
+            stormManager.activeSession()?.id?.let { missionCoverageSync.onStormStarted(it) }
+        }
+        return mins
+    }
+
+    /** Pan/zoom the map to a tasking item. */
+    fun zoomToTaskingItem(item: TaskingItem) {
+        try {
+            val point = com.atakmap.coremap.maps.coords.GeoPoint(item.lat, item.lon)
+            val mapCtrl = mapView.mapController ?: return
+            mapCtrl.panTo(point, true)
+            try {
+                mapCtrl.zoomTo(0.00008, true)
+            } catch (_: Throwable) {
+            }
+        } catch (t: Throwable) {
+            Log.w(TAG, "zoomToTaskingItem failed", t)
+        }
+    }
+
+    /** Best-effort self position: tracker → self marker → map center. */
+    fun selfLatLonOrNull(): Pair<Double, Double>? {
+        fun geoPair(p: com.atakmap.coremap.maps.coords.GeoPoint?): Pair<Double, Double>? {
+            if (p == null || !p.isValid) return null
+            return p.latitude to p.longitude
+        }
+        return lastPositionSample?.let { it.lat to it.lon }
+            ?: geoPair(mapView.selfMarker?.point)
+            ?: geoPair(mapView.centerPoint?.get())
+    }
+
+    /** Effective cycle minutes for a segment (priority from GIS + zones). */
+    fun cycleMinutesForSegment(segment: TreatSegment): Int {
+        val priority = loadRoadNetworkOrNull()?.priorityForSegment(segment)
+            ?: RoutePriority.DEFAULT
+        return CycleResolver.resolveForSegment(
+            effectiveCycleTimes(), priority, zoneManager.all(), segment
+        )
+    }
+
+    /**
+     * Resolve GIS vs drawn source for a route id: prefer GIS when the
+     * road network knows the route, else a matching ATAK map route.
+     */
+    fun resolveRouteSource(routeId: String): RouteAssignment.Source {
+        val net = loadRoadNetworkOrNull()
+        if (net != null && net.roadsForRoute(routeId).isNotEmpty()) {
+            return RouteAssignment.Source.GIS
+        }
+        if (resolveDrawnRoutePoints(routeId) != null) {
+            return RouteAssignment.Source.DRAWN
+        }
+        return RouteAssignment.Source.GIS
+    }
+
+    private fun routePolylines(asg: RouteAssignment): List<List<RoadPoint>> {
+        return when (asg.source) {
+            RouteAssignment.Source.GIS -> {
+                val net = loadRoadNetworkOrNull() ?: return emptyList()
+                net.roadsForRoute(asg.routeId).map { it.points }.filter { it.size >= 2 }
+            }
+            RouteAssignment.Source.DRAWN -> {
+                listOfNotNull(resolveDrawnRoutePoints(asg.routeId))
+            }
+        }
+    }
+
+    private fun segmentNearRoute(
+        segment: TreatSegment,
+        polylines: List<List<RoadPoint>>,
+        maxDistM: Double = 40.0
+    ): Boolean {
+        val mid = segment.points.getOrNull(segment.points.size / 2) ?: return false
+        for (line in polylines) {
+            for (i in 0 until line.size - 1) {
+                val a = line[i]
+                val b = line[i + 1]
+                val d = GeoMath.closestPointOnSegment(
+                    mid.lat, mid.lon, a.lat, a.lon, b.lat, b.lon
+                )[2]
+                if (d <= maxDistM) return true
+            }
+        }
+        return false
+    }
+
+    /** First point of a GIS or drawn route. */
+    private fun resolveRouteAnchor(
+        routeId: String,
+        source: RouteAssignment.Source,
+        network: RoadNetwork? = loadRoadNetworkOrNull()
+    ): Pair<Double, Double>? {
+        when (source) {
+            RouteAssignment.Source.GIS -> {
+                val net = network ?: return null
+                val road = net.roadsForRoute(routeId).firstOrNull() ?: return null
+                val p = road.points.firstOrNull() ?: return null
+                return p.lat to p.lon
+            }
+            RouteAssignment.Source.DRAWN -> {
+                val pts = resolveDrawnRoutePoints(routeId) ?: return null
+                val p = pts.firstOrNull() ?: return null
+                return p.lat to p.lon
+            }
+        }
+    }
+
+    /** Points for an ATAK-drawn route matched by UID or title. */
+    private fun resolveDrawnRoutePoints(routeId: String): List<RoadPoint>? {
+        if (routeId.isBlank()) return null
+        return try {
+            val root = mapView.rootGroup ?: return null
+            extractPolylinePoints(root.deepFindUID(routeId))
+                ?: findMapItemByTitle(root, routeId)?.let { extractPolylinePoints(it) }
+        } catch (t: Throwable) {
+            Log.w(TAG, "resolveDrawnRoutePoints failed for $routeId", t)
+            null
+        }
+    }
+
+    private fun findMapItemByTitle(root: MapGroup, title: String): MapItem? {
+        val found = ArrayList<MapItem>()
+        collectMapItemsSafe(root, found)
+        val needle = title.trim()
+        return found.firstOrNull { item ->
+            item.uid.equals(needle, ignoreCase = true) ||
+                item.title.orEmpty().equals(needle, ignoreCase = true)
+        }
+    }
+
+    /** Best-effort walk of ATAK MapGroup hierarchy (API varies by CIV build). */
+    private fun collectMapItemsSafe(group: MapGroup, out: MutableList<MapItem>) {
+        try {
+            val getItems = group.javaClass.methods.firstOrNull {
+                it.name == "getItems" && it.parameterCount == 0
+            }
+            when (val items = getItems?.invoke(group)) {
+                is Iterator<*> -> {
+                    while (items.hasNext()) {
+                        (items.next() as? MapItem)?.let { out.add(it) }
+                    }
+                }
+                is Collection<*> -> items.filterIsInstance<MapItem>().forEach { out.add(it) }
+            }
+        } catch (_: Throwable) {
+        }
+        try {
+            val childMethod = group.javaClass.methods.firstOrNull {
+                (it.name == "getChildGroups" || it.name == "getGroups") && it.parameterCount == 0
+            }
+            when (val kids = childMethod?.invoke(group)) {
+                is Iterator<*> -> {
+                    while (kids.hasNext()) {
+                        (kids.next() as? MapGroup)?.let { collectMapItemsSafe(it, out) }
+                    }
+                }
+                is Collection<*> -> kids.filterIsInstance<MapGroup>()
+                    .forEach { collectMapItemsSafe(it, out) }
+            }
+        } catch (_: Throwable) {
+        }
+    }
+
+    private fun extractPolylinePoints(item: MapItem?): List<RoadPoint>? {
+        if (item == null) return null
+        try {
+            if (item is Polyline) {
+                val pts = item.points ?: return null
+                if (pts.size < 2) return null
+                return pts.map { RoadPoint(it.latitude, it.longitude) }
+            }
+            val method = item.javaClass.methods.firstOrNull {
+                it.name == "getPoints" && it.parameterCount == 0
+            } ?: return null
+            val pts = method.invoke(item) as? Array<*> ?: return null
+            if (pts.size < 2) return null
+            val out = ArrayList<RoadPoint>(pts.size)
+            for (p in pts) {
+                if (p == null) continue
+                val lat = p.javaClass.getMethod("getLatitude").invoke(p) as Double
+                val lon = p.javaClass.getMethod("getLongitude").invoke(p) as Double
+                out.add(RoadPoint(lat, lon))
+            }
+            return out.takeIf { it.size >= 2 }
+        } catch (_: Throwable) {
+            return null
+        }
+    }
+
+    @Volatile
+    private var roadNetworkCache: Pair<String, RoadNetwork>? = null
+
+    private fun loadRoadNetworkOrNull(): RoadNetwork? {
+        val path = prefs.roadNetworkFile
+        if (path.isBlank()) {
+            roadNetworkCache = null
+            return null
+        }
+        roadNetworkCache?.let { (cachedPath, net) ->
+            if (cachedPath == path) return net
+        }
+        return try {
+            val file = File(path)
+            if (!file.isFile) return null
+            val net = RoadNetworkImporter.import(file.readText()).network
+            roadNetworkCache = path to net
+            net
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
     /** Nearest dispatchable treat-capable truck to a point, for tasking. */
     fun suggestNearestTruck(lat: Double, lon: Double) =
         TaskManager.suggestNearest(
@@ -887,8 +1211,11 @@ class PlowTakController(
     /** Live supervisor metrics snapshot. */
     fun liveMetrics(): MetricsCalculator.StormMetrics =
         MetricsCalculator.calculate(
-            coverageStore.all(), fleetManager.all(), prefs.cycleTimes(),
-            zoneManager.all(), System.currentTimeMillis()
+            coverageStore.all(), fleetManager.all(), effectiveCycleTimes(),
+            zoneManager.all(), System.currentTimeMillis(),
+            priorityFor = { seg ->
+                loadRoadNetworkOrNull()?.priorityForSegment(seg) ?: RoutePriority.DEFAULT
+            }
         )
 
     /**
@@ -919,6 +1246,7 @@ class PlowTakController(
 
     /** Re-open (or drop) the road snapper after a settings change. */
     fun reloadRoadSnapper() {
+        roadNetworkCache = null
         if (!prefs.roadSnapEnabled) {
             roadSnapper = null
             return
@@ -936,6 +1264,114 @@ class PlowTakController(
                 if (snapper != null) "road snapper ready from $dir"
                 else "road snapper unavailable from $dir — raw GPS"
             )
+        }
+    }
+
+    /**
+     * Apply a provisioning / data-package profile: device defaults, optional
+     * capability, facilities, zones. When a storm is joined, coverage timers
+     * are written onto that storm and republished (CoT + storm-config.json).
+     */
+    fun applyProvisioning(profile: ProvisioningProfile) {
+        profile.capability?.let { capabilityStore.save(it) }
+        profile.cycleTimes?.let { c ->
+            prefs.cycleTimeMinutes = c.defaultMinutes
+            prefs.cycleP1Minutes = c.p1Minutes
+            prefs.cycleP2Minutes = c.p2Minutes
+            prefs.cycleP3Minutes = c.p3Minutes
+        }
+        profile.coverageRetentionHours?.let { prefs.retentionHours = it }
+        profile.roadConditionTtlMinutes?.let { prefs.roadConditionStaleMinutes = it }
+        for (f in profile.facilities) {
+            facilityGeofences.add(f)
+        }
+        for (z in profile.zones) {
+            zoneManager.put(z)
+        }
+        if (stormManager.activeSession() != null &&
+            (profile.cycleTimes != null || profile.coverageRetentionHours != null ||
+                profile.roadConditionTtlMinutes != null)
+        ) {
+            val c = profile.cycleTimes
+            updateStormCoverageSettings(
+                cycleMinutes = c?.defaultMinutes,
+                cycleP1Minutes = c?.p1Minutes,
+                cycleP2Minutes = c?.p2Minutes,
+                cycleP3Minutes = c?.p3Minutes,
+                coverageRetentionHours = profile.coverageRetentionHours,
+                roadConditionTtlMinutes = profile.roadConditionTtlMinutes
+            )
+        } else {
+            syncFreshnessFromStorm()
+            coverageOverlay.recolorAll(System.currentTimeMillis())
+        }
+        PlowTakSettingsBackup.export(pluginContext)
+    }
+
+    /** Build a provisioning profile from current device defaults + storm timers. */
+    fun exportProvisioningProfile(
+        name: String = "",
+        agency: String = "",
+        includeCapability: Boolean = false
+    ): ProvisioningProfile {
+        val storm = stormManager.activeSession()
+        return ProvisioningProfile(
+            name = name,
+            agency = agency,
+            createdMs = System.currentTimeMillis(),
+            capability = if (includeCapability) capabilityStore.load() else null,
+            cycleTimes = storm?.cycleTimes() ?: prefs.cycleTimes(),
+            coverageRetentionHours = storm?.coverageRetentionHours ?: prefs.retentionHours,
+            roadConditionTtlMinutes = storm?.roadConditionTtlMinutes
+                ?: prefs.roadConditionStaleMinutes,
+            facilities = facilityGeofences.all(),
+            zones = zoneManager.all()
+        )
+    }
+
+    /** Write [exportProvisioningProfile] JSON next to settings backup; return path. */
+    fun exportProvisioningFile(
+        name: String = "PlowTAK provisioning",
+        agency: String = "",
+        includeCapability: Boolean = false
+    ): String? {
+        return try {
+            val profile = exportProvisioningProfile(name, agency, includeCapability)
+            val dir = File(FileSystemUtils.getItem("tools"), "plowtak")
+            dir.mkdirs()
+            val file = File(dir, ProvisioningCodec.FILE_EXTENSION)
+            file.writeText(ProvisioningCodec.encode(profile))
+            file.absolutePath
+        } catch (t: Throwable) {
+            Log.w(TAG, "exportProvisioningFile failed", t)
+            null
+        }
+    }
+
+    /** Load and apply a provisioning profile from disk. */
+    fun importProvisioningFile(path: String): Boolean {
+        return try {
+            val file = File(path)
+            if (!file.isFile) return false
+            val profile = ProvisioningCodec.decode(file.readText()) ?: return false
+            applyProvisioning(profile)
+            true
+        } catch (t: Throwable) {
+            Log.w(TAG, "importProvisioningFile failed", t)
+            false
+        }
+    }
+
+    /** List `*.ipprov.json` files under tools/plowtak for the import picker. */
+    fun listProvisioningFiles(): List<File> {
+        return try {
+            val dir = File(FileSystemUtils.getItem("tools"), "plowtak")
+            if (!dir.isDirectory) return emptyList()
+            dir.listFiles { f ->
+                f.isFile && f.name.endsWith(ProvisioningCodec.FILE_EXTENSION, ignoreCase = true)
+            }?.sortedByDescending { it.lastModified() }?.toList() ?: emptyList()
+        } catch (_: Throwable) {
+            emptyList()
         }
     }
 
@@ -1115,9 +1551,7 @@ class PlowTakController(
     private fun refreshDirectionHook() {
         coverageOverlay.directionHook = if (!prefs.directionSplitEnabled) null
         else { segment: TreatSegment, nowMs: Long ->
-            val cycleMinutes = CycleResolver.resolveForSegment(
-                prefs.cycleTimes(), RoutePriority.DEFAULT, zoneManager.all(), segment
-            )
+            val cycleMinutes = cycleMinutesForSegment(segment)
             DirectionModel.directionStatus(
                 segment,
                 coverageStore.nearSegment(segment, DirectionModel.DEFAULT_CORRIDOR_WIDTH_M),
@@ -1130,18 +1564,69 @@ class PlowTakController(
     /** Voice "coverage overdue" when segments newly cross into RED. */
     private fun announceOverdue(nowMs: Long) {
         if (!shiftLog.isOnShift && !capabilityStore.load().canManageStorm) return
-        val cycles = prefs.cycleTimes()
-        val zones = zoneManager.all()
         val overdue = coverageStore.all().count { seg ->
-            val cycle = CycleResolver.resolveForSegment(
-                cycles, RoutePriority.DEFAULT, zones, seg
-            )
+            val cycle = cycleMinutesForSegment(seg)
             freshnessModel.classify(seg.endTimeMs, nowMs, cycle) == Freshness.RED
         }
         if (lastOverdueCount in 0 until overdue) {
             voiceAlerts.routeOverdue("$overdue treated stretches")
         }
         lastOverdueCount = overdue
+    }
+
+    /** Joined storm cycle model, else device defaults for the next storm. */
+    fun effectiveCycleTimes(): com.atakmap.android.plowtak.coverage.CycleTimes =
+        stormManager.activeSession()?.cycleTimes() ?: prefs.cycleTimes()
+
+    /** Apply freshness model from the joined storm (or device defaults). */
+    fun syncFreshnessFromStorm() {
+        val storm = stormManager.activeSession()
+        if (storm != null) {
+            freshnessModel.cycleTimeMinutes = storm.cycleMinutes
+            freshnessModel.retentionHours = storm.coverageRetentionHours
+        } else {
+            freshnessModel.cycleTimeMinutes = prefs.cycleTimeMinutes
+            freshnessModel.retentionHours = prefs.retentionHours
+        }
+    }
+
+    /** Mirror storm timers into device prefs (defaults for the next storm). */
+    fun applyStormTimersToPrefs(session: StormSession) {
+        prefs.cycleTimeMinutes = session.cycleMinutes
+        prefs.cycleP1Minutes = session.cycleP1Minutes
+        prefs.cycleP2Minutes = session.cycleP2Minutes
+        prefs.cycleP3Minutes = session.cycleP3Minutes
+        prefs.retentionHours = session.coverageRetentionHours
+        prefs.roadConditionStaleMinutes = session.roadConditionTtlMinutes
+    }
+
+    /** Apply a pulled storm-config.json onto the joined storm + local defaults. */
+    fun applyStormConfig(cfg: StormConfigCodec.StormConfig) {
+        if (cfg.cycleMinutes > 0 || cfg.roadConditionTtlMinutes > 0 ||
+            cfg.coverageRetentionHours >= 0
+        ) {
+            stormManager.updateCoverageSettings(
+                cycleMinutes = cfg.cycleMinutes.takeIf { it > 0 },
+                cycleP1Minutes = cfg.cycleP1Minutes,
+                cycleP2Minutes = cfg.cycleP2Minutes,
+                cycleP3Minutes = cfg.cycleP3Minutes,
+                coverageRetentionHours = cfg.coverageRetentionHours,
+                roadConditionTtlMinutes = cfg.roadConditionTtlMinutes.takeIf { it > 0 }
+            )
+        }
+        stormManager.activeSession()?.let { applyStormTimersToPrefs(it) }
+            ?: run {
+                if (cfg.cycleMinutes > 0) prefs.cycleTimeMinutes = cfg.cycleMinutes
+                prefs.cycleP1Minutes = cfg.cycleP1Minutes
+                prefs.cycleP2Minutes = cfg.cycleP2Minutes
+                prefs.cycleP3Minutes = cfg.cycleP3Minutes
+                prefs.retentionHours = cfg.coverageRetentionHours
+                if (cfg.roadConditionTtlMinutes > 0) {
+                    prefs.roadConditionStaleMinutes = cfg.roadConditionTtlMinutes
+                }
+            }
+        syncFreshnessFromStorm()
+        coverageOverlay.recolorAll(System.currentTimeMillis())
     }
 
     companion object {

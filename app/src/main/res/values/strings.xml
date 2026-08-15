@@ -63,6 +63,7 @@
     <string name="driver_spread_on">SPREADING</string>
     <string name="driver_spread_off">SPREAD OFF</string>
     <string name="driver_storm_label">Storm</string>
+    <string name="driver_tasks_label">Tasks</string>
     <string name="driver_settings_label">Settings</string>
     <string name="driver_distress">MAYDAY / NEED ASSIST</string>
     <string name="driver_distress_clear">CLEAR MY MAYDAY</string>
@@ -82,6 +83,15 @@
     <string name="driver_night_on">NIGHT MODE ON</string>
     <string name="driver_night_off">NIGHT MODE OFF</string>
     <string name="driver_night_short">Night</string>
+
+    <!-- Tasking / needs-treated -->
+    <string name="tasking_screen_title">Needs treated</string>
+    <string name="tasking_hint">Your tasks and route first, then nearby overdue gaps (closest first). Tap to zoom. + defers by %1$d min.</string>
+    <string name="tasking_empty">Nothing due nearby — you are clear.</string>
+    <string name="tasking_zoomed">Zoomed to %1$s</string>
+    <string name="tasking_deferred">Deferred +%1$d min</string>
+    <string name="setup_tasking_snooze_label">Task snooze step (minutes)</string>
+    <string name="setup_tasking_snooze_hint">Minutes added when you tap + on a task (default 15)</string>
 
     <!-- Supervisor panel -->
     <string name="sup_storm_start">Start storm session</string>

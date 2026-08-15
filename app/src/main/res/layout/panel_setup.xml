@@ -178,6 +178,25 @@
             android:textColor="@color/plowtak_text"
             android:textSize="16sp" />
 
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/setup_tasking_snooze_label"
+            android:textColor="@color/plowtak_grey"
+            android:textSize="13sp" />
+
+        <EditText
+            android:id="@+id/setup_tasking_snooze"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/setup_tasking_snooze_hint"
+            android:inputType="number"
+            android:maxLines="1"
+            android:textColor="@color/plowtak_text"
+            android:textColorHint="@color/plowtak_grey"
+            android:textSize="16sp" />
+
         <CheckBox
             android:id="@+id/setup_map_hud"
             android:layout_width="match_parent"

@@ -2,10 +2,10 @@ package com.atakmap.android.plowtak.map
 
 import android.util.Log
 import com.atakmap.android.plowtak.coverage.CoverageStore
+import com.atakmap.android.plowtak.coverage.CoverageStyle
 import com.atakmap.android.plowtak.coverage.DirectionStatus
 import com.atakmap.android.plowtak.coverage.Freshness
 import com.atakmap.android.plowtak.coverage.FreshnessModel
-import com.atakmap.android.plowtak.model.Material
 import com.atakmap.android.plowtak.model.MaterialMode
 import com.atakmap.android.plowtak.model.TreatSegment
 import com.atakmap.android.maps.MapGroup
@@ -76,9 +76,10 @@ class CoverageOverlay(
                 val segment = renderedSegments[id] ?: continue
                 val freshness = classify(segment, nowMs)
                 if (freshness == Freshness.EXPIRED) {
+                    // Only remove when retention > 0 yields EXPIRED.
                     expired.add(id)
                 } else {
-                    line.strokeColor = colorFor(freshness, segment)
+                    line.strokeColor = CoverageStyle.colorFor(freshness, segment)
                     applyDirectionStyle(line, segment, nowMs)
                 }
             }
@@ -109,8 +110,8 @@ class CoverageOverlay(
                 GeoPointMetaData.wrap(GeoPoint(p.lat, p.lon))
             }.toTypedArray()
             line.setPoints(pts)
-            line.strokeColor = colorFor(freshness, segment)
-            line.strokeWeight = strokeWeightFor(segment)
+            line.strokeColor = CoverageStyle.colorFor(freshness, segment)
+            line.strokeWeight = CoverageStyle.strokeWeightFor(segment)
             line.setMetaBoolean("addToObjList", false)
             line.setMetaString("plowtak.segment", segment.id)
             applyDirectionStyle(line, segment, now)
@@ -148,41 +149,15 @@ class CoverageOverlay(
         const val GROUP_NAME = "PlowTAK"
         private const val ITEM_UID_PREFIX = "plowtak-cov-"
 
-        private const val COLOR_GREEN = 0xC02ECC40.toInt()
-        private const val COLOR_YELLOW = 0xC0FFDC00.toInt()
-        private const val COLOR_RED = 0xC0FF4136.toInt()
+        /** @deprecated Prefer [CoverageStyle.colorFor]. */
+        fun colorFor(freshness: Freshness, segment: TreatSegment? = null): Int =
+            CoverageStyle.colorFor(freshness, segment)
 
-        fun colorFor(freshness: Freshness, segment: TreatSegment? = null): Int {
-            val base = when (freshness) {
-                Freshness.GREEN -> COLOR_GREEN
-                Freshness.YELLOW -> COLOR_YELLOW
-                Freshness.RED -> COLOR_RED
-                Freshness.EXPIRED -> return 0x00000000
-            }
-            if (segment?.material == MaterialMode.SALT) {
-                val tint = when (segment.spreadMaterial) {
-                    Material.SAND -> 0xC0C2B280.toInt()
-                    Material.GRAVEL -> 0xC0888888.toInt()
-                    Material.BRINE, Material.PREWET -> 0xC04FC3F7.toInt()
-                    else -> 0xC064B5F6.toInt()
-                }
-                return when (freshness) {
-                    Freshness.GREEN -> tint
-                    Freshness.YELLOW -> 0xC0FFB74D.toInt()
-                    Freshness.RED -> COLOR_RED
-                    Freshness.EXPIRED -> 0
-                }
-            }
-            return base
-        }
-
-        fun strokeWeightFor(segment: TreatSegment): Double {
-            val base = (segment.widthM * 1.5).coerceIn(3.0, 12.0)
-            return if (segment.material == MaterialMode.SALT) (base * 0.55).coerceIn(2.0, 7.0)
-            else base
-        }
+        /** @deprecated Prefer [CoverageStyle.strokeWeightFor]. */
+        fun strokeWeightFor(segment: TreatSegment): Double =
+            CoverageStyle.strokeWeightFor(segment)
 
         fun strokeWeightFor(widthM: Double): Double =
-            (widthM * 1.5).coerceIn(3.0, 12.0)
+            CoverageStyle.strokeWeightFor(widthM)
     }
 }

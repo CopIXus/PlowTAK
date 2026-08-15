@@ -43,6 +43,14 @@ class FreshnessModelTest {
     }
 
     @Test
+    fun `retention zero never expires`() {
+        val keep = FreshnessModel(cycleTimeMinutes = 45, retentionHours = 0.0)
+        assertEquals(Freshness.RED, keep.classify(ageMin(45.0), now))
+        assertEquals(Freshness.RED, keep.classify(ageMin(12.1 * 60), now))
+        assertEquals(Freshness.RED, keep.classify(ageMin(100.0 * 60), now))
+    }
+
+    @Test
     fun `future timestamp (clock skew) is green`() {
         assertEquals(Freshness.GREEN, model.classify(now + 60_000L, now))
     }
