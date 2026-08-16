@@ -154,7 +154,7 @@ class PlowStatusHud(
         }
         val ctx = pluginContext
         val density = ctx.resources.displayMetrics.density
-        fun dp(v: Int) = (v * density).toInt()
+        val dp: (Int) -> Int = { v -> (v * density).toInt() }
 
         val label = TextView(ctx).apply {
             text = "Speed"
@@ -458,7 +458,7 @@ class PlowStatusHud(
         grid.removeAllViews()
         val ctx = pluginContext
         val density = ctx.resources.displayMetrics.density
-        fun dp(v: Int) = (v * density).toInt()
+        val dp: (Int) -> Int = { v -> (v * density).toInt() }
 
         data class Tile(val label: String, val icon: Int, val click: () -> Unit)
 
