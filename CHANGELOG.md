@@ -7,6 +7,24 @@ Plugin versions use **yy.mmdd.HHmm** UTC (build timestamp), e.g. `26.0809.0935`.
 
 ## [Unreleased]
 
+## [0.1.8] — 2026-08-16 (TPC `tpc-0.1.8`)
+
+TPC job `amos-halava1-leo-gov-20260816-000156` →
+`PlowTAK-26.0816.0002-ATAK-5.8.0-civ-release.apk`
+([release](https://github.com/CopIXus/PlowTAK/releases/tag/tpc-0.1.8)).
+
+### Added
+- ATAK-style headings and Create New Storm card.
+- Separate left/right wing widths; HUD Mayday and always-on mini plow.
+- Unit status in self PLI remarks; per-storm track timers.
+- Stamp mission names with a 2h join prompt.
+
+### Removed
+- In-plugin demo fleet.
+
+### Fixed
+- TPC `civRelease` compile (BuildConfig version via PackageManager; orphan merge lines).
+
 ## [0.1.7] — 2026-08-15 (TPC `tpc-0.1.7`)
 
 TPC job `amos-halava1-leo-gov-20260815-214930` →

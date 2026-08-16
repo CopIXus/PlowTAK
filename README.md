@@ -15,7 +15,7 @@ hazards, road conditions, and storm coordination over TAK Server. Published by
 **CopIX**.
 
 **Field install (ATAK-CIV 5.8):** download the latest **TPC-signed** APK from
-[Releases / tpc-0.1.7](https://github.com/CopIXus/PlowTAK/releases/tag/tpc-0.1.7),
+[Releases / tpc-0.1.8](https://github.com/CopIXus/PlowTAK/releases/tag/tpc-0.1.8),
 install, then Plugins → PlowTAK → **Load**. CopIX-only CI builds show
 “signature INVALID” on release ATAK — use a `tpc-*` release for Load.
 
@@ -199,9 +199,9 @@ The ATAK SDK is **not** in this repository.
    Release name: `PlowTAK-<yy.mmdd.HHmm>-ATAK-5.8.0-civ-release.apk`
 
 4. **Field devices** need a **TPC-signed** build:
-   [tpc-0.1.7](https://github.com/CopIXus/PlowTAK/releases/tag/tpc-0.1.7)
-   (`PlowTAK-26.0815.2149-ATAK-5.8.0-civ-release.apk`, job
-   `amos-halava1-leo-gov-20260815-214930`). See
+   [tpc-0.1.8](https://github.com/CopIXus/PlowTAK/releases/tag/tpc-0.1.8)
+   (`PlowTAK-26.0816.0002-ATAK-5.8.0-civ-release.apk`, job
+   `amos-halava1-leo-gov-20260816-000156`). See
    [docs/tpc-signing.md](docs/tpc-signing.md) and
    [docs/tak-gov-submission.md](docs/tak-gov-submission.md) (lean source zip
    for the next tak.gov upload).
