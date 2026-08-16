@@ -33,6 +33,7 @@ sourceSets {
             exclude 'com/atakmap/android/plowtak/equipment/BluetoothEquipmentProvider.kt'
             include 'com/atakmap/android/plowtak/cot/codec/**'
             include 'com/atakmap/android/plowtak/cot/SelfCotFilter.kt'
+            include 'com/atakmap/android/plowtak/cot/PliRemarks.kt'
             // report/ mixes pure exporters with ATAK-touching reporters —
             // include only the framework-free files.
             include 'com/atakmap/android/plowtak/report/StormExportData.kt'

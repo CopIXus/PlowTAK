@@ -9,7 +9,6 @@ import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.TextView
 import android.widget.Toast
-import android.widget.ToggleButton
 import com.atakmap.android.plowtak.PlowTakController
 import com.atakmap.android.plowtak.R
 import com.atakmap.android.plowtak.model.AlertEvent
@@ -59,7 +58,6 @@ class DriverPanel(
     private val hazardGrid = view.findViewById<OpsTileGrid>(R.id.driver_hazard_grid)
     private val conditionGrid = view.findViewById<OpsTileGrid>(R.id.driver_condition_grid)
     private val distressButton = view.findViewById<Button>(R.id.driver_distress)
-    private val nightToggle = view.findViewById<ToggleButton>(R.id.driver_night_toggle)
 
     private val materialButtons = HashMap<Material, FrameLayout>()
     private val statusButtons = HashMap<VehicleStatus?, FrameLayout>()
@@ -125,15 +123,6 @@ class DriverPanel(
             currentTask?.let { controller.declineTask(it.uid) }
         }
 
-        nightToggle.isChecked = controller.prefs.nightMode
-        nightToggle.setOnCheckedChangeListener { _, checked ->
-            controller.prefs.nightMode = checked
-            NightPalette.apply(view, checked)
-            refresh()
-        }
-        applyTopIcon(nightToggle, R.drawable.ic_ops_night_off, dp(22))
-        nightToggle.compoundDrawablePadding = dp(1)
-
         applyTopIcon(distressButton, R.drawable.ic_ops_mayday, dp(24))
         distressButton.compoundDrawablePadding = dp(4)
 
@@ -170,7 +159,6 @@ class DriverPanel(
             }
         controller.sanityPromptListener = { prompt -> view.post { showSanityPrompt(prompt) } }
 
-        if (controller.prefs.nightMode) NightPalette.apply(view, true)
         refresh()
     }
 

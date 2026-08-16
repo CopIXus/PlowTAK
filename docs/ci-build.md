@@ -1,17 +1,19 @@
 # PlowTAK CI / GitHub Releases
 
-GitHub Actions builds a signed **ATAK-CIV 5.8** plugin APK on every push to
-`main` (and on `v*` tags / manual **Run workflow**). GitHub Releases are **not**
-auto-published from `main` while waiting on a TPC-signed APK from tak.gov —
-use **Run workflow** with `publish_release=true` (or a `v*` tag) after that
-download is in hand.
+Push to `main` does **not** assemble or publish plugin APKs. Field devices need
+a **TPC-signed** APK from [tak.gov user_builds](https://tak.gov/user_builds);
+after Success, publish that APK as a `tpc-*` GitHub Release (manual/`gh`).
+
+Optional CopIX-signed CIV APKs (developer ATAK only) still use
+[`.github/workflows/release.yml`](../.github/workflows/release.yml) on `v*` tags
+or **Run workflow** — never on main push.
 
 ## Workflows
 
 | Workflow | Trigger | What it does |
 |----------|---------|--------------|
-| [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | push / PR to `main` | Engine unit tests (`coretests`) — no ATAK SDK required |
-| [`.github/workflows/release.yml`](../.github/workflows/release.yml) | push to `main`, tags `v*`, `workflow_dispatch` | Downloads SDK jars, assembles `assembleCivRelease`; publishes a Release only on `v*` tags or when `publish_release=true` |
+| [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PR to `main`, `workflow_dispatch` | Engine unit tests (`coretests`) — no ATAK SDK required |
+| [`.github/workflows/release.yml`](../.github/workflows/release.yml) | tags `v*`, `workflow_dispatch` | Downloads SDK jars, assembles `assembleCivRelease`; publishes a Release only on `v*` tags or when `publish_release=true` |
 
 Versions use **yy.mmdd.HHmm** UTC (24z), e.g. `26.0809.0935`. APK names look like
 `PlowTAK-26.0809.0935-ATAK-5.8.0-civ-release.apk`.

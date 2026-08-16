@@ -30,7 +30,7 @@ import com.atakmap.coremap.maps.time.CoordinatedTime
 
 /**
  * Publishes this unit's outbound traffic:
- *  - **TAK CoT (external):** self PLI (callsign + unit-status remarks),
+ *  - **TAK CoT (external):** self PLI (callsign + full truck remarks),
  *    distress alerts, storm session announce (discovery / SA).
  *  - **Local-only CoT:** map markers for hazards / road conditions so the
  *    reporter sees them immediately.
@@ -78,8 +78,9 @@ class PlowCotPublisher(
     // ----------------------------------------------------------------- PLI
 
     /**
-     * Location-only PLI to the TAK server. Blade / spread / status ride in
-     * Data Sync (`{uid}-status.json`), not in `__plowtak` CoT detail.
+     * Self PLI to the TAK server with free-text remarks covering unit status,
+     * shift, storm, setup widths, and live equipment. Structured blade/spread
+     * for peers still rides Data Sync (`{uid}-status.json`).
      */
     private fun publishPli(sample: SelfTracker.PositionSample) {
         val cap = capabilityStore.load()
@@ -98,7 +99,13 @@ class PlowCotPublisher(
         contact.setAttribute("callsign", cap.callsign.ifEmpty { selfUid })
         root.addChild(contact)
         val remarks = CotDetail("remarks")
-        remarks.innerText = statusManager.current.label
+        remarks.innerText = PliRemarks.format(
+            statusLabel = statusManager.current.label,
+            onShift = shiftLog.isOnShift,
+            stormName = stormManager.activeSession()?.displayName(),
+            capability = cap,
+            equipment = equipment.state
+        )
         root.addChild(remarks)
         event.detail = root
 

@@ -175,7 +175,7 @@ class SupervisorPanel(
         if (session != null) {
             stormLine.text =
                 "Reporting: ${session.displayName()} (by ${session.startedBy.ifBlank { "?" }})"
-            stormButton.text = view.context.getString(R.string.sup_storm_end)
+            stormButton.text = view.context.getString(R.string.storm_leave)
         } else {
             val heard = controller.stormManager.knownStorms().count { it.isActive }
             stormLine.text = if (heard == 0) {
@@ -242,22 +242,13 @@ class SupervisorPanel(
     private fun toggleStorm() {
         val session = controller.stormManager.activeSession()
         if (session != null) {
-            AlertDialog.Builder(controller.mapView.context)
-                .setTitle("End storm?")
-                .setMessage(
-                    "Ends ${session.displayName()} for the fleet and stops Data Sync " +
-                        "uploads. The mission and its data stay on the TAK server."
-                )
-                .setPositiveButton("End storm") { _, _ ->
-                    controller.endStormSession()
-                    refresh()
-                }
-                .setNeutralButton("Leave only") { _, _ ->
-                    controller.leaveStormSession()
-                    refresh()
-                }
-                .setNegativeButton(android.R.string.cancel, null)
-                .show()
+            controller.leaveStormSession()
+            Toast.makeText(
+                controller.mapView.context,
+                "Left storm (not reporting)",
+                Toast.LENGTH_SHORT
+            ).show()
+            refresh()
         } else {
             StormServerDialogs.showStartStormDialog(
                 controller, controller.mapView.context

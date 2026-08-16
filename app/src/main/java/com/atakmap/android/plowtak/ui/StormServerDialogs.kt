@@ -41,8 +41,7 @@ object StormServerDialogs {
             "Data Sync server…",
             "Storm coverage settings…",
             "Import provisioning…",
-            "Export provisioning…",
-            "End storm / delete Data Sync…"
+            "Export provisioning…"
         )
         AlertDialog.Builder(hostContext)
             .setTitle("Storm")
@@ -54,10 +53,6 @@ object StormServerDialogs {
                     3 -> showCoverageSettingsDialog(controller, hostContext, onChanged)
                     4 -> showImportProvisioningDialog(controller, hostContext, onChanged)
                     5 -> showExportProvisioningDialog(controller, hostContext)
-                    6 -> {
-                        showEndStormDialog(controller, hostContext)
-                        onChanged?.invoke()
-                    }
                 }
             }
             .setNegativeButton(android.R.string.cancel, null)
@@ -471,32 +466,6 @@ object StormServerDialogs {
                     ).show()
                     onChanged?.invoke()
                 }
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
-    }
-
-    fun showEndStormDialog(controller: PlowTakController, hostContext: Context) {
-        val active = controller.stormManager.activeSession()
-        if (active == null) {
-            Toast.makeText(hostContext, "No joined storm to end", Toast.LENGTH_SHORT).show()
-            return
-        }
-        AlertDialog.Builder(hostContext)
-            .setTitle("End storm")
-            .setMessage(
-                "End \"${active.displayName()}\" for the whole fleet?\n\n" +
-                    "All trucks stop uploading. The Data Sync mission and its " +
-                    "data stay on the TAK server; only a server admin can " +
-                    "delete it."
-            )
-            .setPositiveButton("End storm") { _, _ ->
-                controller.endStormSession()
-                Toast.makeText(
-                    hostContext,
-                    "Storm ended; mission kept on server",
-                    Toast.LENGTH_LONG
-                ).show()
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()

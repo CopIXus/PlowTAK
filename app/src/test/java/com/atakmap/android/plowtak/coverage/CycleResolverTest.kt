@@ -142,6 +142,6 @@ class CycleResolverTest {
         // Global cycle (120 min, due-soon at 90): still green.
         assertEquals(Freshness.GREEN, model.classify(endMs, nowMs))
         // Bridge-zone cycle (60 min): already overdue.
-        assertEquals(Freshness.RED, model.classify(endMs, nowMs, cycleMinutes = 60))
+        assertEquals(Freshness.RED, model.classify(endMs, nowMs, redAfterOverride = 60))
     }
 }

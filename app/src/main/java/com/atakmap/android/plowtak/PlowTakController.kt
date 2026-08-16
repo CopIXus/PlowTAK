@@ -199,6 +199,20 @@ class PlowTakController(
         onMayday = { send ->
             if (send) sendDistress() else clearOwnDistress()
         },
+        onHazard = { type ->
+            if (lastPositionSample == null) false
+            else {
+                reportHazard(type)
+                true
+            }
+        },
+        onCondition = { condition ->
+            if (lastPositionSample == null) false
+            else {
+                reportRoadCondition(condition)
+                true
+            }
+        },
         isEnabled = { prefs.mapHudEnabled }
     )
     val hazardReporter = HazardReporter(cotQueue)

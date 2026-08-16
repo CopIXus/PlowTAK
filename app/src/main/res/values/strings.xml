@@ -27,7 +27,7 @@
     <string name="sup_assign_route">Assign route…</string>
     <string name="sup_route_id_hint">Route ID (GIS route_id or drawn name)</string>
     <string name="sup_unassign_route">Clear route assignment</string>
-    <string name="setup_save">Save and continue</string>
+    <string name="setup_save">Done</string>
 
     <string name="setup_map_hud_enabled">Mini plow HUD on map (while on shift)</string>
     <string name="setup_condition_stale_label">Road condition report TTL (minutes)</string>
@@ -42,7 +42,8 @@
     <string name="storm_new_name_hint">Storm name</string>
     <string name="storm_create">Create storm</string>
     <string name="storm_leave">Leave storm</string>
-    <string name="storm_end">End storm…</string>
+    <string name="storm_connected">Connected</string>
+    <string name="storm_not_connected">Not connected</string>
     <string name="storm_done">Done</string>
     <string name="setup_wing_left_width">Left wing width (ft) — 0 if not fitted</string>
     <string name="setup_wing_right_width">Right wing width (ft) — 0 if not fitted</string>
@@ -78,9 +79,6 @@
     <string name="driver_conditions_title">Road condition here</string>
     <string name="driver_task_ack">ACK</string>
     <string name="driver_task_decline">DECLINE</string>
-    <string name="driver_night_on">NIGHT MODE ON</string>
-    <string name="driver_night_off">NIGHT MODE OFF</string>
-    <string name="driver_night_short">Night</string>
 
     <!-- Tasking / needs-treated -->
     <string name="tasking_screen_title">Needs treated</string>
@@ -93,7 +91,6 @@
 
     <!-- Supervisor panel -->
     <string name="sup_storm_start">Start storm session</string>
-    <string name="sup_storm_end">End storm session</string>
     <string name="sup_storm_join">Join / pick storm</string>
     <string name="sup_datasync_server">Data Sync server</string>
     <string name="driver_storm_join">Join storm</string>

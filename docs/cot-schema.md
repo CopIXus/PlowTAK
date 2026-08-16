@@ -14,7 +14,7 @@ never string XML templating.
 
 | Event | CoT type | Detail payload |
 |-------|----------|----------------|
-| Vehicle PLI | `a-f-G-E-V-C` | `contact` + `remarks` (unit status label) |
+| Vehicle PLI | `a-f-G-E-V-C` | `contact` + `remarks` (status, shift, storm, setup, live equipment) |
 | Coverage batch | `b-i-x-plowtak-cov` | `<coverage>` with `<segment>` children |
 | Storm session | `b-i-x-plowtak-storm` | `<storm>` |
 | Distress alert | `b-a-o-tbl` (911-alert convention) | `<alert>` |
@@ -36,16 +36,19 @@ network output receives the event (see “Sending CoT Messages through ATAK”).
 
 ## PLI example
 
-Self PLI is a stock `a-f-G-E-V-C` event with `contact` callsign and a `remarks`
-element set to the current unit-status label (e.g. Driving / Loading). Blade /
-spread / detailed status for peers still syncs via Data Sync `{uid}-status.json`.
+Self PLI is a stock `a-f-G-E-V-C` event with `contact` callsign and a multiline
+`remarks` element built by `PliRemarks`: unit status, shift on/off, joined storm,
+fitted widths (feet), and live blade/wing/tow/spreader state. Structured
+blade/spread for peers still syncs via Data Sync `{uid}-status.json`.
 
 ```xml
 <event version="2.0" uid="PLOWTAK-T-1042" type="a-f-G-E-V-C" how="m-g" ...>
   <point lat="36.1627" lon="-86.7816" hae="9999999.0" ce="9999999.0" le="9999999.0"/>
   <detail>
     <contact callsign="Plow-12"/>
-    <remarks>Driving</remarks>
+    <remarks>Treating | Shift on | Storm I-81 North overnight
+Setup: plow 11ft, L wing 8ft, R wing 8ft, tow not fitted, spreader yes
+Now: blade down, L wing out, R wing up, spreader on (Salt)</remarks>
   </detail>
 </event>
 ```

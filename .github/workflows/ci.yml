@@ -1,10 +1,11 @@
 name: CI
 
+# Engine tests only on demand or PRs — do not build on main push.
+# Field APKs come from tak.gov TPC signing, published as tpc-* GitHub Releases.
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   coretests:

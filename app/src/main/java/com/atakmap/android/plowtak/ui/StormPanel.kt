@@ -56,10 +56,6 @@ class StormPanel(
             Toast.makeText(hostContext, "Left storm (not reporting)", Toast.LENGTH_SHORT).show()
             refresh()
         }
-        view.findViewById<Button>(R.id.storm_end).setOnClickListener {
-            StormServerDialogs.showEndStormDialog(controller, hostContext)
-            view.postDelayed({ refresh() }, 500)
-        }
         newName.setText(StormServerDialogs.defaultStormName(System.currentTimeMillis()))
 
         serverSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
@@ -182,13 +178,13 @@ class StormPanel(
 
         // Ended storms are not joinable — keep the list to live options only.
         heard.filter { it.isActive }.forEach { s ->
-            val mark = if (s.id == joinedId) "★ " else ""
+            val connected = s.id == joinedId
             val mission = MissionCoverageCodec.effectiveMissionName(s.id, s.missionName)
             addStormRow(
-                title = "$mark${s.displayName()}  [ACTIVE]",
+                title = "${s.displayName()}  [ACTIVE]",
                 subtitle = "heard on CoT · mission $mission · ${s.cycleMinutes}m · " +
                     retentionLabel(s.coverageRetentionHours),
-                highlighted = s.id == joinedId
+                connected = connected
             ) {
                 controller.joinStormSession(s)
                 Toast.makeText(
@@ -202,7 +198,7 @@ class StormPanel(
             addStormRow(
                 title = mission,
                 subtitle = "PlowTAK Data Sync mission on server",
-                highlighted = false
+                connected = false
             ) {
                 val busy = ProgressDialog(hostContext).apply {
                     setMessage("Joining $mission…")
@@ -242,24 +238,53 @@ class StormPanel(
     private fun addStormRow(
         title: String,
         subtitle: String,
-        highlighted: Boolean,
+        connected: Boolean,
         onClick: () -> Unit
     ) {
-        val row = LinearLayout(controller.pluginContext).apply {
+        val ctx = controller.pluginContext
+        val row = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(12), dp(10), dp(12), dp(10))
-            setBackgroundColor(if (highlighted) 0x335FA8D3 else 0x22FFFFFF)
+            setBackgroundColor(0x22FFFFFF)
             isClickable = true
             isFocusable = true
             setOnClickListener { onClick() }
         }
-        row.addView(TextView(controller.pluginContext).apply {
-            text = title
-            setTextColor(0xFFFFFFFF.toInt())
-            textSize = 16f
-        })
-        row.addView(TextView(controller.pluginContext).apply {
+        val titleRow = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        titleRow.addView(
+            TextView(ctx).apply {
+                text = title
+                setTextColor(0xFFFFFFFF.toInt())
+                textSize = 16f
+            },
+            LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        )
+        titleRow.addView(
+            TextView(ctx).apply {
+                text = if (connected) {
+                    ctx.getString(R.string.storm_connected)
+                } else {
+                    ctx.getString(R.string.storm_not_connected)
+                }
+                setTextColor(0xFFFFFFFF.toInt())
+                textSize = 12f
+                setPadding(dp(10), dp(4), dp(10), dp(4))
+                setBackgroundResource(
+                    if (connected) R.drawable.bg_connected_pill
+                    else R.drawable.bg_disconnected_pill
+                )
+            },
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { marginStart = dp(8) }
+        )
+        row.addView(titleRow)
+        row.addView(TextView(ctx).apply {
             text = subtitle
             setTextColor(0xFF9E9E9E.toInt())
             textSize = 12f

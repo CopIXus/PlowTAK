@@ -42,7 +42,7 @@ One ops drop-down for every vehicle type, plus **Storm** and **Settings**:
 | **Road conditions** | Bare / wet / slush / snow-covered / ice · peer labels · stale TTL (default **2 h**) |
 | **Mayday** | Distress with location + last equipment state |
 | **Storm** | Pick TAK server, create / join / leave / end · mission stays on server |
-| **Settings** | Vehicle type, widths, TTS, night mode, **map HUD**, condition TTL, road-snap, Bluetooth |
+| **Settings** | Vehicle type, widths, TTS, **map HUD**, condition TTL, road-snap, Bluetooth |
 | **Map HUD** | Mini plow under the menus while on shift (panel closed) |
 
 <p align="center">
@@ -238,9 +238,10 @@ not in git) and as **GitHub Release** assets. Install:
 
 ## CI / Releases
 
-Push to `main` runs tests and (with secrets) a CIV release artifact. Publish a
-GitHub Release after a successful tak.gov TPC build (`tpc-*` tags). CI-only
-signatures are for developer ATAK, not field Load.
+Push to `main` does **not** build or publish APKs. Field installs come from
+tak.gov TPC signing; publish a GitHub Release only after Success (`tpc-*` tags).
+Unit tests run on PRs / manual workflow; optional CIV builds are
+`workflow_dispatch` or `v*` tags only (developer ATAK, not field Load).
 
 ## License
 
