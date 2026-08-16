@@ -5,10 +5,10 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/plowtak-ui-hero.jpg" alt="PlowTAK on ATAK — map plus driver ops panel" width="400"/>
+  <img src="docs/images/plowtak-ui-hero.jpg" alt="PlowTAK ops panel on ATAK — treating with blade, spreader, material, and Mayday" width="280"/>
 </p>
 
-<p align="center"><em>PlowTAK on ATAK-CIV 5.8 (Fold cover): live map + glove-friendly driver panel.</em></p>
+<p align="center"><em>On shift: map HUD, blade / spreader, material, unit status, hazards, road conditions, Mayday.</em></p>
 
 **PlowTAK** is an ATAK plugin for winter road operations — plow fleet coverage,
 hazards, road conditions, and storm coordination over TAK Server. Published by
@@ -46,12 +46,10 @@ One ops drop-down for every vehicle type, plus **Storm** and **Settings**:
 | **Map HUD** | Mini plow under the menus while on shift (panel closed) |
 
 <p align="center">
-  <img src="docs/images/plowtak-map-hud.jpg" alt="Map HUD with wings and spreader active" width="360"/>
-  &nbsp;
-  <img src="docs/images/plowtak-tools-hud.jpg" alt="PlowTAK on the ATAK Tools grid with mini HUD" width="360"/>
+  <img src="docs/images/plowtak-map-hud.jpg" alt="PlowTAK map HUD with Mayday, plow control, and nearby treat tasks" width="320"/>
 </p>
 
-<p align="center"><em>Left: map HUD while treating. Right: PlowTAK on the ATAK Tools grid.</em></p>
+<p align="center"><em>Map HUD while on shift (panel closed): Mayday, wings / blade, tow, spreader, hazard / road, plus nearby treat tasks.</em></p>
 
 ---
 
@@ -100,6 +98,12 @@ observer role.
 ---
 
 ## Storms & Data Sync
+
+<p align="center">
+  <img src="docs/images/plowtak-storm-ui.jpg" alt="PlowTAK Storm / Data Sync — join, leave, and create storms on TAK Server" width="280"/>
+</p>
+
+<p align="center"><em>Storm / Data Sync: pick server and channel, join or create a storm, leave without deleting the mission.</em></p>
 
 ![Storm Data Sync](docs/images/plowtak-datasync.jpg)
 
