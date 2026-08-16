@@ -7,6 +7,25 @@ Plugin versions use **yy.mmdd.HHmm** UTC (build timestamp), e.g. `26.0809.0935`.
 
 ## [Unreleased]
 
+## [0.1.9] — 2026-08-16 (TPC `tpc-0.1.9`)
+
+TPC job `amos-halava1-leo-gov-20260816-014839` →
+`PlowTAK-26.0816.0149-ATAK-5.8.0-civ-release.apk`
+([release](https://github.com/CopIXus/PlowTAK/releases/tag/tpc-0.1.9)).
+
+### Added
+- Storm list Connected / Not connected pills; full three-line PLI remarks.
+- HUD HAZARD / ROAD quick-report triggers with slide-out palette.
+
+### Changed
+- Settings save pill labeled Done; GitHub no longer builds APKs on main push.
+
+### Removed
+- End storm from UI (Leave only); Night mode header toggle.
+
+### Fixed
+- HUD `dp` lambda so TPC Kotlin compile accepts trigger/palette helpers.
+
 ## [0.1.8] — 2026-08-16 (TPC `tpc-0.1.8`)
 
 TPC job `amos-halava1-leo-gov-20260816-000156` →
