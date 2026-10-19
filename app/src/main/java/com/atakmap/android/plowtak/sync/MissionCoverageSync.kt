@@ -13,7 +13,7 @@ import com.atakmap.android.plowtak.model.TaskEvent
 import com.atakmap.android.plowtak.model.TreatSegment
 import com.atakmap.android.plowtak.ops.KeyValuePersistence
 import com.atakmap.android.plowtak.ops.RouteAssignment
-import com.atakmap.comms.http.TakHttpClient2
+import com.atakmap.comms.http.TakHttpClient
 import com.atakmap.comms.http.TakHttpResponse
 import java.io.ByteArrayOutputStream
 import java.net.URLEncoder
@@ -146,7 +146,7 @@ class MissionCoverageSync(
         val client = try {
             openClient(resolved)
         } catch (t: Throwable) {
-            Log.e(TAG, "TakHttpClient2 failed for ${resolved.apiBaseUrl}", t)
+            Log.e(TAG, "TakHttpClient failed for ${resolved.apiBaseUrl}", t)
             return
         }
         if (!ensureMission(client, mission, session.channel)) {
@@ -234,7 +234,7 @@ class MissionCoverageSync(
      * older builds also answer `GET …/contents`, so fall back to that.
      */
     private fun listMissionContents(
-        client: TakHttpClient2,
+        client: TakHttpClient,
         mission: String
     ): List<MissionContentEntry> {
         val detail = try {
@@ -282,7 +282,7 @@ class MissionCoverageSync(
     }
 
     private fun pullMission(
-        client: TakHttpClient2,
+        client: TakHttpClient,
         mission: String,
         selfUid: String,
         nowMs: Long,
@@ -338,10 +338,10 @@ class MissionCoverageSync(
         }
     }
 
-    private fun downloadContent(client: TakHttpClient2, hash: String): ByteArray? {
+    private fun downloadContent(client: TakHttpClient, hash: String): ByteArray? {
         return try {
             val path = client.getUrl("/sync/content?hash=" + enc(hash))
-            val resp = client.executeGet(path, emptyMap())
+            val resp = execute(client, "org.apache.http.client.methods.HttpGet", path, null, null)
             if (!resp.isOk) {
                 Log.w(TAG, "download hash=$hash → ${resp.statusCode}")
                 closeQuietly(resp)
@@ -361,9 +361,9 @@ class MissionCoverageSync(
         }
     }
 
-    private fun ensureMission(client: TakHttpClient2, mission: String, channel: String): Boolean {
+    private fun ensureMission(client: TakHttpClient, mission: String, channel: String): Boolean {
         try {
-            // Absolute URL required: TakHttpClient2 never joins base + path itself.
+            // Absolute URL required: TakHttpClient never joins base + path itself.
             val existing = client.get(client.getUrl("/api/missions/" + enc(mission)))
             if (!existing.isNullOrBlank()) {
                 Log.i(TAG, "Data Sync mission exists: $mission")
@@ -399,9 +399,7 @@ class MissionCoverageSync(
                 // zero-byte body throws -> generic 500 code 6 (MissionApi.java
                 // doCreateMissionAllowDupe). "{}" parses to an empty Mission so
                 // the query parameters drive the create.
-                val resp = client.put(
-                    createPath, "application/json", "{}".toByteArray(), null
-                )
+                val resp = putBytes(client, createPath, "application/json", "{}".toByteArray())
                 val ok = resp.isOk || resp.isCreated || resp.isStatus(409)
                 if (ok) {
                     Log.i(TAG, "Data Sync mission ready: $mission (HTTP ${resp.statusCode})")
@@ -435,7 +433,7 @@ class MissionCoverageSync(
      * ADD→REMOVE churn and decode failures on peers.
      */
     private fun uploadCoverageHistory(
-        client: TakHttpClient2,
+        client: TakHttpClient,
         mission: String,
         stormId: String,
         uid: String,
@@ -479,7 +477,7 @@ class MissionCoverageSync(
     }
 
     private fun uploadHourChunk(
-        client: TakHttpClient2,
+        client: TakHttpClient,
         mission: String,
         filename: String,
         bytes: ByteArray,
@@ -510,7 +508,7 @@ class MissionCoverageSync(
     }
 
     private fun uploadIfChanged(
-        client: TakHttpClient2,
+        client: TakHttpClient,
         mission: String,
         filename: String,
         bytes: ByteArray,
@@ -547,7 +545,7 @@ class MissionCoverageSync(
      * [keepHash]. Cleans orphans left before we tracked server hashes.
      */
     private fun purgeOtherHashesForFilename(
-        client: TakHttpClient2,
+        client: TakHttpClient,
         mission: String,
         filename: String,
         keepHash: String
@@ -565,7 +563,7 @@ class MissionCoverageSync(
     }
 
     private fun uploadNamedIfChanged(
-        client: TakHttpClient2,
+        client: TakHttpClient,
         mission: String,
         filename: String,
         bytes: ByteArray,
@@ -615,7 +613,7 @@ class MissionCoverageSync(
      * @return the server-assigned content hash, or null on failure.
      */
     private fun uploadContent(
-        client: TakHttpClient2,
+        client: TakHttpClient,
         filename: String,
         hash: String,
         creatorUid: String,
@@ -628,7 +626,7 @@ class MissionCoverageSync(
                 "&CreatorUid=" + enc(creatorUid)
         val path = client.getUrl("/sync/upload?$q")
         return try {
-            val resp = client.post(path, contentType, bytes, contentEncoding)
+            val resp = postBytes(client, path, contentType, bytes, contentEncoding)
             if (!resp.isOk && !resp.isCreated) {
                 Log.w(TAG, "sync upload $filename → ${resp.statusCode} ${resp.reasonPhrase}")
                 closeQuietly(resp)
@@ -656,7 +654,7 @@ class MissionCoverageSync(
     }
 
     private fun associateContent(
-        client: TakHttpClient2,
+        client: TakHttpClient,
         mission: String,
         hash: String,
         uids: List<String> = emptyList()
@@ -667,7 +665,7 @@ class MissionCoverageSync(
             .joinToString(",") { "\"${it.replace("\"", "").replace("\\", "")}\"" }
         val body = "{\"hashes\":[\"$hash\"],\"uids\":[$uidJson]}".toByteArray(Charsets.UTF_8)
         try {
-            val resp = client.put(path, "application/json", body, null)
+            val resp = putBytes(client, path, "application/json", body)
             if (!resp.isOk && !resp.isCreated) {
                 Log.w(TAG, "mission contents associate → ${resp.statusCode} ${resp.reasonPhrase}")
             }
@@ -677,10 +675,10 @@ class MissionCoverageSync(
         }
     }
 
-    private fun deleteOldContent(client: TakHttpClient2, mission: String, hash: String) {
+    private fun deleteOldContent(client: TakHttpClient, mission: String, hash: String) {
         val path = client.getUrl("/api/missions/" + enc(mission) + "/contents?hash=" + enc(hash))
         try {
-            if (!client.delete(path)) {
+            if (!deleteUrl(client, path)) {
                 Log.w(TAG, "DELETE old mission content hash=$hash failed (ignored)")
             }
         } catch (t: Throwable) {
@@ -731,12 +729,71 @@ class MissionCoverageSync(
      * ATAK appends `:{apiPort}/Marti` to [TakServerTargets.ResolveResult.apiBaseUrl].
      * Prefer the connect-string overload so client certs match the TAK server.
      */
-    private fun openClient(resolved: TakServerTargets.ResolveResult): TakHttpClient2 {
+    /**
+     * POST/PUT/DELETE live on TakHttpClient2 only. ATAK 5.6 and 5.7 still have
+     * TakHttpClient.execute, and the host has the Apache request classes, but
+     * those classes are not in main.jar so the plugin cannot name them.
+     */
+    private fun postBytes(
+        client: TakHttpClient,
+        url: String,
+        contentType: String,
+        bytes: ByteArray,
+        encoding: String? = null
+    ): TakHttpResponse = execute(
+        client, "org.apache.http.client.methods.HttpPost", url, bytes, contentType, encoding
+    )
+
+    private fun putBytes(
+        client: TakHttpClient,
+        url: String,
+        contentType: String,
+        bytes: ByteArray
+    ): TakHttpResponse = execute(
+        client, "org.apache.http.client.methods.HttpPut", url, bytes, contentType, null
+    )
+
+    private fun deleteUrl(client: TakHttpClient, url: String): Boolean {
+        val resp = execute(client, "org.apache.http.client.methods.HttpDelete", url, null, null)
+        val ok = resp.isOk || resp.isStatus(204)
+        closeQuietly(resp)
+        return ok
+    }
+
+    private fun execute(
+        client: TakHttpClient,
+        requestClass: String,
+        url: String,
+        bytes: ByteArray?,
+        contentType: String?,
+        encoding: String? = null
+    ): TakHttpResponse {
+        val req = Class.forName(requestClass).getConstructor(String::class.java).newInstance(url)
+        if (bytes != null) {
+            val entity = Class.forName("org.apache.http.entity.ByteArrayEntity")
+                .getConstructor(ByteArray::class.java)
+                .newInstance(bytes)
+            entity.javaClass.getMethod("setContentType", String::class.java)
+                .invoke(entity, contentType)
+            req.javaClass.methods.first { it.name == "setEntity" && it.parameterTypes.size == 1 }
+                .invoke(req, entity)
+        }
+        if (!encoding.isNullOrBlank()) {
+            req.javaClass.methods.first { it.name == "setHeader" && it.parameterTypes.size == 2 }
+                .invoke(req, "Content-Encoding", encoding)
+        }
+        val execute = client.javaClass.methods.first {
+            it.name == "execute" && it.parameterTypes.size == 1
+        }
+        return execute.invoke(client, req) as TakHttpResponse
+    }
+
+    private fun openClient(resolved: TakServerTargets.ResolveResult): TakHttpClient {
         val connect = resolved.connectString
         return if (connect.isNotBlank()) {
-            TakHttpClient2.GetHttpClient(resolved.apiBaseUrl, connect)
+            TakHttpClient.GetHttpClient(resolved.apiBaseUrl, connect)
         } else {
-            TakHttpClient2.GetHttpClient(resolved.apiBaseUrl)
+            TakHttpClient.GetHttpClient(resolved.apiBaseUrl)
         }
     }
 

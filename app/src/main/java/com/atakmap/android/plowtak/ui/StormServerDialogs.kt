@@ -648,18 +648,30 @@ object StormServerDialogs {
         return fmt.format(Date(nowMs))
     }
 
+    /** getGroups() arrived after ATAK 5.6; older servers just have no channel list. */
+    private fun serverGroupNames(server: TAKServer): List<String> {
+        return try {
+            val raw = server.javaClass.getMethod("getGroups").invoke(server) ?: return emptyList()
+            when (raw) {
+                is Array<*> -> raw.mapNotNull { it?.toString() }
+                else -> emptyList()
+            }
+        } catch (_: Throwable) {
+            emptyList()
+        }
+    }
+
     private fun cachedServerGroups(connectString: String): List<String> {
         return try {
             val servers: Array<TAKServer> =
                 CotMapComponent.getInstance()?.servers ?: return emptyList()
             val match = servers.firstOrNull { it.connectString == connectString }
                 ?: return emptyList()
-            match.groups
-                ?.map { it.trim() }
-                ?.filter { it.isNotEmpty() }
-                ?.distinct()
-                ?.sorted()
-                ?: emptyList()
+            serverGroupNames(match)
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .distinct()
+                .sorted()
         } catch (_: Throwable) {
             emptyList()
         }

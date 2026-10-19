@@ -7,6 +7,11 @@ Plugin versions use **yy.mmdd.HHmm** UTC (build timestamp), e.g. `26.0809.0935`.
 
 ## [Unreleased]
 
+## [0.1.10] — 2026-10-19 (TPC `tpc-0.1.10`)
+
+TPC stamp `26.1019.1743` → one APK per ATAK-CIV line
+([release](https://github.com/CopIXus/PlowTAK/releases/tag/tpc-0.1.10)).
+
 ### Added
 - One CIV APK per ATAK line (5.6.0, 5.7.0, 5.8.0) via `scripts/build-atak.ps1`
   and `-Patak.version`. `versionCode` differs by ATAK minor so the three APKs
@@ -14,6 +19,8 @@ Plugin versions use **yy.mmdd.HHmm** UTC (build timestamp), e.g. `26.0809.0935`.
 - Field releases list one TPC APK per ATAK line, with a Which file? table.
   `scripts/build-tpp-zips.py` pins the stamp and line; `scripts/publish-release.ps1`
   publishes them on one `tpc-*` release.
+- Data Sync uses `TakHttpClient`, which ATAK 5.6, 5.7, and 5.8 all provide,
+  so the same source can be signed for each line.
 
 ## [0.1.9] — 2026-08-16 (TPC `tpc-0.1.9`)
 
