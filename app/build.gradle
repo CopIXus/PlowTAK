@@ -8,7 +8,13 @@ buildscript {
 
     // Build-time stamp yy.mmdd.HHmm in UTC (24z). CI can override with -PPLUGIN_VERSION=...
     ext.PLUGIN_VERSION = project.findProperty('PLUGIN_VERSION') ?: new Date().format("yy.MMdd.HHmm", TimeZone.getTimeZone("UTC"))
+    // Default line. Local and CI builds for 5.6.0 / 5.7.0 pass -Patak.version
+    // together with -Psdk.path and -Ptakdev.plugin (scripts/build-atak.ps1).
+    // tak.gov TPP runs assembleCivRelease with no -P, so each submission zip
+    // pins the literal below to the ATAK line that zip is for.
     ext.ATAK_VERSION = "5.8.0"
+    if (project.hasProperty('atak.version'))
+        ext.ATAK_VERSION = project.property('atak.version').toString()
 
     def takdevVersion = '3.+'
 
@@ -98,13 +104,23 @@ def getGitShortSha() {
 }
 
 // Android versionCode from yy.mmdd.HHmm (UTC), fits in signed 32-bit int through ~2041.
+// The ATAK minor is added so 5.6 / 5.7 / 5.8 of the same minute do not share a
+// code (an MDM treats the same package and code with different hashes as a bad
+// update). 5.6 -> +0, 5.7 -> +1, 5.8 -> +2. A later timestamp still sorts above
+// an earlier one on every line.
+def atakMinorOffset(String atak) {
+    def parts = atak.tokenize('.')
+    int minor = (parts.size() > 1 && parts[1].isInteger()) ? (parts[1] as int) : 8
+    return Math.max(0, minor - 6)
+}
+
 def getVersionCodeFromPluginVersion(String ver) {
     def m = (ver =~ /^(\d{2})\.(\d{4})\.(\d{4})$/)
     if (m.matches()) {
         int yy = m[0][1] as int
         int mmdd = m[0][2] as int
         int hhmm = m[0][3] as int
-        return ((yy - 20) * 100000000) + (mmdd * 10000) + hhmm
+        return ((yy - 20) * 100000000) + (mmdd * 10000) + hhmm + atakMinorOffset(ATAK_VERSION as String)
     }
     return 1
 }

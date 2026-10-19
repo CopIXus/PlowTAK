@@ -23,9 +23,16 @@ inject the TPC keystore, and return a Load-able release APK.
 
 ```powershell
 cd T:\TAK\IdeaPlowPlugin
-python .tmp-apk\build_tpp_zip.py
-# → .tmp-apk\PlowTAK-user-build.zip
+python scripts/build-tpp-zips.py
+# → dist/tpp/PlowTAK-<stamp>-ATAK-5.6.0-user-build.zip
+#    dist/tpp/PlowTAK-<stamp>-ATAK-5.7.0-user-build.zip
+#    dist/tpp/PlowTAK-<stamp>-ATAK-5.8.0-user-build.zip
 ```
+
+Upload **all three** zips. Each one pins `PLUGIN_VERSION` and `atak.version` in
+`gradle.properties`, so the three jobs share one stamp and target 5.6.0, 5.7.0,
+and 5.8.0. Put the three signed APKs in one folder and publish with
+`scripts/publish-release.ps1` (see [tpc-signing.md](tpc-signing.md)).
 
 The script **allowlists** Gradle + `app/src` (+ tests) + `template.local.properties`
 and **rejects** zips that still contain `docs/`, `.takdev/`, `libs/`, or secrets.
@@ -69,16 +76,19 @@ device install.
 ## Verify before upload
 
 ```powershell
-$z = ".tmp-apk\PlowTAK-user-build.zip"
+$z = "dist\tpp\PlowTAK-<stamp>-ATAK-5.8.0-user-build.zip"
 (Get-Item $z).Length   # prefer < 1–2 MB
 python -c "import zipfile; z=zipfile.ZipFile(r'$z'); n=z.namelist(); print(len(n)); print([x for x in n if not x.startswith('PlowTAK/')][:5]); print(any(x.endswith('gradle-wrapper.jar') for x in n)); print([x for x in n if 'docs/' in x or '.takdev' in x or '/libs/' in x][:5])"
 ```
 
 ## ATAK version targeting
 
-Official TPC APKs are **version-matched** to the ATAK release they were built
-against (`ext.ATAK_VERSION` in `app/build.gradle`). Fleet on 5.8 needs a 5.8
-artifact; prefer `gov.tak.api.*` over obfuscated internals where possible.
+TPP runs `./gradlew assembleCivRelease` with no `-P`. `scripts/build-tpp-zips.py`
+writes `PLUGIN_VERSION` and `atak.version` into `gradle.properties` inside each
+zip, which `app/build.gradle` already reads, so you do not edit the default
+`5.8.0` in source. One TPC APK per ATAK install. Local builds pass
+`-Patak.version` (`scripts/build-atak.ps1`). Prefer `gov.tak.api.*` over
+obfuscated internals where possible.
 
 ## New plugin checklist
 

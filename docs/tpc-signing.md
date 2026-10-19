@@ -212,9 +212,18 @@ UNC: `\\192.168.1.26\Working\TAK\IdeaPlowPlugin\Releases\tpc-0.1.0\`
 There is **no supported public API** to upload to user_builds / poll / download.
 Practical workflow:
 
-1. CI or a script builds a clean `PlowTAK-user-build.zip` (POSIX paths).
-2. Human uploads on tak.gov/user_builds (~15–25 min).
-3. Download success zip → publish TPC APK to GitHub Release (`tpc-*` tags).
+1. `python scripts/build-tpp-zips.py` writes three lean zips (5.6, 5.7, 5.8)
+   that share one `PLUGIN_VERSION` stamp.
+2. A person uploads each zip on tak.gov/user_builds (~15–25 min each).
+3. Download the three Success zips into one folder, then:
+
+   ```powershell
+   .\scripts\publish-release.ps1 -Tag tpc-0.1.10 -ApkDir <folder>
+   ```
+
+   That writes SHA-256 sidecars, a **Which file?** table, and one `tpc-*`
+   GitHub Release with an APK per line. Add `-WhatIf` to print the body
+   without calling `gh`.
 
 Do not scrape tak.gov sessions in Actions.
 
@@ -268,7 +277,8 @@ git pull
 # Install from Releases\tpc-0.1.0\ or GitHub release tpc-0.1.0
 
 # Next TPC submission after code changes:
-# 1) rebuild POSIX zip of PlowTAK/
-# 2) upload https://tak.gov/user_builds
-# 3) on Success, publish new tpc-* GitHub Release + copy into Releases\
+# 1) python scripts/build-tpp-zips.py
+# 2) upload each dist/tpp zip at https://tak.gov/user_builds
+# 3) on Success, put the three APKs in one folder:
+#    .\scripts\publish-release.ps1 -Tag tpc-<next> -ApkDir <folder>
 ```

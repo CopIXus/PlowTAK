@@ -2,6 +2,8 @@ name: Release
 
 # Do not build on main push. Sign via TAK.gov TPC, then publish the signed APK
 # with workflow_dispatch (publish_release=true) or a v* tag when ready.
+# One APK per ATAK-CIV line (5.6.0, 5.7.0, 5.8.0). A missing SDK cache release
+# fails only that line.
 on:
   push:
     tags:
@@ -23,25 +25,15 @@ permissions:
   contents: write
 
 jobs:
-  build-and-release:
-    name: Build CIV APK and optionally publish Release
+  version:
+    name: Resolve version
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.ver.outputs.tag }}
+      version: ${{ steps.ver.outputs.version }}
+      name: ${{ steps.ver.outputs.name }}
+      publish: ${{ steps.ver.outputs.publish }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
-
       - name: Resolve version
         id: ver
         shell: bash
@@ -75,27 +67,59 @@ jobs:
             echo "tag=$TAG"
             echo "version=$VERSION"
             echo "name=$NAME"
-            echo "sha=$SHA"
             echo "publish=$PUBLISH"
           } >> "$GITHUB_OUTPUT"
           echo "tag=$TAG version=$VERSION publish=$PUBLISH"
+
+  build:
+    name: ATAK ${{ matrix.atak }}
+    needs: version
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - atak: "5.6.0"
+            cache_tag: atak-civ-5.6.0
+          - atak: "5.7.0"
+            cache_tag: atak-civ-5.7.0
+          - atak: "5.8.0"
+            cache_tag: atak-civ-5.8.0.1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
 
       - name: Download ATAK-CIV SDK jars from private cache
         env:
           GH_TOKEN: ${{ secrets.CI_SDK_REPO_TOKEN }}
           CACHE_REPO: ${{ secrets.ATAK_SDK_CACHE_REPO }}
-          CACHE_TAG: ${{ secrets.ATAK_SDK_RELEASE_TAG }}
+          CACHE_TAG: ${{ matrix.cache_tag }}
         run: |
-          if [ -z "$GH_TOKEN" ] || [ -z "$CACHE_REPO" ] || [ -z "$CACHE_TAG" ]; then
-            echo "::error::Missing CI_SDK_REPO_TOKEN / ATAK_SDK_CACHE_REPO / ATAK_SDK_RELEASE_TAG."
+          if [ -z "$GH_TOKEN" ] || [ -z "$CACHE_REPO" ]; then
+            echo "::error::Missing CI_SDK_REPO_TOKEN / ATAK_SDK_CACHE_REPO."
             echo "See docs/ci-build.md — SDK jars are too large for GitHub Actions secrets."
             exit 1
           fi
           mkdir -p atak-sdk
-          gh release download "$CACHE_TAG" \
+          if ! gh release download "$CACHE_TAG" \
             -R "$CACHE_REPO" \
             -p "*-ci-jars.zip" \
-            -D "$RUNNER_TEMP/sdk"
+            -D "$RUNNER_TEMP/sdk"; then
+            echo "::error::No SDK cache release $CACHE_TAG on $CACHE_REPO. See docs/ci-build.md."
+            exit 1
+          fi
           unzip -o "$RUNNER_TEMP/sdk/"*-ci-jars.zip -d atak-sdk
           ls -la atak-sdk/
           test -f atak-sdk/main.jar
@@ -143,14 +167,17 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           ./gradlew :app:assembleCivRelease \
-            -PPLUGIN_VERSION=${{ steps.ver.outputs.version }} \
+            -PPLUGIN_VERSION=${{ needs.version.outputs.version }} \
+            -Patak.version=${{ matrix.atak }} \
+            -Psdk.path="${GITHUB_WORKSPACE}/atak-sdk" \
+            -Ptakdev.plugin="${GITHUB_WORKSPACE}/atak-sdk/atak-gradle-takdev.jar" \
             --stacktrace
 
       - name: Package APK + SHA256
         id: pkg
         run: |
           mkdir -p dist
-          SRC=$(ls app/build/outputs/apk/civ/release/*.apk | head -n1)
+          SRC=$(ls app/build/outputs/apk/civ/release/*${{ matrix.atak }}*.apk | head -n1)
           if [ -z "$SRC" ]; then
             echo "No APK under app/build/outputs/apk/civ/release/" >&2
             find app/build/outputs -name '*.apk' || true
@@ -159,47 +186,79 @@ jobs:
           case "$SRC" in
             *unsigned*) echo "Refusing to publish unsigned APK: $SRC"; exit 1 ;;
           esac
-          OUT="dist/PlowTAK-${{ steps.ver.outputs.version }}-ATAK-5.8.0-civ-release.apk"
-          cp "$SRC" "$OUT"
-          (cd dist && sha256sum "$(basename "$OUT")" | awk '{print $1 "  " $2}' > "$(basename "$OUT").sha256")
-          echo "apk=$(basename "$OUT")" >> "$GITHUB_OUTPUT"
+          cp "$SRC" "dist/$(basename "$SRC")"
+          (cd dist && sha256sum "$(basename "$SRC")" | awk '{print $1 "  " $2}' > "$(basename "$SRC").sha256")
+          echo "apk=$(basename "$SRC")" >> "$GITHUB_OUTPUT"
           ls -la dist/
           cat dist/*.sha256
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PlowTAK-civ-release
+          name: plowtak-${{ matrix.atak }}
           path: dist/*
 
+  publish:
+    name: Publish GitHub Release
+    needs: [version, build]
+    if: always() && needs.version.result == 'success' && needs.build.result != 'cancelled'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download built APKs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: plowtak-*
+          path: dist
+          merge-multiple: true
+
+      - name: List APKs
+        id: apks
+        run: |
+          shopt -s nullglob
+          files=(dist/*.apk)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "count=0" >> "$GITHUB_OUTPUT"
+            echo "No APKs were built."
+            exit 0
+          fi
+          echo "count=${#files[@]}" >> "$GITHUB_OUTPUT"
+          ls -la dist/
+
       - name: Create GitHub Release
-        if: steps.ver.outputs.publish == 'true'
+        if: needs.version.outputs.publish == 'true' && steps.apks.outputs.count != '0'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.ver.outputs.tag }}
-          name: ${{ steps.ver.outputs.name }}
+          tag_name: ${{ needs.version.outputs.tag }}
+          name: ${{ needs.version.outputs.name }}
           generate_release_notes: true
           files: |
             dist/*
           body: |
-            **PlowTAK** build `${{ steps.ver.outputs.version }}` (ATAK-CIV 5.8 plugin).
+            **PlowTAK** build `${{ needs.version.outputs.version }}`.
 
-            Install `${{ steps.pkg.outputs.apk }}` on a device running **ATAK-CIV 5.8.x**,
-            then enable the plugin in ATAK → Settings → Tool Preferences / Plugins.
+            Install the APK whose name contains the ATAK-CIV version on the device
+            (`ATAK-5.6.0`, `ATAK-5.7.0`, or `ATAK-5.8.0`), then enable the plugin
+            in ATAK → Settings → Tool Preferences / Plugins.
 
             Field devices on release ATAK need the **TPC-signed** APK from
             [tak.gov](https://tak.gov) user_builds — CopIX CI signatures will show
-            “signature INVALID” on Load.
+            “signature INVALID” on Load. Upload one source zip per ATAK line.
 
             Peer dependency: **VNS 4.0** from [tak.gov](https://tak.gov) for offline maps.
-            Verify the APK with the matching `.sha256` sidecar.
+            Verify each APK with the matching `.sha256` sidecar.
 
             Licensed under the [PlowTAK Free Application License 1.0](LICENSE).
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Skip GitHub Release (waiting on tak.gov)
-        if: steps.ver.outputs.publish != 'true'
+        if: needs.version.outputs.publish != 'true'
         run: |
-          echo "Built ${{ steps.pkg.outputs.apk }} but did not publish a GitHub Release."
+          echo "Built ${{ steps.apks.outputs.count }} APK(s) but did not publish a GitHub Release."
           echo "Re-run with workflow_dispatch publish_release=true after the TPC APK is available from tak.gov."
+
+      - name: Fail when every line failed
+        if: steps.apks.outputs.count == '0'
+        run: |
+          echo "::error::No ATAK line produced an APK. Check the SDK cache releases in docs/ci-build.md."
+          exit 1

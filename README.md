@@ -8,8 +8,12 @@ Winter road coverage for ATAK. Published by **CopIX**.
 
 **Install.** Use a TPC-signed APK. A CopIX-only CI build shows “signature INVALID” on release ATAK.
 
-- ATAK-CIV 5.8: [latest release](https://github.com/CopIXus/PlowTAK/releases)
-- ATAK-CIV 5.6 and 5.7: same plugin line; build against that SDK (see Building)
+Pick the APK that matches the ATAK-CIV version on the device. One plugin cannot
+load on all three lines. 5.6 and 5.7 are not on this release yet.
+
+<!-- plowtak-release-links:start -->
+- ATAK-CIV 5.8: [PlowTAK-26.0816.0149-ATAK-5.8.0-civ-release.apk](https://github.com/CopIXus/PlowTAK/releases/download/tpc-0.1.9/PlowTAK-26.0816.0149-ATAK-5.8.0-civ-release.apk)
+<!-- plowtak-release-links:end -->
 
 <p align="center">
   <img src="docs/images/plowtak-ui-hero.jpg" alt="PlowTAK ops panel on ATAK — treating with blade, spreader, material, and Mayday" width="280"/>
@@ -19,7 +23,8 @@ Winter road coverage for ATAK. Published by **CopIX**.
 
 ## What it does
 
-**Field install (ATAK-CIV 5.8):** download the latest **TPC-signed** APK from
+**Field install:** download the **TPC-signed** APK that matches the device
+(ATAK-CIV 5.6, 5.7, or 5.8) from
 [Releases / tpc-0.1.9](https://github.com/CopIXus/PlowTAK/releases/tag/tpc-0.1.9),
 install, then Plugins → PlowTAK → **Load**. CopIX-only CI builds show
 “signature INVALID” on release ATAK — use a `tpc-*` release for Load.
@@ -205,22 +210,25 @@ PlowTAK reads the VNS offline routing pack already on the device. Untreated plow
 
 ## Requirements
 
-ATAK-CIV with the matching plugin SDK. A VNS GraphHopper pack is optional and recommended. No second road download.
+ATAK-CIV 5.6, 5.7, or 5.8, and the plugin APK built for that same line. A VNS GraphHopper pack is optional and recommended. No second road download.
 
 ## Building
 
-Copy `template.local.properties` to `local.properties` and set `sdk.dir`, `sdk.path`, and `takdev.plugin` for the ATAK-CIV SDK you are building against. Do not commit `local.properties`.
+Copy `template.local.properties` to `local.properties` and set `sdk.dir`. Do not commit `local.properties`. `scripts/build-atak.ps1` passes `sdk.path` and `takdev.plugin` for the line you build.
 
-1. Download the **ATAK-CIV 5.8 SDK** from [tak.gov](https://tak.gov).
-2. Copy `local.properties.example` → `local.properties` (`sdk.dir`, `sdk.path`,
-   `takdev.plugin`, signing keys).
+1. Download the **ATAK-CIV 5.6, 5.7, and 5.8 SDKs** from [tak.gov](https://tak.gov)
+   into `T:\TAK` (or set `ATAK_SDK_ROOT`). A 5.8.0.1 extract satisfies 5.8.0.
+2. Copy `template.local.properties` → `local.properties` (`sdk.dir`, and signing
+   keys when you are not using the takdev debug keystore).
 3. JDK 17:
 
    ```powershell
-   .\gradlew assembleCivDebug
+   .\scripts\build-atak.ps1 5.8.0
+   .\scripts\build-atak.ps1 all
    ```
 
-   Release name: `PlowTAK-<yy.mmdd.HHmm>-ATAK-5.8.0-civ-release.apk`
+   Release names: `PlowTAK-<yy.mmdd.HHmm>-ATAK-5.6.0-civ-release.apk` (and
+   `5.7.0`, `5.8.0`). `all` skips a line whose SDK is not on disk.
 
 4. **Field devices** need a **TPC-signed** build:
    [tpc-0.1.9](https://github.com/CopIXus/PlowTAK/releases/tag/tpc-0.1.9)
@@ -234,9 +242,6 @@ Engine tests (no ATAK SDK):
 
 ```powershell
 .\gradlew.bat -p coretests test
-```
-.\gradlew.bat -p coretests test
-.\gradlew.bat assembleCivDebug
 ```
 
 ## Docs

@@ -1,22 +1,28 @@
 # PlowTAK CI / GitHub Releases
 
 Push to `main` does **not** assemble or publish plugin APKs. Field devices need
-a **TPC-signed** APK from [tak.gov user_builds](https://tak.gov/user_builds);
-after Success, publish that APK as a `tpc-*` GitHub Release (manual/`gh`).
+a **TPC-signed** APK from [tak.gov user_builds](https://tak.gov/user_builds).
+After the 5.6, 5.7, and 5.8 jobs succeed, publish them together:
 
-Optional CopIX-signed CIV APKs (developer ATAK only) still use
-[`.github/workflows/release.yml`](../.github/workflows/release.yml) on `v*` tags
-or **Run workflow** — never on main push.
+```powershell
+.\scripts\publish-release.ps1 -Tag tpc-<next> -ApkDir <folder of the three APKs>
+```
+
+That `tpc-*` release is what operators download. A `v*` tag or **Run workflow**
+on [`.github/workflows/release.yml`](../.github/workflows/release.yml) publishes
+a `build-*` release of CopIX-signed APKs for developer ATAK only. Do not use a
+`v*` tag for a field release. Never build on main push.
 
 ## Workflows
 
 | Workflow | Trigger | What it does |
 |----------|---------|--------------|
 | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | PR to `main`, `workflow_dispatch` | Engine unit tests (`coretests`) — no ATAK SDK required |
-| [`.github/workflows/release.yml`](../.github/workflows/release.yml) | tags `v*`, `workflow_dispatch` | Downloads SDK jars, assembles `assembleCivRelease`; publishes a Release only on `v*` tags or when `publish_release=true` |
+| [`.github/workflows/release.yml`](../.github/workflows/release.yml) | tags `v*`, `workflow_dispatch` | One `assembleCivRelease` per ATAK line (5.6.0, 5.7.0, 5.8.0); publishes every APK on one Release only on `v*` tags or when `publish_release=true` |
 
 Versions use **yy.mmdd.HHmm** UTC (24z), e.g. `26.0809.0935`. APK names look like
-`PlowTAK-26.0809.0935-ATAK-5.8.0-civ-release.apk`.
+`PlowTAK-26.0809.0935-ATAK-5.8.0-civ-release.apk`. A device loads only the APK
+built for its ATAK line.
 
 ## Why a private SDK cache repo?
 
@@ -25,8 +31,15 @@ cannot be stored as `ATAK_MAIN_JAR_BASE64`. Instead, CI downloads a slim zip
 from a **private** org repo:
 
 - [CopIXus/atak-civ-sdk-cache](https://github.com/CopIXus/atak-civ-sdk-cache) (private)
-- Release tag `atak-civ-5.8.0.1` → asset `atak-civ-5.8.0.1-ci-jars.zip`
-  (`main.jar` + `atak-gradle-takdev.jar` only)
+- One release per line, each asset `*-ci-jars.zip` (`main.jar` + `atak-gradle-takdev.jar` only):
+
+  | ATAK line | Cache tag |
+  |-----------|-----------|
+  | 5.6.0 | `atak-civ-5.6.0` |
+  | 5.7.0 | `atak-civ-5.7.0` |
+  | 5.8.0 | `atak-civ-5.8.0.1` |
+
+  A line whose tag is missing fails that matrix job only. The other lines still build.
 
 Do **not** make that cache repo public — the ATAK SDK is distributed under
 tak.gov terms and must not be redistributed.
@@ -37,7 +50,6 @@ tak.gov terms and must not be redistributed.
 |--------|----------|
 | `CI_SDK_REPO_TOKEN` | GitHub PAT (or `gh` oauth token) with `repo` scope that can read `atak-civ-sdk-cache` |
 | `ATAK_SDK_CACHE_REPO` | `CopIXus/atak-civ-sdk-cache` |
-| `ATAK_SDK_RELEASE_TAG` | `atak-civ-5.8.0.1` |
 | `ANDROID_KEYSTORE_BASE64` | Base64 of the release `.jks` |
 | `ANDROID_KEYSTORE_PASSWORD` | Keystore password |
 | `ANDROID_KEY_ALIAS` | Key alias |
@@ -45,21 +57,27 @@ tak.gov terms and must not be redistributed.
 
 Android signing secrets can match [AndroidTAKTracker](https://github.com/CopIXus/AndroidTAKTracker).
 
-### Refreshing the SDK cache (new ATAK version)
+### Refreshing the SDK cache (one zip per ATAK line)
 
 1. Download `ATAK-CIV-x.y.z-SDK.zip` from [tak.gov](https://tak.gov) → ATAK-CIV →
    **Developer Resources**.
 2. Zip just `main.jar` + `atak-gradle-takdev.jar`.
-3. Publish a new release on `atak-civ-sdk-cache` and update
-   `ATAK_SDK_RELEASE_TAG` on PlowTAK.
+3. Publish a release on `atak-civ-sdk-cache` using the tag in the table above.
+   Repeat for 5.6, 5.7, and 5.8. The workflow no longer reads
+   `ATAK_SDK_RELEASE_TAG`.
 
 ```powershell
+# 5.8 (patch SDK 5.8.0.1 still targets the 5.8.0 plugin API)
 $sdk = "T:\TAK\ATAK-CIV-5.8.0.1-SDK\ATAK-CIV-5.8.0.1-SDK"
 Compress-Archive -Path "$sdk\main.jar","$sdk\atak-gradle-takdev.jar" `
   -DestinationPath "T:\TAK\atak-civ-5.8.0.1-ci-jars.zip" -Force
 gh release create atak-civ-5.8.0.1 -R CopIXus/atak-civ-sdk-cache `
   --title "ATAK-CIV 5.8.0.1 CI jars" `
   "T:\TAK\atak-civ-5.8.0.1-ci-jars.zip#atak-civ-5.8.0.1-ci-jars.zip"
+
+# Same two files from the 5.6 and 5.7 SDK extracts:
+#   gh release create atak-civ-5.6.0 -R CopIXus/atak-civ-sdk-cache ...
+#   gh release create atak-civ-5.7.0 -R CopIXus/atak-civ-sdk-cache ...
 ```
 
 ### Rotating `CI_SDK_REPO_TOKEN`
@@ -76,10 +94,9 @@ gh secret set CI_SDK_REPO_TOKEN -R CopIXus/PlowTAK
 SDK is already extractable locally after a tak.gov download:
 
 ```powershell
-# Example paths after Expand-Archive of ATAK-CIV-5.8.0.1-SDK.zip
-copy local.properties.example local.properties
-# set sdk.path / takdev.plugin to the extracted SDK folder
-.\gradlew.bat :app:assembleCivRelease
+# One APK per line. SDK root defaults to T:\TAK (override with $env:ATAK_SDK_ROOT).
+.\scripts\build-atak.ps1 5.8.0
+.\scripts\build-atak.ps1 all          # skips a line whose SDK is not extracted
 .\gradlew.bat -p coretests test
 ```
 

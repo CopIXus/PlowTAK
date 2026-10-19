@@ -38,6 +38,7 @@ Thumbs.db
 # APK / build outputs
 *.apk
 *.aab
+dist/
 *.ap_
 *.dex
 output-metadata.json

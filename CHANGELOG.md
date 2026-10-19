@@ -7,6 +7,14 @@ Plugin versions use **yy.mmdd.HHmm** UTC (build timestamp), e.g. `26.0809.0935`.
 
 ## [Unreleased]
 
+### Added
+- One CIV APK per ATAK line (5.6.0, 5.7.0, 5.8.0) via `scripts/build-atak.ps1`
+  and `-Patak.version`. `versionCode` differs by ATAK minor so the three APKs
+  do not share a code.
+- Field releases list one TPC APK per ATAK line, with a Which file? table.
+  `scripts/build-tpp-zips.py` pins the stamp and line; `scripts/publish-release.ps1`
+  publishes them on one `tpc-*` release.
+
 ## [0.1.9] — 2026-08-16 (TPC `tpc-0.1.9`)
 
 TPC job `amos-halava1-leo-gov-20260816-014839` →
