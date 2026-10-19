@@ -18,6 +18,8 @@ import com.atakmap.android.maps.MapGroup
 import com.atakmap.android.maps.MapItem
 import com.atakmap.android.maps.Polyline
 import com.atakmap.android.plowtak.equipment.ManualEquipmentProvider
+import com.atakmap.android.plowtak.ops.ProvisioningCodec
+import com.atakmap.android.plowtak.ops.ProvisioningProfile
 import com.atakmap.android.plowtak.gis.GeoJsonRoadSource
 import com.atakmap.android.plowtak.gis.GraphHopperRoadSource
 import com.atakmap.android.plowtak.gis.LaneModel

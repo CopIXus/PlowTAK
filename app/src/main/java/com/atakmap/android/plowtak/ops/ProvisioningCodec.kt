@@ -102,8 +102,7 @@ object ProvisioningCodec {
                 towWidthM = MiniJson.double(o["towWidthM"]) ?: defaults.towWidthM,
                 callsign = MiniJson.string(o["callsign"]) ?: "",
                 vehicleId = MiniJson.string(o["vehicleId"]) ?: "",
-                observerLabel = MiniJson.string(o["observerLabel"]) ?: "",
-                contractor = MiniJson.bool(o["contractor"]) ?: false
+                observerLabel = MiniJson.string(o["observerLabel"]) ?: ""
             )
         )
     }
@@ -182,12 +181,12 @@ object ProvisioningCodec {
             sb.append("    \"wingRightWidthM\": ").append(num(cap.wingRightWidthM)).append(",\n")
             sb.append("    \"towWidthM\": ").append(num(cap.towWidthM)).append(",\n")
             sb.append("    \"callsign\": ").append(MiniJson.quote(cap.callsign)).append(",\n")
-            sb.append("    \"vehicleId\": ").append(MiniJson.quote(cap.vehicleId)).append(",\n")
+            sb.append("    \"vehicleId\": ").append(MiniJson.quote(cap.vehicleId))
             if (cap.observerLabel.isNotEmpty()) {
-                sb.append("    \"observerLabel\": ")
-                    .append(MiniJson.quote(cap.observerLabel)).append(",\n")
+                sb.append(",\n    \"observerLabel\": ")
+                    .append(MiniJson.quote(cap.observerLabel))
             }
-            sb.append("    \"contractor\": ").append(cap.contractor).append("\n  }")
+            sb.append("\n  }")
         }
         profile.cycleTimes?.let { c ->
             sb.append(",\n  \"cycleTimes\": { \"default\": ").append(c.defaultMinutes)

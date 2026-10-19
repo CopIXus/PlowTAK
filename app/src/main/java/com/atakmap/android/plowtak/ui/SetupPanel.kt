@@ -47,24 +47,12 @@ class SetupPanel(
     private val conditionStale = view.findViewById<EditText>(R.id.setup_condition_stale)
     private val roadSnap = view.findViewById<CheckBox>(R.id.setup_roadsnap)
     private val roadSnapDir = view.findViewById<EditText>(R.id.setup_roadsnap_dir)
-    private val btEnabled = view.findViewById<CheckBox>(R.id.setup_bt_enabled)
-    private val btAddress = view.findViewById<EditText>(R.id.setup_bt_address)
-    private val btBle = view.findViewById<CheckBox>(R.id.setup_bt_ble)
 
     init {
         view.findViewById<TextView>(R.id.setup_version).text =
             "PlowTAK ${pluginVersionLabel()}"
 
         typeGroup.setOnCheckedChangeListener { _, _ -> applyVisibility() }
-        var headerTaps = 0
-        view.findViewById<TextView>(R.id.setup_title).setOnClickListener {
-            headerTaps++
-            if (headerTaps >= 7) {
-                controller.prefs.devModeEnabled = true
-                showDemoControls()
-            }
-        }
-        if (controller.prefs.devModeEnabled || controller.demoFleet.isRunning) showDemoControls()
         if (controller.prefs.nightMode) NightPalette.apply(view, true)
         val roadLine = view.findViewById<TextView>(R.id.setup_road_network)
         roadLine.text = controller.roadSource.label

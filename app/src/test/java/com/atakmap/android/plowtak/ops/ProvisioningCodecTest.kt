@@ -23,8 +23,7 @@ class ProvisioningCodecTest {
                 hasSalt = true,
                 plowWidthM = 3.7,
                 wingLeftWidthM = 4.9, wingRightWidthM = 4.9,
-                callsign = "CTR-Plow",
-                contractor = true
+                callsign = "CTR-Plow"
             )
         ),
         cycleTimes = CycleTimes(defaultMinutes = 45, p1Minutes = 30, p3Minutes = 90),
@@ -60,13 +59,6 @@ class ProvisioningCodecTest {
         assertEquals(orig.roadConditionTtlMinutes, back.roadConditionTtlMinutes)
         assertEquals(orig.facilities, back.facilities)
         assertEquals(orig.zones, back.zones)
-    }
-
-    @Test
-    fun `contractor onboarding profile carries the flag`() {
-        val back = ProvisioningCodec.decode(ProvisioningCodec.encode(fullProfile()))!!
-        assertTrue(back.capability!!.contractor)
-        assertTrue(back.capability!!.canTreat)
     }
 
     @Test
@@ -121,8 +113,7 @@ class ProvisioningCodecTest {
             }
         """.trimIndent()
         val cap = ProvisioningCodec.decode(json)!!.capability!!
-        assertTrue(!cap.hasBlade)      // observers have no blade
-        assertTrue(!cap.contractor)    // only treat-capable units
+        assertTrue(!cap.hasBlade)
     }
 
     @Test
