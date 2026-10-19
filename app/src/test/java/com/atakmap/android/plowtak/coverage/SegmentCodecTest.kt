@@ -5,6 +5,7 @@ import com.atakmap.android.plowtak.model.MaterialMode
 import com.atakmap.android.plowtak.model.TrackPoint
 import com.atakmap.android.plowtak.model.TreatSegment
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -87,24 +88,23 @@ class SegmentCodecTest {
     }
 
     @Test
-    fun `contractor and telemetry round-trip in v3`() {
+    fun `telemetry round-trips in v3 and an old contractor column is ignored`() {
         val orig = segment().copy(
-            contractor = true,
             applicationRateLbsPerMi = 250.0,
             roadTempF = 28.4
         )
         val line = SegmentCodec.encode(orig)
         assertTrue(line.startsWith("3|"))
         val back = SegmentCodec.decode(line)!!
-        assertTrue(back.contractor)
         assertEquals(250.0, back.applicationRateLbsPerMi!!, 1e-9)
         assertEquals(28.4, back.roadTempF!!, 1e-9)
+        val legacy = line.replace("|250.0|", "|1|250.0|")
+        assertNotNull(SegmentCodec.decode(legacy))
     }
 
     @Test
     fun `v3 defaults stay empty for a plain municipal segment`() {
         val back = SegmentCodec.decode(SegmentCodec.encode(segment()))!!
-        assertTrue(!back.contractor)
         assertNull(back.applicationRateLbsPerMi)
         assertNull(back.roadTempF)
     }
@@ -115,7 +115,6 @@ class SegmentCodecTest {
                 "36.1627001,-86.7816002,0,87.2;36.1630000,-86.7810000,3000,|brine"
         val back = SegmentCodec.decode(v2)!!
         assertEquals(Material.BRINE, back.spreadMaterial)
-        assertTrue(!back.contractor)
         assertNull(back.applicationRateLbsPerMi)
         assertNull(back.roadTempF)
     }

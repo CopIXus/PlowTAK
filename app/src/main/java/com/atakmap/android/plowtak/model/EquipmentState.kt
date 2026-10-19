@@ -39,10 +39,7 @@ data class EquipmentState(
     val wingLeftExtended: Boolean = false,
     /** Right wing extended (front-view plow control). */
     val wingRightExtended: Boolean = false,
-    /**
-     * Spreader application rate in lbs/mile, reported by a Bluetooth
-     * controller; null when no hardware telemetry is present.
-     */
+    /** Spreader application rate in lbs/mile; null when unknown. */
     val rateLbsPerMi: Double? = null,
     /** Road surface temperature (deg F) from hardware; null when unknown. */
     val roadTempF: Double? = null

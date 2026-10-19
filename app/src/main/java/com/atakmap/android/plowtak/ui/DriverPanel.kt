@@ -43,6 +43,7 @@ class DriverPanel(
     private val header = view.findViewById<TextView>(R.id.driver_header)
     private val statusLine = view.findViewById<TextView>(R.id.driver_status_line)
     private val paintLine = view.findViewById<TextView>(R.id.driver_paint_line)
+    private val syncLine = view.findViewById<TextView>(R.id.driver_sync_line)
     private val shiftForm = view.findViewById<View>(R.id.driver_shift_form)
     private val operatorName = view.findViewById<EditText>(R.id.driver_operator_name)
     private val operatorId = view.findViewById<EditText>(R.id.driver_operator_id)
@@ -158,6 +159,7 @@ class DriverPanel(
                 }
             }
         controller.sanityPromptListener = { prompt -> view.post { showSanityPrompt(prompt) } }
+        controller.paintLineListener = { reason -> view.post { paintLine.text = reason } }
 
         refresh()
     }
@@ -167,6 +169,7 @@ class DriverPanel(
         controller.taskManager.removeListener(taskListener)
         controller.statusManager.suggestionListener = null
         controller.sanityPromptListener = null
+        controller.paintLineListener = null
     }
 
     fun refresh() {
@@ -190,6 +193,7 @@ class DriverPanel(
         statusLine.text = "Status: ${controller.statusManager.current.label}" +
                 (storm?.let { "  •  ${it.displayName()}" } ?: "  •  No storm selected")
         paintLine.text = controller.currentPaintStatus().reason
+        syncLine.text = StormServerDialogs.currentServerSummary(controller)
 
         val onShift = shift != null
         shiftForm.visibility = if (onShift) View.GONE else View.VISIBLE
@@ -363,9 +367,12 @@ class DriverPanel(
 
     private fun toggleShift() {
         if (controller.shiftLog.isOnShift) {
-            controller.equipment.setBladeDown(false)
-            controller.equipment.setSpreading(false)
-            controller.shiftLog.endShift(System.currentTimeMillis())
+            AlertDialog.Builder(controller.mapView.context)
+                .setTitle("End shift?")
+                .setMessage("Stops painting and marks you off duty.")
+                .setPositiveButton("End shift") { _, _ -> endShiftNow() }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
         } else {
             val name = operatorName.text.toString().trim()
             val id = operatorId.text.toString().trim()
@@ -382,15 +389,30 @@ class DriverPanel(
         refresh()
     }
 
+    private fun endShiftNow() {
+        controller.equipment.setBladeDown(false)
+        controller.equipment.setSpreading(false)
+        controller.shiftLog.endShift(System.currentTimeMillis())
+        refresh()
+    }
+
     private fun onDistress() {
         val myUid = AlertEvent.makeUid(controller.selfUid())
         val existing = controller.alertManager.get(myUid)
         if (existing != null && existing.state != AlertState.CLEARED) {
             controller.clearOwnDistress()
-        } else {
-            controller.sendDistress()
+            refresh()
+            return
         }
-        refresh()
+        AlertDialog.Builder(controller.mapView.context)
+            .setTitle("Send Mayday?")
+            .setMessage("Broadcasts distress to the fleet.")
+            .setPositiveButton("Send") { _, _ ->
+                controller.sendDistress()
+                refresh()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     private fun applyTopIcon(button: TextView, iconRes: Int, sizePx: Int = dp(28)) {

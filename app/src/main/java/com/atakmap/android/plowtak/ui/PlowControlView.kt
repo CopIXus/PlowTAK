@@ -309,6 +309,7 @@ class PlowControlView @JvmOverloads constructor(
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (!isEnabled) return false
         if (event.action != MotionEvent.ACTION_UP) return true
         val x = event.x
         val y = event.y

@@ -22,12 +22,14 @@ class FleetManager(
     fun addListener(l: Listener) { listeners.add(l) }
     fun removeListener(l: Listener) { listeners.remove(l) }
 
+    @Synchronized
     fun update(vehicle: PlowVehicle) {
         vehicles[vehicle.uid] = vehicle
         notifyChanged()
     }
 
     /** Drop one unit (e.g. demo cleanup). */
+    @Synchronized
     fun remove(uid: String): Boolean {
         if (vehicles.remove(uid) == null) return false
         notifyChanged()
@@ -35,6 +37,7 @@ class FleetManager(
     }
 
     /** Drop many units at once; notifies once. */
+    @Synchronized
     fun removeAll(uids: Collection<String>) {
         var changed = false
         for (uid in uids) {
@@ -43,14 +46,18 @@ class FleetManager(
         if (changed) notifyChanged()
     }
 
+    @Synchronized
     fun get(uid: String): PlowVehicle? = vehicles[uid]
 
+    @Synchronized
     fun all(): List<PlowVehicle> = vehicles.values.toList()
 
+    @Synchronized
     fun staleUids(nowMs: Long): List<String> =
         vehicles.values.filter { it.isStale(nowMs, staleAfterMs) }.map { it.uid }
 
     /** Drop units unseen for [dropAfterMs]; returns removed uids. */
+    @Synchronized
     fun pruneDead(nowMs: Long, dropAfterMs: Long = 30 * 60_000L): List<String> {
         val dead = vehicles.values
             .filter { nowMs - it.lastUpdateMs > dropAfterMs }

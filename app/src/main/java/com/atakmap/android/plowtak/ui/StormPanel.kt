@@ -1,5 +1,6 @@
 package com.atakmap.android.plowtak.ui
 
+import android.app.AlertDialog
 import android.app.ProgressDialog
 import android.view.Gravity
 import android.view.View
@@ -49,12 +50,20 @@ class StormPanel(
     private var suppressChannelSelect = true
 
     init {
+        if (controller.prefs.nightMode) NightPalette.apply(view, true)
         view.findViewById<Button>(R.id.storm_done).setOnClickListener { onDone() }
         view.findViewById<Button>(R.id.storm_create).setOnClickListener { createStorm() }
         view.findViewById<Button>(R.id.storm_leave).setOnClickListener {
-            controller.leaveStormSession()
-            Toast.makeText(hostContext, "Left storm (not reporting)", Toast.LENGTH_SHORT).show()
-            refresh()
+            AlertDialog.Builder(hostContext)
+                .setTitle("Leave storm?")
+                .setMessage("Stops reporting. Coverage already shared stays on the server.")
+                .setPositiveButton("Leave") { _, _ ->
+                    controller.leaveStormSession()
+                    Toast.makeText(hostContext, "Left storm (not reporting)", Toast.LENGTH_SHORT).show()
+                    refresh()
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
         }
         newName.setText(StormServerDialogs.defaultStormName(System.currentTimeMillis()))
 

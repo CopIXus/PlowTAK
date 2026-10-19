@@ -114,6 +114,12 @@ Additional positives:
 
 The packs were imported **2021-08-17** from OSM data dated **2021-07-13**. Fine for development and demos; production agencies should rebuild from fresh OSM extracts **using GraphHopper 1.0 tooling** (newer GraphHopper versions changed the storage format and will produce packs VNS 4.0 cannot read).
 
+## PlowTAK uses the same pack
+
+PlowTAK reads `atak/tools/VNS/GH/<region>/` directly. If VNS offline routing is already installed, untreated roads and P1/P2/P3 cycle times work with no second download. There is no public host of ready-made packs: VNS "Manage Offline Areas" downloads from an agency routing server, and new regions are built on a PC with the [ATAK VNS offline routing generator](https://github.com/joshuafuller/atak-vns-offline-routing-generator) (GraphHopper 1.0, Geofabrik OSM extracts). Distribute a pack as a folder under `tools/VNS/GH/` or as a `.ghz` file through ATAK Import Manager, which VNS extracts.
+
+An agency may also import its own GeoJSON or KML (`priority`, `lanes`, `route_id`). That file overrides the pack where it has a road and is shared on the storm mission as `roads.geojson`.
+
 ## Still pending (needs a device)
 
 - Confirm the three packs actually load and route (encoded-value hash check).

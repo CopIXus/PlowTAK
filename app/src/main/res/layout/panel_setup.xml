@@ -63,6 +63,22 @@
                 android:text="@string/setup_type_salt"
                 android:textColor="@color/plowtak_text"
                 android:textSize="18sp" />
+
+            <RadioButton
+                android:id="@+id/setup_type_supervisor"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:text="@string/setup_type_supervisor"
+                android:textColor="@color/plowtak_text"
+                android:textSize="18sp" />
+
+            <RadioButton
+                android:id="@+id/setup_type_observer"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:text="@string/setup_type_observer"
+                android:textColor="@color/plowtak_text"
+                android:textSize="18sp" />
         </RadioGroup>
 
         <EditText
@@ -296,6 +312,14 @@
             android:textColor="@color/plowtak_text"
             android:textColorHint="@color/plowtak_grey"
             android:textSize="16sp" />
+
+        <TextView
+            android:id="@+id/setup_road_network"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textColor="@color/plowtak_grey"
+            android:textSize="13sp" />
 
         <CheckBox
             android:id="@+id/setup_roadsnap"

@@ -4,8 +4,12 @@ import android.util.Log
 import com.atakmap.android.chat.ChatManagerMapComponent
 import com.atakmap.android.contact.Contacts
 import com.atakmap.android.plowtak.cot.codec.AlertCotCodec
+import com.atakmap.android.plowtak.cot.codec.CoverageCotCodec
 import com.atakmap.android.plowtak.cot.codec.RoadConditionCotCodec
+import com.atakmap.android.plowtak.cot.codec.RouteAssignmentCotCodec
 import com.atakmap.android.plowtak.cot.codec.StormCotCodec
+import com.atakmap.android.plowtak.cot.codec.TaskCotCodec
+import com.atakmap.android.plowtak.cot.codec.ZoneCotCodec
 import com.atakmap.android.plowtak.equipment.EquipmentProvider
 import com.atakmap.android.plowtak.model.AlertEvent
 import com.atakmap.android.plowtak.model.AlertState
@@ -54,6 +58,7 @@ class PlowCotPublisher(
 ) : SelfTracker.Listener {
 
     private var lastPliMs = 0L
+    private var lastCoverageMs = 0L
     private var moving = false
 
     override fun onPosition(sample: SelfTracker.PositionSample) {
@@ -68,7 +73,10 @@ class PlowCotPublisher(
                 lastPliMs = now
                 publishPli(sample)
             }
-            // Coverage / status / ops share via Data Sync (MissionCoverageSync).
+            if (now - lastCoverageMs >= COVERAGE_PERIOD_MS) {
+                lastCoverageMs = now
+                publishCoverage()
+            }
             queue.onTick()
         } catch (e: Exception) {
             Log.e(TAG, "publish tick failed", e)
@@ -112,6 +120,34 @@ class PlowCotPublisher(
         queue.send(event, alsoInternal = false) // self marker already local
     }
 
+    /**
+     * Live coverage for peers that are not waiting on the next Data Sync
+     * tick. Data Sync remains the catch-up path; a failed send puts the
+     * segments back on the store queue.
+     */
+    private fun publishCoverage() {
+        val storm = stormManager.activeSession()?.takeIf { it.isActive } ?: return
+        val batch = coverageStore.drainPendingShare(CoverageCotCodec.MAX_SEGMENTS_PER_EVENT)
+        if (batch.isEmpty()) return
+        try {
+            val tip = batch.last().points.last()
+            val event = newEvent(
+                uid = "plowtak-cov-${batch.first().vehicleUid}-${batch.last().endTimeMs}",
+                type = CoverageCotCodec.COVERAGE_EVENT_TYPE,
+                lat = tip.lat,
+                lon = tip.lon,
+                staleSeconds = 120
+            )
+            val root = CotDetail("detail")
+            root.addChild(CotDetailAdapter.toCotDetail(CoverageCotCodec.encode(storm.id, batch)))
+            event.detail = root
+            queue.send(event, alsoInternal = false)
+        } catch (e: Exception) {
+            Log.w(TAG, "coverage publish failed; requeue", e)
+            coverageStore.requeueForShare(batch)
+        }
+    }
+
     // ------------------------------------------------------------- alerts
 
     /** Broadcast a distress alert or an ack/clear transition (TAK CoT). */
@@ -150,6 +186,11 @@ class PlowCotPublisher(
             staleSeconds = STORM_STALE_S
         )
         val root = CotDetail("detail")
+        // Stock ATAK / CloudTAK list rows show contact.callsign; without it the
+        // UI falls back to "NO CALLSIGN" even though __plowtak has the label.
+        val contact = CotDetail("contact")
+        contact.setAttribute("callsign", session.displayName())
+        root.addChild(contact)
         root.addChild(CotDetailAdapter.toCotDetail(StormCotCodec.encode(session)))
         event.detail = root
 
@@ -163,14 +204,47 @@ class PlowCotPublisher(
      * Kept so call sites stay stable; no TAK CoT.
      */
     fun publishZone(zone: SpecialZone, removed: Boolean) {
-        Log.d(TAG, "zone ${zone.id} ${if (removed) "removed" else "updated"} (Data Sync)")
+        try {
+            val cap = capabilityStore.load()
+            val event = newEvent(
+                uid = "plowtak-zone-${zone.id}",
+                type = ZoneCotCodec.ZONE_EVENT_TYPE,
+                lat = zone.centerLat,
+                lon = zone.centerLon,
+                staleSeconds = if (removed) 0 else STORM_STALE_S
+            )
+            val root = CotDetail("detail")
+            root.addChild(
+                CotDetailAdapter.toCotDetail(
+                    ZoneCotCodec.encode(zone, removed, cap.callsign, System.currentTimeMillis())
+                )
+            )
+            event.detail = root
+            queue.send(event, alsoInternal = false)
+        } catch (e: Exception) {
+            Log.w(TAG, "zone publish failed", e)
+        }
     }
 
     // -------------------------------------------------------------- tasks
 
     /** Tasks share via Data Sync; GeoChat ping retained for operator nudge. */
     fun publishTask(task: TaskEvent) {
-        Log.d(TAG, "task ${task.uid} → Data Sync (no CoT)")
+        try {
+            val event = newEvent(
+                uid = task.uid,
+                type = TaskCotCodec.TASK_EVENT_TYPE,
+                lat = task.lat,
+                lon = task.lon,
+                staleSeconds = STORM_STALE_S
+            )
+            val root = CotDetail("detail")
+            root.addChild(CotDetailAdapter.toCotDetail(TaskCotCodec.encode(task)))
+            event.detail = root
+            queue.send(event, alsoInternal = false)
+        } catch (e: Exception) {
+            Log.w(TAG, "task publish failed", e)
+        }
         sendTaskGeoChat(task)
     }
 
@@ -194,19 +268,56 @@ class PlowCotPublisher(
 
     /** Routes share via Data Sync — no TAK CoT. */
     fun publishRouteAssignment(assignment: RouteAssignment, lat: Double, lon: Double) {
-        Log.d(TAG, "route assign ${assignment.vehicleUid} (Data Sync)")
+        try {
+            val event = newEvent(
+                uid = RouteAssignmentCotCodec.eventUidFor(assignment.vehicleUid),
+                type = RouteAssignmentCotCodec.ROUTE_EVENT_TYPE,
+                lat = lat,
+                lon = lon,
+                staleSeconds = STORM_STALE_S
+            )
+            val root = CotDetail("detail")
+            root.addChild(CotDetailAdapter.toCotDetail(RouteAssignmentCotCodec.encode(assignment)))
+            event.detail = root
+            queue.send(event, alsoInternal = false)
+        } catch (e: Exception) {
+            Log.w(TAG, "route publish failed", e)
+        }
     }
 
     // --------------------------------------------------- road conditions
 
     /**
-     * Local map marker only; Data Sync carries the shared condition set.
+     * Broadcast a road-condition marker to the TAK mesh (and local map) so
+     * peers / CloudTAK Map Items see it immediately. Data Sync still mirrors
+     * the set as `{uid}-conditions.geojson` for late joiners.
+     *
      * [staleMinutes] comes from the Road Condition stale setting (default 2 h)
      * so the marker auto-expires with the same TTL as the mission upload.
      */
     fun publishRoadCondition(
         report: RoadConditionReport,
         staleMinutes: Int = StormSession.DEFAULT_ROAD_CONDITION_TTL_MINUTES
+    ) {
+        dispatchRoadCondition(report, staleMinutes, broadcast = true)
+    }
+
+    /**
+     * Paint a condition from Data Sync pull on the local map only — never
+     * rebroadcast (the originator already sent CoT, or sync-only peers will
+     * get the file).
+     */
+    fun showLocalRoadCondition(
+        report: RoadConditionReport,
+        staleMinutes: Int = StormSession.DEFAULT_ROAD_CONDITION_TTL_MINUTES
+    ) {
+        dispatchRoadCondition(report, staleMinutes, broadcast = false)
+    }
+
+    private fun dispatchRoadCondition(
+        report: RoadConditionReport,
+        staleMinutes: Int,
+        broadcast: Boolean
     ) {
         try {
             if (MapView.getMapView()?.rootGroup?.deepFindUID(report.uid) != null) return
@@ -235,12 +346,17 @@ class PlowCotPublisher(
         root.addChild(remarks)
         root.addChild(CotDetailAdapter.toCotDetail(RoadConditionCotCodec.encode(report)))
         event.detail = root
-        queue.sendLocalOnly(event)
+        if (broadcast) {
+            queue.send(event)
+        } else {
+            queue.sendLocalOnly(event)
+        }
     }
 
     /**
-     * Drop a stale road-condition marker from the local map (TTL expired).
-     * Dispatches a CoT with stale=now and removes the map item by UID.
+     * Drop a stale road-condition marker (TTL expired). Broadcasts a CoT with
+     * stale=now so mesh peers / CloudTAK drop the Map Item, then removes the
+     * local map item by UID.
      */
     fun withdrawRoadCondition(report: RoadConditionReport, mapView: MapView) {
         try {
@@ -252,7 +368,7 @@ class PlowCotPublisher(
                 staleSeconds = 0
             )
             event.how = "h-g-i-g-o"
-            queue.sendLocalOnly(event)
+            queue.send(event)
         } catch (e: Exception) {
             Log.w(TAG, "withdraw CoT failed for ${report.uid}", e)
         }
@@ -294,5 +410,6 @@ class PlowCotPublisher(
 
         private const val ALERT_STALE_S = 3600
         private const val STORM_STALE_S = 24 * 3600
+        private const val COVERAGE_PERIOD_MS = 15_000L
     }
 }

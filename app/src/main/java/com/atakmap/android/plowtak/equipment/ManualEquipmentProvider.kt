@@ -77,12 +77,8 @@ class ManualEquipmentProvider(
     var wingLeftAllowed: () -> Boolean = { true }
     var wingRightAllowed: () -> Boolean = { true }
     /**
-     * Merge a Bluetooth controller report (Phase 3). The hardware state
-     * lands on the same channels as manual taps, so the driver's toggles
-     * stay authoritative: a tap after a BT report simply wins because it is
-     * newer, and recording never depends on BT being connected at all.
-     * The width preset is deliberately untouched — controllers don't know
-     * about wings/tow plows.
+     * Merge an external equipment report onto the same channels as the
+     * driver toggles. A later tap wins. The width preset is left alone.
      */
     fun applyHardware(hw: EquipmentState) = update(
         state.copy(

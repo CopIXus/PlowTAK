@@ -30,30 +30,34 @@ class StatusManager {
     private var onShift: Boolean = false
     private var lastComputed: VehicleStatus = VehicleStatus.OFF_DUTY
 
-    val current: VehicleStatus get() = lastComputed
+    val current: VehicleStatus @Synchronized get() = lastComputed
 
-    val manual: VehicleStatus? get() = manualStatus
+    val manual: VehicleStatus? @Synchronized get() = manualStatus
 
     fun addListener(l: Listener) { listeners.add(l) }
     fun removeListener(l: Listener) { listeners.remove(l) }
 
     /** One-tap manual status. */
+    @Synchronized
     fun setManual(status: VehicleStatus) {
         manualStatus = status
         recompute()
     }
 
     /** "Back to driving" — resume derived status. */
+    @Synchronized
     fun clearManual() {
         manualStatus = null
         recompute()
     }
 
+    @Synchronized
     fun updateTreating(treating: Boolean) {
         this.treating = treating
         recompute()
     }
 
+    @Synchronized
     fun updateShift(onShift: Boolean) {
         this.onShift = onShift
         if (!onShift) manualStatus = null
@@ -61,6 +65,7 @@ class StatusManager {
     }
 
     /** Surface a suggestion (e.g. entered salt dome → LOADING). Never auto-sets. */
+    @Synchronized
     fun suggest(status: VehicleStatus, reason: String) {
         if (lastComputed == status) return
         suggestionListener?.onStatusSuggested(status, reason)

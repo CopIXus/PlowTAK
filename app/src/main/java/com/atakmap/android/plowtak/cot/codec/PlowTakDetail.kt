@@ -43,9 +43,7 @@ data class PlowTakDetail(
     /** Active effective-width preset. */
     val widthPreset: WidthPreset = WidthPreset.STANDARD,
     /** Reloads logged this storm (salt-dome geofence entries). */
-    val reloadCount: Int = 0,
-    /** Hired (contractor) unit — publishes under a CTR-<storm>-<n> uid. */
-    val contractor: Boolean = false
+    val reloadCount: Int = 0
 ) {
 
     /** Side of the corridor a treating pass is painting, from heading. */
@@ -68,8 +66,6 @@ data class PlowTakDetail(
                     put("hasSalt", hasSalt.toString())
                     put("canTreat", canTreat.toString())
                     put("role", role)
-                    // Present only for hired units (older receivers ignore).
-                    if (contractor) put("contractor", "true")
                 }
             ),
             DetailNode(
@@ -155,8 +151,7 @@ data class PlowTakDetail(
             operatorId = operatorId,
             operatorName = operatorName,
             widthPreset = widthPreset,
-            reloadCount = reloadCount,
-            contractor = cap.contractor
+            reloadCount = reloadCount
         )
 
         /** Returns null if the node is not a valid `<__plowtak>` detail. */
@@ -187,8 +182,7 @@ data class PlowTakDetail(
                 operatorName = operator?.attr("name") ?: "",
                 widthPreset = WidthPreset.fromWireName(status?.attr("preset"))
                     ?: WidthPreset.STANDARD,
-                reloadCount = ops?.attrLong("reloads", 0L)?.toInt() ?: 0,
-                contractor = vehicle.attr("contractor") == "true"
+                reloadCount = ops?.attrLong("reloads", 0L)?.toInt() ?: 0
             )
         }
     }

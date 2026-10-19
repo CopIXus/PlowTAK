@@ -41,9 +41,11 @@ class StormSessionManager(
     val activeStormId: String get() = session?.takeIf { it.isActive }?.id ?: ""
 
     /** Active joined session, or null. */
+    @Synchronized
     fun activeSession(): StormSession? = session?.takeIf { it.isActive }
 
     /** Catalog for pickers: active storms first, then recently ended. */
+    @Synchronized
     fun knownStorms(): List<StormSession> {
         val values = catalog.values.toList()
         val active = values.filter { it.isActive }.sortedByDescending { it.startTimeMs }
@@ -52,6 +54,7 @@ class StormSessionManager(
     }
 
     /** Start and join a new storm (any unit). */
+    @Synchronized
     fun startSession(
         startedBy: String,
         nowMs: Long,
@@ -135,6 +138,7 @@ class StormSessionManager(
     }
 
     /** Supervisor: end the storm this device started / is joined to. */
+    @Synchronized
     fun endSession(nowMs: Long): StormSession? {
         val active = session?.takeIf { it.isActive } ?: return null
         val ended = active.copy(endTimeMs = nowMs)
@@ -146,6 +150,7 @@ class StormSessionManager(
     }
 
     /** Explicitly join [remote] as the reporting storm. */
+    @Synchronized
     fun join(remote: StormSession): Boolean {
         remember(remote)
         if (session == remote) return false
@@ -155,12 +160,14 @@ class StormSessionManager(
         return true
     }
 
+    @Synchronized
     fun joinById(id: String): Boolean {
         val s = catalog[id] ?: return false
         return join(s)
     }
 
     /** Stop reporting into a storm without ending it for the fleet. */
+    @Synchronized
     fun leave() {
         if (session == null) return
         session = null
@@ -173,6 +180,7 @@ class StormSessionManager(
      * the same id ends (or metadata refreshes for the joined id). Does **not**
      * auto-join a different agency’s storm.
      */
+    @Synchronized
     fun noteRemote(remote: StormSession): Boolean {
         remember(remote)
         val local = session
@@ -190,9 +198,6 @@ class StormSessionManager(
         if (changed) notifyChanged()
         return changed
     }
-
-    /** @deprecated Use [noteRemote]; kept for call-site clarity during transition. */
-    fun adoptRemote(remote: StormSession): Boolean = noteRemote(remote)
 
     private fun remember(s: StormSession) {
         catalog.remove(s.id)

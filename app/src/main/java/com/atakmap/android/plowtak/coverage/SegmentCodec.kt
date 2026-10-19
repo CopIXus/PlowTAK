@@ -43,7 +43,7 @@ object SegmentCodec {
             seg.startTimeMs.toString(),
             encodePoints(seg.points, seg.startTimeMs),
             seg.spreadMaterial?.wireName ?: "",
-            if (seg.contractor) "1" else "",
+            "",
             seg.applicationRateLbsPerMi?.let { formatDouble(it) } ?: "",
             seg.roadTempF?.let { formatDouble(it) } ?: ""
         ).joinToString(FIELD_SEP)
@@ -72,7 +72,6 @@ object SegmentCodec {
                 startTimeMs = startMs,
                 endTimeMs = points.last().timeMs,
                 spreadMaterial = if (f.size > 10) Material.fromWireName(f[10]) else null,
-                contractor = f.size > 11 && f[11] == "1",
                 applicationRateLbsPerMi = if (f.size > 12) f[12].toDoubleOrNull() else null,
                 roadTempF = if (f.size > 13) f[13].toDoubleOrNull() else null
             )

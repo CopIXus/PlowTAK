@@ -8,7 +8,10 @@ repositories {
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
+        // Follow the JDK running Gradle (17 on CI, 21 on dev machines that
+        // only have a current Microsoft JDK installed).
+        def spec = Integer.parseInt(System.getProperty("java.specification.version"))
+        languageVersion = JavaLanguageVersion.of(spec)
     }
 }
 
@@ -28,12 +31,10 @@ sourceSets {
             include 'com/atakmap/android/plowtak/gis/**'
             include 'com/atakmap/android/plowtak/ops/**'
             include 'com/atakmap/android/plowtak/equipment/**'
-            // BluetoothEquipmentProvider imports android.bluetooth — the
-            // protocol parser + backoff it uses stay pure and tested.
-            exclude 'com/atakmap/android/plowtak/equipment/BluetoothEquipmentProvider.kt'
             include 'com/atakmap/android/plowtak/cot/codec/**'
             include 'com/atakmap/android/plowtak/cot/SelfCotFilter.kt'
             include 'com/atakmap/android/plowtak/cot/PliRemarks.kt'
+            include 'com/atakmap/android/plowtak/cot/CotLinkState.kt'
             // report/ mixes pure exporters with ATAK-touching reporters —
             // include only the framework-free files.
             include 'com/atakmap/android/plowtak/report/StormExportData.kt'
@@ -41,7 +42,6 @@ sourceSets {
             include 'com/atakmap/android/plowtak/report/GeoJsonExporter.kt'
             include 'com/atakmap/android/plowtak/report/CsvExporter.kt'
             include 'com/atakmap/android/plowtak/report/MetricsCalculator.kt'
-            include 'com/atakmap/android/plowtak/report/StormReplay.kt'
             // sync/ pure codecs; MissionCoverageSync / TakServerTargets need ATAK HTTP.
             include 'com/atakmap/android/plowtak/sync/MissionCoverageCodec.kt'
             include 'com/atakmap/android/plowtak/sync/ConditionMissionCodec.kt'

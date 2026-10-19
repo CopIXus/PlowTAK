@@ -13,11 +13,9 @@ determines what the operator sees and can do.
 - Connect the device to your agency's TAK Server(s). Choose which server PlowTAK
   uses for Data Sync from the PlowTAK panel (one selected server per device).
 - Open the PlowTAK toolbar tool. On first launch, pick your **vehicle type** and
-  options (callsign, plow width presets, materials, contractor flag, optional
-  Bluetooth equipment controller).
-- Vehicle details live in the plugin drop-down (**Vehicle setup…**). Shared ops
-  toggles (voice alerts, direction-aware coverage, Bluetooth on/off) also appear
-  under **ATAK Tools → PlowTAK**.
+  options (callsign, plow width presets, materials, Supervisor or Observer).
+- Vehicle details live in the plugin drop-down (**Vehicle setup…**). Advanced
+  limits (retention, GPS, lane slack, PLI intervals) live under **ATAK Tool Preferences → PlowTAK**.
 
 ## 2. Vehicle capability types
 
@@ -26,8 +24,7 @@ determines what the operator sees and can do.
 - Publishes live position (PLI) to the fleet.
 - **Records coverage** while treating: blade down and/or salt on (per treat rule)
   paints a swath the width of the active preset, colored by freshness.
-- Equipment toggles: **Blade Up/Down**; **Salt On/Off** if `hasSalt`. Optional
-  Bluetooth controller can drive those states when enabled in setup.
+- Equipment toggles: **Blade Up/Down**; **Salt On/Off** if `hasSalt`. Taps do nothing off shift.
 - Material selector (salt / sand / brine / pre-wet) and width presets
   (standard / wing / tow).
 - One-tap **distress**, hazard drops, and road-condition reports.
@@ -40,8 +37,7 @@ determines what the operator sees and can do.
 - Equipment toggles: **Spreader On/Off** and material type — no blade control.
 - Same distress / hazard / condition tools as Plow (including QuickPic long-press).
 
-There is **no separate supervisor or observer role**. Every unit uses the same
-Ops panel; **Storm** (create / join / leave / end) is available to all.
+**Supervisor** starts and ends the storm and sees the overdue list. **Observer** is read-only (fleet, alerts, legend). Both skip shift login and never paint. Plow and salt trucks use the driver panel; storm create / join / leave / end is still available to them.
 
 ## 3. Reading the coverage map
 

@@ -185,6 +185,9 @@ object MissionCoverageCodec {
         val freshness = model.classify(seg.endTimeMs, styleNowMs, cycleMinutes)
         val argb = CoverageStyle.colorFor(freshness, seg)
         val width = CoverageStyle.strokeWeightFor(seg)
+        val headings = seg.points.joinToString(",") { p ->
+            if (p.headingDeg.isNaN()) "" else num(p.headingDeg, 1)
+        }
         val propMap = linkedMapOf(
             "type" to "segment",
             "name" to label,
@@ -194,6 +197,9 @@ object MissionCoverageCodec {
             "callsign" to seg.callsign,
             "storm" to seg.stormId,
             "material" to seg.material.wireName,
+            "operator" to seg.operatorId,
+            "spread" to (seg.spreadMaterial?.wireName ?: ""),
+            "headings" to headings,
             "start" to iso(seg.startTimeMs),
             "end" to iso(seg.endTimeMs)
         )

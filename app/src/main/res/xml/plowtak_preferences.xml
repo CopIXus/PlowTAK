@@ -17,11 +17,64 @@
         android:summary="Show half-treated corridors when only one direction is painted"
         android:defaultValue="true" />
 
-    <com.atakmap.android.gui.PanCheckBoxPreference
-        android:key="plowtak.bt_enabled"
-        android:title="Bluetooth equipment"
-        android:summary="Read blade/spreader state from a paired controller (set MAC in Vehicle setup)"
-        android:defaultValue="false" />
+    <PreferenceCategory
+        android:key="plowtak_cat_advanced"
+        android:title="Advanced" />
+
+    <com.atakmap.android.gui.PanEditTextPreference
+        android:key="plowtak.retention_hours"
+        android:title="Retention hours"
+        android:summary="Drop coverage older than this"
+        android:defaultValue="12" />
+
+    <com.atakmap.android.gui.PanEditTextPreference
+        android:key="plowtak.stale_after_s"
+        android:title="Fleet stale timeout (seconds)"
+        android:defaultValue="60" />
+
+    <com.atakmap.android.gui.PanEditTextPreference
+        android:key="plowtak.gps_ce_threshold_m"
+        android:title="GPS accuracy limit (meters)"
+        android:defaultValue="25" />
+
+    <com.atakmap.android.gui.PanEditTextPreference
+        android:key="plowtak.max_plow_speed_mph"
+        android:title="Max plow speed (mph)"
+        android:defaultValue="35" />
+
+    <com.atakmap.android.gui.PanEditTextPreference
+        android:key="plowtak.report_interval_moving_s"
+        android:title="PLI interval while moving (seconds)"
+        android:defaultValue="3" />
+
+    <com.atakmap.android.gui.PanEditTextPreference
+        android:key="plowtak.report_interval_stopped_s"
+        android:title="PLI interval while stopped (seconds)"
+        android:defaultValue="15" />
+
+    <com.atakmap.android.gui.PanEditTextPreference
+        android:key="plowtak.task_escalate_min"
+        android:title="Task escalation (minutes)"
+        android:defaultValue="5" />
+
+    <com.atakmap.android.gui.PanEditTextPreference
+        android:key="plowtak.max_retained_segments"
+        android:title="Max retained segments"
+        android:defaultValue="20000" />
+
+    <com.atakmap.android.gui.PanListPreference
+        android:key="plowtak.treat_rule"
+        android:title="Treat rule"
+        android:summary="When a capable truck paints coverage"
+        android:entries="@array/plowtak_treat_rule_labels"
+        android:entryValues="@array/plowtak_treat_rule_values"
+        android:defaultValue="either" />
+
+    <com.atakmap.android.gui.PanEditTextPreference
+        android:key="plowtak.lane_slack_m"
+        android:title="Lane slack (meters)"
+        android:summary="6 = road level, 2 = strict lanes"
+        android:defaultValue="6" />
 
     <PreferenceCategory
         android:key="plowtak_cat_sync"

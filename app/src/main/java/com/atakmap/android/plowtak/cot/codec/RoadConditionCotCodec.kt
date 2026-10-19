@@ -6,8 +6,8 @@ import com.atakmap.android.plowtak.model.RoadConditionReport
 /**
  * Detail codec for quick road-condition reports. Like hazards, the event
  * uses an ordinary marker type ([CONDITION_MARKER_TYPE]) so stock ATAK
- * renders something sensible; the condition rides in this detail and
- * PlowTak supervisors get typed condition markers.
+ * renders something sensible; the condition rides in this detail.
+ * Originators **broadcast** the marker; Data Sync pull uses local-only paint.
  *
  * ```
  * <__plowtak>

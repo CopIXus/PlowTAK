@@ -3,10 +3,8 @@ package com.atakmap.android.plowtak.equipment
 import com.atakmap.android.plowtak.model.EquipmentState
 
 /**
- * Source of blade / spreader state. Phase 1 ships [ManualEquipmentProvider]
- * (driver toggles); Phase 3 adds [BluetoothEquipmentProvider] for plow and
- * spreader controllers. Capability flags still gate which channels matter —
- * and recording must never block on an unavailable provider.
+ * Source of blade / spreader state. The driver toggles are the source.
+ * Capability flags still gate which channels matter.
  */
 interface EquipmentProvider {
 

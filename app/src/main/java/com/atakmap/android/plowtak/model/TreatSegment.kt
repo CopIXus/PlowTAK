@@ -35,8 +35,8 @@ data class TreatSegment(
     val applicationRateLbsPerMi: Double? = null,
     /** Road surface temperature (deg F) from hardware; null when unknown. */
     val roadTempF: Double? = null,
-    /** Pass recorded by a contractor unit (payment-verification tagging). */
-    val contractor: Boolean = false
+    /** GraphHopper or agency road id when the pass was snapped. */
+    val edgeId: String? = null
 ) {
     init {
         require(points.size >= 2) { "TreatSegment requires at least 2 points" }

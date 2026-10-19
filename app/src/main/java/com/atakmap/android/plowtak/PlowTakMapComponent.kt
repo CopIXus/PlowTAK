@@ -36,7 +36,7 @@ class PlowTakMapComponent : DropDownMapComponent() {
             ToolsPreferenceFragment.register(
                 ToolsPreferenceFragment.ToolPreference(
                     "PlowTAK Preferences",
-                    "Winter ops coverage, voice alerts, Bluetooth, Data Sync",
+                    "Winter ops coverage, voice alerts, Data Sync",
                     PlowTakPreferenceFragment.KEY,
                     context.resources.getDrawable(R.drawable.ic_plowtak, null),
                     PlowTakPreferenceFragment(context)

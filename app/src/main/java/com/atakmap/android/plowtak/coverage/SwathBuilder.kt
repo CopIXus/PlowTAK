@@ -41,9 +41,7 @@ class SwathBuilder(
         val vehicleUid: String,
         val callsign: String,
         val stormId: String,
-        val operatorId: String,
-        /** Contractor unit — segments are tagged for payment verification. */
-        val contractor: Boolean = false
+        val operatorId: String
     )
 
     private var context: Context = Context("", "", "", "")
@@ -53,6 +51,12 @@ class SwathBuilder(
     private var currentSpreadMaterial: Material? = null
     private var currentRateLbsPerMi: Double? = null
     private var currentRoadTempF: Double? = null
+    private var lastEdgeId: String? = null
+
+    /** Latest snapped road, stamped onto the segment when it closes. */
+    fun noteEdge(edgeId: String?) {
+        if (edgeId != null) lastEdgeId = edgeId
+    }
 
     /** Update identity/context; a change mid-pass breaks the segment. */
     fun setContext(ctx: Context) {
@@ -73,7 +77,7 @@ class SwathBuilder(
         material: MaterialMode,
         widthM: Double,
         spreadMaterial: Material? = null,
-        /** Live hardware telemetry (Phase 3 Bluetooth); stamped at close. */
+        /** Spreader rate stamped onto the segment when it closes. */
         rateLbsPerMi: Double? = null,
         roadTempF: Double? = null
     ) {
@@ -143,7 +147,7 @@ class SwathBuilder(
                         spreadMaterial = currentSpreadMaterial,
                         applicationRateLbsPerMi = currentRateLbsPerMi,
                         roadTempF = currentRoadTempF,
-                        contractor = context.contractor
+                        edgeId = lastEdgeId
                     )
                 )
             }
@@ -151,6 +155,7 @@ class SwathBuilder(
         buffer.clear()
         currentRateLbsPerMi = null
         currentRoadTempF = null
+        lastEdgeId = null
     }
 
     companion object {

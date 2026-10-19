@@ -192,6 +192,21 @@ class RoadSnapperRealPackTest {
         val snappedBack = GeoMath.distanceMeters(snap.lat, snap.lon, lat, lon)
         assertTrue("snapped point strayed ${snappedBack} m", snappedBack < 30.0)
 
+        var sawP1 = false
+        var sawP3 = false
+        val sample = minOf(20_000, graph.edgeCount)
+        for (e in 0 until sample) {
+            when (com.atakmap.android.plowtak.gis.GhRoadClass.priority(
+                com.atakmap.android.plowtak.gis.GhRoadClass.roadClass(graph.edgeFlags(e))
+            )) {
+                com.atakmap.android.plowtak.model.RoutePriority.P1 -> sawP1 = true
+                com.atakmap.android.plowtak.model.RoutePriority.P3 -> sawP3 = true
+                else -> {}
+            }
+        }
+        assertTrue("no P1 edge in the first $sample — road_class bits may be wrong", sawP1)
+        assertTrue("no P3 edge in the first $sample — road_class bits may be wrong", sawP3)
+
         // Ten more towers spread across the graph all snap onto themselves.
         val step = graph.nodeCount / 10
         for (i in 0 until 10) {

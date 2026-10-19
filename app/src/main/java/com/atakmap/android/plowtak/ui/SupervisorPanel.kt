@@ -10,6 +10,7 @@ import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import com.atakmap.android.plowtak.PlowTakController
+import com.atakmap.android.plowtak.coverage.CoverageDetails
 import com.atakmap.android.plowtak.R
 import com.atakmap.android.plowtak.model.AlertEvent
 import com.atakmap.android.plowtak.model.Facility
@@ -55,6 +56,7 @@ class SupervisorPanel(
     private val facilityType = view.findViewById<Spinner>(R.id.sup_facility_type)
     private val alertList = view.findViewById<ListView>(R.id.sup_alert_list)
     private val metricsLine = view.findViewById<TextView>(R.id.sup_metrics_line)
+    private val overdueLine = view.findViewById<TextView>(R.id.sup_overdue_line)
     private val fleetList = view.findViewById<ListView>(R.id.sup_fleet_list)
 
     private val alertAdapter = ArrayAdapter<String>(
@@ -237,6 +239,17 @@ class SupervisorPanel(
             m.reloadsByTruck.values.sum(),
             m.activeTruckCount
         )
+        val untreated = controller.untreatedOverlay.lastUntreatedMiles
+        if (untreated > 0.0) {
+            metricsLine.append(
+                String.format(java.util.Locale.US, " • %.1f mi untreated in view", untreated)
+            )
+        }
+        val now = System.currentTimeMillis()
+        val lines = CoverageDetails.overdueLines(controller.coverageStore.all(), { seg ->
+            controller.freshnessModel.classify(seg.endTimeMs, now)
+        }, now)
+        overdueLine.text = if (lines.isEmpty()) "None" else lines.joinToString("\n")
     }
 
     private fun toggleStorm() {

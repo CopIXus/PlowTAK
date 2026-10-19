@@ -1,6 +1,11 @@
 package com.atakmap.android.plowtak.map
 
+import android.app.AlertDialog
 import android.util.Log
+import com.atakmap.android.maps.MapEvent
+import com.atakmap.android.maps.MapEventDispatcher
+import com.atakmap.android.plowtak.coverage.CoverageDetails
+import com.atakmap.android.plowtak.coverage.CoverageGeometry
 import com.atakmap.android.plowtak.coverage.CoverageStore
 import com.atakmap.android.plowtak.coverage.CoverageStyle
 import com.atakmap.android.plowtak.coverage.DirectionStatus
@@ -35,6 +40,20 @@ class CoverageOverlay(
     private var group: MapGroup? = null
     private val lines = HashMap<String, Polyline>()
     private val renderedSegments = HashMap<String, TreatSegment>()
+    private val clickListener = MapEventDispatcher.OnMapEventListener { item, event ->
+        if (event.type != MapEvent.ITEM_CLICK) return@OnMapEventListener
+        val id = item.getMetaString("plowtak.segment", null) ?: return@OnMapEventListener
+        val segment = renderedSegments[id] ?: return@OnMapEventListener
+        val now = System.currentTimeMillis()
+        val text = CoverageDetails.tapSummary(segment, classify(segment, now), now)
+        mapView.post {
+            AlertDialog.Builder(mapView.context)
+                .setTitle("Treated stretch")
+                .setMessage(text)
+                .setPositiveButton(android.R.string.ok, null)
+                .show()
+        }
+    }
 
     fun start() {
         if (group != null) return
@@ -47,7 +66,10 @@ class CoverageOverlay(
     fun dispose() {
         coverageStore.removeListener(this)
         val g = group ?: return
-        lines.values.forEach { safeRemove(g, it) }
+        lines.values.forEach {
+            mapView.mapEventDispatcher.removeMapItemEventListener(it, clickListener)
+            safeRemove(g, it)
+        }
         lines.clear()
         renderedSegments.clear()
         mapView.rootGroup.removeGroup(g)
@@ -62,7 +84,10 @@ class CoverageOverlay(
         mapView.post {
             val g = group ?: return@post
             for (id in ids) {
-                lines.remove(id)?.let { safeRemove(g, it) }
+                lines.remove(id)?.let { line ->
+                    mapView.mapEventDispatcher.removeMapItemEventListener(line, clickListener)
+                    safeRemove(g, line)
+                }
                 renderedSegments.remove(id)
             }
         }
@@ -84,7 +109,10 @@ class CoverageOverlay(
                 }
             }
             for (id in expired) {
-                lines.remove(id)?.let { safeRemove(g, it) }
+                lines.remove(id)?.let { line ->
+                    mapView.mapEventDispatcher.removeMapItemEventListener(line, clickListener)
+                    safeRemove(g, line)
+                }
                 renderedSegments.remove(id)
             }
         }
@@ -103,10 +131,17 @@ class CoverageOverlay(
             val freshness = classify(segment, now)
             if (freshness == Freshness.EXPIRED) return
 
-            lines.remove(segment.id)?.let { safeRemove(g, it) }
+            lines.remove(segment.id)?.let { old ->
+                mapView.mapEventDispatcher.removeMapItemEventListener(old, clickListener)
+                safeRemove(g, old)
+            }
 
             val line = Polyline("$ITEM_UID_PREFIX${segment.id}")
-            val pts = segment.points.map { p ->
+            val offset = CoverageGeometry.offsetRight(
+                segment.points, CoverageGeometry.offsetMetersFor(segment.widthM)
+            )
+            val drawn = CoverageGeometry.withChevrons(offset, segment.widthM)
+            val pts = drawn.map { p ->
                 GeoPointMetaData.wrap(GeoPoint(p.lat, p.lon))
             }.toTypedArray()
             line.setPoints(pts)
@@ -114,7 +149,9 @@ class CoverageOverlay(
             line.strokeWeight = CoverageStyle.strokeWeightFor(segment)
             line.setMetaBoolean("addToObjList", false)
             line.setMetaString("plowtak.segment", segment.id)
+            line.clickable = true
             applyDirectionStyle(line, segment, now)
+            mapView.mapEventDispatcher.addMapItemEventListener(line, clickListener)
 
             g.addItem(line)
             lines[segment.id] = line

@@ -32,15 +32,19 @@ class TaskManager(
     fun addListener(l: Listener) { listeners.add(l) }
     fun removeListener(l: Listener) { listeners.remove(l) }
 
+    @Synchronized
     fun all(): List<TaskEvent> = tasks.values.toList()
 
+    @Synchronized
     fun get(uid: String): TaskEvent? = tasks[uid]
 
     /** Tasks needing attention (pending) assigned to the given vehicle. */
+    @Synchronized
     fun pendingFor(vehicleUid: String): List<TaskEvent> =
         tasks.values.filter { it.targetVehicleUid == vehicleUid && it.state == TaskState.PENDING }
 
     /** Supervisor creates and broadcasts a task. */
+    @Synchronized
     fun createLocal(task: TaskEvent) {
         tasks[task.uid] = task.copy(state = TaskState.PENDING, stateTimeMs = task.timeMs)
         notifyChanged()
@@ -48,14 +52,17 @@ class TaskManager(
     }
 
     /** Driver taps ACK. */
+    @Synchronized
     fun ack(uid: String, byCallsign: String, nowMs: Long): TaskEvent? =
         transition(uid, TaskState.ACKED, byCallsign, nowMs)
 
     /** Driver taps DECLINE. */
+    @Synchronized
     fun decline(uid: String, byCallsign: String, nowMs: Long): TaskEvent? =
         transition(uid, TaskState.DECLINED, byCallsign, nowMs)
 
     /** Supervisor withdraws the task. */
+    @Synchronized
     fun cancel(uid: String, byCallsign: String, nowMs: Long): TaskEvent? =
         transition(uid, TaskState.CANCELLED, byCallsign, nowMs)
 
@@ -64,6 +71,7 @@ class TaskManager(
      * unknown tasks are adopted; known tasks take the newer state, and a
      * terminal state always beats PENDING regardless of clock skew.
      */
+    @Synchronized
     fun onRemote(task: TaskEvent) {
         val existing = tasks[task.uid]
         val accept = when {
@@ -82,6 +90,7 @@ class TaskManager(
      * Escalation sweep — call from the shared periodic timer. Marks and
      * reports tasks pending longer than [escalateAfterMs] (once each).
      */
+    @Synchronized
     fun tick(nowMs: Long): List<TaskEvent> {
         val escalated = mutableListOf<TaskEvent>()
         for ((uid, task) in tasks) {
@@ -101,6 +110,7 @@ class TaskManager(
     }
 
     /** Drop terminal tasks older than [maxAgeMs] to keep the list tidy. */
+    @Synchronized
     fun pruneTerminal(nowMs: Long, maxAgeMs: Long = 6 * 3_600_000L) {
         val dead = tasks.values
             .filter { it.state.isTerminal && nowMs - it.stateTimeMs > maxAgeMs }

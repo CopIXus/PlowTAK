@@ -28,6 +28,7 @@ class ObserverPanel(
 
     private val header = view.findViewById<TextView>(R.id.obs_header)
     private val stormLine = view.findViewById<TextView>(R.id.obs_storm_line)
+    private val syncLine = view.findViewById<TextView>(R.id.obs_sync_line)
 
     private val alertAdapter = ArrayAdapter<String>(
         controller.pluginContext, android.R.layout.simple_list_item_1
@@ -72,6 +73,7 @@ class ObserverPanel(
         val storm = controller.stormManager.activeSession()
         stormLine.text = storm?.let { "Reporting: ${it.displayName()}" }
             ?: "No storm selected"
+        syncLine.text = StormServerDialogs.currentServerSummary(controller)
 
         val now = System.currentTimeMillis()
         val staleAfter = controller.fleetManager.staleAfterMs

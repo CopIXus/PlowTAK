@@ -17,10 +17,15 @@ class CoverageStoreTest {
 
     private val now = 1_700_000_000_000L
 
-    private fun segment(uid: String, start: Long, stormId: String = "storm-A"): TreatSegment {
+    private fun segment(
+        uid: String,
+        start: Long,
+        stormId: String = "storm-A",
+        lat: Double = 36.0
+    ): TreatSegment {
         val points = listOf(
-            TrackPoint(36.0, -86.0, start, 0.0),
-            TrackPoint(36.001, -86.0, start + 5000, 0.0)
+            TrackPoint(lat, -86.0, start, 0.0),
+            TrackPoint(lat + 0.001, -86.0, start + 5000, 0.0)
         )
         return TreatSegment(
             id = TreatSegment.makeId(uid, start),
@@ -36,7 +41,7 @@ class CoverageStoreTest {
         val store = CoverageStore(dir)
         store.setStorm("storm-A")
         store.addLocal(segment("PLOW-1", now))
-        store.addLocal(segment("PLOW-1", now + 60_000))
+        store.addLocal(segment("PLOW-1", now + 60_000, lat = 37.0))
 
         val reloaded = CoverageStore(dir)
         reloaded.setStorm("storm-A")
@@ -74,9 +79,9 @@ class CoverageStoreTest {
         val store = CoverageStore(null)
         store.setStorm("storm-A")
         store.addLocal(segment("PLOW-1", now))
-        store.addLocal(segment("PLOW-1", now + 60_000))
+        store.addLocal(segment("PLOW-1", now + 60_000, lat = 37.0))
         // Remote merges never enter the share queue.
-        store.mergeRemote(segment("SALT-9", now))
+        store.mergeRemote(segment("SALT-9", now, lat = 38.0))
 
         val batch = store.drainPendingShare(10)
         assertEquals(2, batch.size)
@@ -136,7 +141,7 @@ class CoverageStoreTest {
         val store = CoverageStore(null)
         store.setStorm("storm-A")
         for (i in 0 until 10) {
-            store.addLocal(segment("PLOW-1", now + i * 60_000L))
+            store.addLocal(segment("PLOW-1", now + i * 60_000L, lat = 36.0 + i))
         }
         store.pruneOverCount(4)
         assertEquals(4, store.size())
@@ -164,10 +169,51 @@ class CoverageStoreTest {
 
         val localSeg = segment("PLOW-1", now)
         store.addLocal(localSeg)
-        store.mergeRemote(segment("SALT-9", now))
-        assertEquals(listOf(localSeg.id to true, segment("SALT-9", now).id to false), added)
+        store.mergeRemote(segment("SALT-9", now, lat = 37.5))
+        assertEquals(listOf(localSeg.id to true, segment("SALT-9", now, lat = 37.5).id to false), added)
 
         store.pruneExpired(FreshnessModel(redAfterMinutes = 45, retentionHours = 0.0001), now + 3_600_000L)
         assertEquals(2, removed.size)
+    }
+
+    @Test
+    fun `re-plow supersedes the earlier same-direction pass`() {
+        val dir = tmp.newFolder()
+        val store = CoverageStore(dir)
+        store.setStorm("storm-A")
+        val removed = mutableListOf<String>()
+        val added = mutableListOf<String>()
+        store.addListener(object : CoverageStore.Listener {
+            override fun onSegmentAdded(segment: TreatSegment, local: Boolean) {
+                added.add(segment.id)
+            }
+            override fun onSegmentsRemoved(ids: Collection<String>) {
+                removed.addAll(ids)
+            }
+        })
+        val older = segment("PLOW-1", now)
+        val newer = segment("PLOW-2", now + 60_000).copy(
+            points = older.points.map { it.copy(timeMs = it.timeMs + 60_000) },
+            startTimeMs = now + 60_000,
+            endTimeMs = now + 65_000,
+            material = MaterialMode.PLOW_ONLY
+        )
+        store.addLocal(older.copy(material = MaterialMode.PLOW_ONLY))
+        store.addLocal(newer)
+        assertTrue(removed.contains(older.id))
+        assertEquals(1, store.size())
+        assertEquals(newer.id, store.all().single().id)
+
+        val reloaded = CoverageStore(dir)
+        reloaded.setStorm("storm-A")
+        assertEquals(listOf(newer.id), reloaded.all().map { it.id })
+        assertTrue(added.contains(newer.id))
+    }
+
+    @Test
+    fun `merge rejects segments when no storm is in scope`() {
+        val store = CoverageStore(null)
+        assertFalse(store.mergeRemote(segment("PLOW-1", now)))
+        assertEquals(0, store.size())
     }
 }

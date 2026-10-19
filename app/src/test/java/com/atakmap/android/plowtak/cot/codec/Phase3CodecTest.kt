@@ -9,6 +9,7 @@ import com.atakmap.android.plowtak.model.VehicleStatus
 import com.atakmap.android.plowtak.model.VehicleType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -35,17 +36,15 @@ class Phase3CodecTest {
     // ------------------------------------------------- CoverageCotCodec
 
     @Test
-    fun `contractor and telemetry ride the coverage detail`() {
+    fun `telemetry rides the coverage detail`() {
         val seg = segment().copy(
-            contractor = true,
             applicationRateLbsPerMi = 250.0,
             roadTempF = 28.4,
             spreadMaterial = Material.BRINE
         )
-        val back = CoverageCotCodec.decode(
-            CoverageCotCodec.encode("storm-1", listOf(seg))
-        ).single()
-        assertTrue(back.contractor)
+        val node = CoverageCotCodec.encode("storm-1", listOf(seg))
+        assertNull(node.firstChild("coverage")!!.childrenNamed("segment").single().attr("contractor"))
+        val back = CoverageCotCodec.decode(node).single()
         assertEquals(250.0, back.applicationRateLbsPerMi!!, 0.1)
         assertEquals(28.4, back.roadTempF!!, 0.1)
     }
@@ -59,7 +58,6 @@ class Phase3CodecTest {
         assertNull(segNode.attr("temp"))
 
         val back = CoverageCotCodec.decode(node).single()
-        assertFalse(back.contractor)
         assertNull(back.applicationRateLbsPerMi)
         assertNull(back.roadTempF)
     }
@@ -67,29 +65,7 @@ class Phase3CodecTest {
     // --------------------------------------------------- PlowTakDetail
 
     @Test
-    fun `contractor flag rides the PLI detail`() {
-        val cap = VehicleCapability.sanitize(
-            VehicleCapability.defaultsFor(VehicleType.PLOW, "CTR-Plow", "T-9")
-                .copy(contractor = true)
-        )
-        val detail = PlowTakDetail.fromLocalState(
-            cap = cap,
-            status = VehicleStatus.TREATING,
-            bladeDown = true,
-            saltOn = false,
-            material = Material.SALT,
-            headingDeg = 90.0,
-            stormId = "storm-1",
-            operatorId = "op-1",
-            operatorName = "Sam"
-        )
-        assertTrue(detail.contractor)
-        val back = PlowTakDetail.fromNode(detail.toNode())!!
-        assertTrue(back.contractor)
-    }
-
-    @Test
-    fun `municipal units do not emit the contractor attribute`() {
+    fun `units do not emit a contractor attribute`() {
         val cap = VehicleCapability.defaultsFor(VehicleType.PLOW, "Plow-12", "T-1")
         val detail = PlowTakDetail.fromLocalState(
             cap = cap,
@@ -104,6 +80,6 @@ class Phase3CodecTest {
         )
         val vehicleNode = detail.toNode().firstChild("vehicle")!!
         assertNull(vehicleNode.attr("contractor"))
-        assertFalse(PlowTakDetail.fromNode(detail.toNode())!!.contractor)
+        assertNotNull(PlowTakDetail.fromNode(detail.toNode()))
     }
 }

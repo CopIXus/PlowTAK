@@ -23,6 +23,22 @@
         android:textColor="@color/plowtak_accent"
         android:textSize="16sp" />
 
+    <TextView
+        android:id="@+id/obs_sync_line"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="@color/plowtak_grey"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/obs_legend"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="@string/coverage_legend"
+        android:textColor="@color/plowtak_grey"
+        android:textSize="12sp" />
+
     <Button
         android:id="@+id/obs_storm_join"
         android:layout_width="match_parent"

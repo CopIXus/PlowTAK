@@ -31,6 +31,13 @@ class CoverageStore(
     /** Grid spatial index kept in lockstep with [segments]. */
     private val index = SegmentIndex()
 
+    /**
+     * Extra corridor beyond half the pass width. 6 m is road-level (consumer
+     * GPS); 2 m is strict lanes. Set from preferences by the controller.
+     */
+    @Volatile
+    var laneSlackM: Double = SegmentSupersede.DEFAULT_LANE_SLACK_M
+
     var currentStormId: String = ""
         private set
 
@@ -58,39 +65,30 @@ class CoverageStore(
         if (removed.isNotEmpty()) notifyRemoved(removed)
     }
 
-    /** Add a locally recorded segment; persists and queues it for sharing. */
+    /** Add a locally recorded segment; persists, supersedes, and queues it for sharing. */
     fun addLocal(segment: TreatSegment) {
-        val added: Boolean
+        val mutation: Mutation
         synchronized(this) {
-            added = segments.put(segment.id, segment) == null
-            if (added) {
-                index.add(segment)
-                localIds.add(segment.id)
-                pendingShare.addLast(segment)
-                appendToDisk(segment)
-            }
+            mutation = insertAndSupersede(segment, local = true)
         }
-        if (added) notifyAdded(segment, local = true)
+        dispatch(mutation)
     }
 
     /**
-     * Merge a segment received over CoT. Deduped by id; caller is responsible
-     * for capability gating (only canTreat units' coverage reaches here).
+     * Merge a segment received over CoT or Data Sync. Deduped by id; caller
+     * is responsible for capability gating. Rejected when no storm is in
+     * scope, so a pull that arrives before join cannot paint another storm.
      */
     fun mergeRemote(segment: TreatSegment): Boolean {
-        val added: Boolean
+        val mutation: Mutation
         synchronized(this) {
-            if (currentStormId.isNotEmpty() && segment.stormId.isNotEmpty() &&
-                segment.stormId != currentStormId
-            ) return false
-            added = segments.put(segment.id, segment) == null
-            if (added) {
-                index.add(segment)
-                appendToDisk(segment)
-            }
+            if (currentStormId.isEmpty()) return false
+            if (segment.stormId.isNotEmpty() && segment.stormId != currentStormId) return false
+            mutation = insertAndSupersede(segment, local = false)
         }
-        if (added) notifyAdded(segment, local = false)
-        return added
+        dispatch(mutation)
+        return mutation.added.any { it.first.id == segment.id } ||
+            mutation.removed.contains(segment.id)
     }
 
     fun all(): List<TreatSegment> = synchronized(this) { segments.values.toList() }
@@ -186,6 +184,75 @@ class CoverageStore(
             rewriteDisk()
         }
         notifyRemoved(removed)
+    }
+
+    private data class Mutation(
+        val added: List<Pair<TreatSegment, Boolean>>,
+        val removed: List<String>
+    )
+
+    /** Caller holds the store lock. */
+    private fun insertAndSupersede(segment: TreatSegment, local: Boolean): Mutation {
+        if (segments.containsKey(segment.id)) return Mutation(emptyList(), emptyList())
+        segments[segment.id] = segment
+        index.add(segment)
+        if (local) {
+            localIds.add(segment.id)
+            pendingShare.addLast(segment)
+        }
+        val removed = ArrayList<String>()
+        val remnants = ArrayList<Pair<TreatSegment, Boolean>>()
+        val queue = ArrayDeque<String>()
+        queue.add(segment.id)
+        val seenPairs = HashSet<String>()
+        var trimmed = false
+        while (queue.isNotEmpty()) {
+            val id = queue.removeFirst()
+            val current = segments[id] ?: continue
+            val margin = current.widthM / 2.0 + laneSlackM + 30.0
+            for (other in index.nearSegment(current, margin)) {
+                val liveOther = segments[other.id] ?: continue
+                val live = segments[id] ?: break
+                val key = if (live.id < liveOther.id) "${live.id}|${liveOther.id}"
+                else "${liveOther.id}|${live.id}"
+                if (!seenPairs.add(key)) continue
+                val result = SegmentSupersede.apply(live, liveOther, laneSlackM) ?: continue
+                trimmed = true
+                val wasLocal = result.droppedId in localIds
+                dropLocked(result.droppedId)
+                removed.add(result.droppedId)
+                for (rem in result.remnants) {
+                    if (segments.containsKey(rem.id)) continue
+                    segments[rem.id] = rem
+                    index.add(rem)
+                    if (wasLocal) {
+                        localIds.add(rem.id)
+                        pendingShare.addLast(rem)
+                    }
+                    remnants.add(rem to wasLocal)
+                    queue.add(rem.id)
+                }
+            }
+        }
+        if (trimmed) rewriteDisk() else appendToDisk(segment)
+        val added = ArrayList<Pair<TreatSegment, Boolean>>()
+        val survived = segments[segment.id]
+        if (survived != null) added.add(survived to local)
+        added.addAll(remnants)
+        return Mutation(added, removed)
+    }
+
+    private fun dropLocked(id: String) {
+        segments.remove(id)
+        index.remove(id)
+        localIds.remove(id)
+        val it = pendingShare.iterator()
+        while (it.hasNext()) if (it.next().id == id) it.remove()
+    }
+
+    private fun dispatch(mutation: Mutation) {
+        if (mutation.removed.isNotEmpty()) notifyRemoved(mutation.removed)
+        mutation.added.forEach { (seg, local) -> notifyAdded(seg, local) }
     }
 
     // ------------------------------------------------------------------ disk

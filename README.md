@@ -1,8 +1,15 @@
 # PlowTAK
 
 <p align="center">
-  <img src="docs/images/plowtak-logo.png" alt="PlowTAK logo" width="220"/>
+  <img src="docs/images/plowtak-logo.png" alt="PlowTAK logo" width="180"/>
 </p>
+
+Winter road coverage for ATAK. Published by **CopIX**.
+
+**Install.** Use a TPC-signed APK. A CopIX-only CI build shows “signature INVALID” on release ATAK.
+
+- ATAK-CIV 5.8: [latest release](https://github.com/CopIXus/PlowTAK/releases)
+- ATAK-CIV 5.6 and 5.7: same plugin line; build against that SDK (see Building)
 
 <p align="center">
   <img src="docs/images/plowtak-ui-hero.jpg" alt="PlowTAK ops panel on ATAK — treating with blade, spreader, material, and Mayday" width="280"/>
@@ -10,9 +17,7 @@
 
 <p align="center"><em>On shift: map HUD, blade / spreader, material, unit status, hazards, road conditions, Mayday.</em></p>
 
-**PlowTAK** is an ATAK plugin for winter road operations — plow fleet coverage,
-hazards, road conditions, and storm coordination over TAK Server. Published by
-**CopIX**.
+## What it does
 
 **Field install (ATAK-CIV 5.8):** download the latest **TPC-signed** APK from
 [Releases / tpc-0.1.9](https://github.com/CopIXus/PlowTAK/releases/tag/tpc-0.1.9),
@@ -136,7 +141,9 @@ flowchart TB
 
 ## Coverage map
 
-![Coverage freshness](docs/images/plowtak-coverage-map.jpg)
+<p align="center">
+  <img src="docs/images/plowtak-coverage-map.jpg" alt="One line per direction" width="640"/>
+</p>
 
 | Color | Meaning |
 |-------|---------|
@@ -155,9 +162,11 @@ PlowTAK still see green / yellow / red (not a default black line).
 
 Direction-aware half-treated lines show one travel direction painted.
 
----
+## Vehicle types and roles
 
-## Feature summary
+<p align="center">
+  <img src="docs/images/plowtak-roles.jpg" alt="Plow, spreader, supervisor, observer" width="640"/>
+</p>
 
 - **Glove UI** — large plow/material/status tiles, night palette, TTS nudges.
 - **Map HUD** — mini plow under menus; toggle in Settings (`plowtak.map_hud_enabled`).
@@ -172,24 +181,35 @@ Direction-aware half-treated lines show one travel direction painted.
   across restarts; shift foreground service; VNS for offline basemap/routing.
 - **Tool Preferences** — ATAK Tools → PlowTAK (TTS, direction-aware coverage, BT).
 
-Operator detail: [docs/ops-guide.md](docs/ops-guide.md) · CoT schema:
-[docs/cot-schema.md](docs/cot-schema.md).
+PlowTAK reads the VNS offline routing pack already on the device. Untreated plow-class roads draw dim red, and road class sets P1, P2, or P3 cycle time. An agency GeoJSON or KML with `priority`, `lanes`, and `route_id` overrides the pack and is shared as `roads.geojson`. See [vns-install.md](docs/vns-install.md).
 
----
+## Storms and Data Sync
+
+<p align="center">
+  <img src="docs/images/plowtak-datasync.jpg" alt="Data Sync files" width="640"/>
+</p>
+
+- Create, join, leave, or end a storm from the panel. End asks first.
+- While joined, a tick about every 60 seconds uploads plain GeoJSON: `storm-config.json`, `<uid>-<hour>-live.geojson`, hazards, conditions, status, and ops.
+- The mission is never deleted from the device.
+- Pick the TAK server on the storm panel.
+- Live position, distress, storm announce, and a short coverage burst also go out as CoT, and wait in a queue when no server is connected.
+
+<p align="center">
+  <img src="docs/images/plowtak-architecture.jpg" alt="PlowTAK architecture" width="640"/>
+</p>
+
+<p align="center">
+  <img src="docs/images/plowtak-map-hud.jpg" alt="Map HUD" width="280"/>
+</p>
 
 ## Requirements
 
-- **Host:** ATAK-CIV **5.8.x** (version-locked to the SDK the APK was built against).
-- **Peer (optional):** **VNS 4.0** from [tak.gov](https://tak.gov) for offline
-  maps/routing — not redistributed here.
-- **TAK Server** for fleet sharing. Mission uploads need Marti / Data Sync
-  support on the server.
-
----
+ATAK-CIV with the matching plugin SDK. A VNS GraphHopper pack is optional and recommended. No second road download.
 
 ## Building
 
-The ATAK SDK is **not** in this repository.
+Copy `template.local.properties` to `local.properties` and set `sdk.dir`, `sdk.path`, and `takdev.plugin` for the ATAK-CIV SDK you are building against. Do not commit `local.properties`.
 
 1. Download the **ATAK-CIV 5.8 SDK** from [tak.gov](https://tak.gov).
 2. Copy `local.properties.example` → `local.properties` (`sdk.dir`, `sdk.path`,
@@ -215,18 +235,9 @@ Engine tests (no ATAK SDK):
 ```powershell
 .\gradlew.bat -p coretests test
 ```
-
----
-
-## Offline map packs
-
-Dev GraphHopper packs for **NC / TN / VA** live under `Maps/` locally (~489 MB,
-not in git) and as **GitHub Release** assets. Install:
-[docs/vns-install.md](docs/vns-install.md).
-
-> Agencies should generate fresh extracts for their AOR.
-
----
+.\gradlew.bat -p coretests test
+.\gradlew.bat assembleCivDebug
+```
 
 ## Docs
 
@@ -249,8 +260,4 @@ Unit tests run on PRs / manual workflow; optional CIV builds are
 
 ## License
 
-[PlowTAK Free Application License 1.0](LICENSE) — © 2026 CopIX LLC.
-
-Same terms as [WinTAKTracker](https://github.com/CopIXus/WinTAKTracker): free to
-use; source stays available; do not sell the application itself. Solution
-providers may charge for install/support time.
+See the repository license. Plugin APKs for the field are the TPC-signed releases.

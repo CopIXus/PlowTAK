@@ -40,8 +40,7 @@ object StormServerDialogs {
             "Join / pick storm…",
             "Data Sync server…",
             "Storm coverage settings…",
-            "Import provisioning…",
-            "Export provisioning…"
+            "End storm…"
         )
         AlertDialog.Builder(hostContext)
             .setTitle("Storm")

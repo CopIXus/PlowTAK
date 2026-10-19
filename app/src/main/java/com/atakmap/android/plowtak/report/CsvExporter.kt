@@ -24,9 +24,7 @@ object CsvExporter {
                 "id", "vehicleUid", "callsign", "operatorId", "stormId",
                 "material", "spreadMaterial", "widthM", "lengthM",
                 "headingDeg", "side", "startUtc", "endUtc", "startMs", "endMs", "points",
-                // Phase 3: contractor tag (payment verification) + hardware
-                // telemetry when a Bluetooth controller supplied it.
-                "contractor", "rateLbsPerMi", "roadTempF"
+                "rateLbsPerMi", "roadTempF"
             )
         )
         for (seg in segments) {
@@ -41,7 +39,6 @@ object CsvExporter {
                     iso(seg.startTimeMs), iso(seg.endTimeMs),
                     seg.startTimeMs.toString(), seg.endTimeMs.toString(),
                     seg.points.size.toString(),
-                    if (seg.contractor) "true" else "",
                     seg.applicationRateLbsPerMi?.let { num(it, 1) } ?: "",
                     seg.roadTempF?.let { num(it, 1) } ?: ""
                 )

@@ -52,6 +52,12 @@ class GraphHopperGraph private constructor(
     private fun edgeLinkB(edge: Int): Int = edges.getInt(edge * edgeEntryBytes + 12)
     private fun edgeGeoRef(edge: Int): Int = edges.getInt(edge * edgeEntryBytes + 24)
 
+    /** GraphHopper edge flags (encoded values + car encoder), little-endian int at offset 16. */
+    fun edgeFlags(edge: Int): Int = edges.getInt(edge * edgeEntryBytes + 16)
+
+    /** Name string-index reference; 0 when the edge has no name. */
+    fun edgeNameRef(edge: Int): Int = edges.getInt(edge * edgeEntryBytes + 28)
+
     /**
      * Edge ids attached to a tower node, walking the linkA/linkB chain.
      * Capped defensively so corrupt data cannot loop forever.

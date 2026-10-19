@@ -42,6 +42,7 @@ class MissionCoverageSync(
     private val tasks: () -> List<TaskEvent> = { emptyList() },
     private val snoozes: () -> Map<String, Long> = { emptyMap() },
     private val cycleMinutesFor: ((TreatSegment) -> Int)? = null,
+    private val agencyRoads: () -> ByteArray? = { null },
     private val sink: MissionPullSink = MissionPullSink.NOOP
 ) {
 
@@ -199,7 +200,10 @@ class MissionCoverageSync(
         uploadIfChanged(
             client, mission, ConditionMissionCodec.filename(uid),
             ConditionMissionCodec.encode(stormId, myConditions, now, ttl),
-            uid, "application/geo+json", KEY_LAST_CONDITION_HASH
+            uid, "application/geo+json", KEY_LAST_CONDITION_HASH,
+            // Same CloudTAK Map Items hook as hazards: link CoT UIDs to the
+            // mission content so subscribers see labeled condition markers.
+            associateUids = myConditions.map { it.uid }
         )
 
         uploadIfChanged(
@@ -207,6 +211,14 @@ class MissionCoverageSync(
             OpsMissionCodec.encode(stormId, routes(), zones(), tasks(), snoozes()),
             uid, "application/json", KEY_LAST_OPS_HASH
         )
+        val roads = agencyRoads()
+        if (roads != null && roads.isNotEmpty()) {
+            uploadNamedIfChanged(
+                client, mission, ROADS_FILENAME, roads, uid,
+                "application/geo+json", null,
+                KEY_LAST_ROADS_HASH, KEY_LAST_ROADS_FILENAME, KEY_LAST_MISSION
+            )
+        }
     }
 
     /** One file attached to a mission. */
@@ -278,14 +290,12 @@ class MissionCoverageSync(
     ) {
         val entries = listMissionContents(client, mission)
         for ((filename, hash, creator) in entries) {
-            // Skip our own uploads (we already have them locally).
             if (creator == selfUid) continue
-            val lastSeen = prefs.getString(KEY_PULL_PREFIX + hash)
-            if (lastSeen == "1") continue
+            if (hash in seenPulls()) continue
             val bytes = downloadContent(client, hash) ?: continue
             try {
                 applyPulled(filename, bytes, nowMs, session)
-                prefs.putString(KEY_PULL_PREFIX + hash, "1")
+                rememberPull(hash)
             } catch (t: Throwable) {
                 Log.w(TAG, "apply pulled $filename failed", t)
             }
@@ -299,6 +309,7 @@ class MissionCoverageSync(
         session: StormSession
     ) {
         when {
+            filename == ROADS_FILENAME -> sink.onRoadsPulled(bytes)
             filename == StormConfigCodec.FILENAME || filename.endsWith("storm-config.json") -> {
                 val cfg = StormConfigCodec.decode(bytes) ?: return
                 sink.onStormConfigPulled(cfg)
@@ -688,11 +699,32 @@ class MissionCoverageSync(
             KEY_COV_INDEX,
             KEY_LAST_HASH, KEY_LAST_FILENAME, KEY_LAST_MISSION,
             KEY_LAST_CONFIG_HASH, KEY_LAST_HAZARD_HASH, KEY_LAST_CONDITION_HASH,
-            KEY_LAST_STATUS_HASH, KEY_LAST_OPS_HASH
+            KEY_LAST_STATUS_HASH, KEY_LAST_OPS_HASH,
+            KEY_LAST_ROADS_HASH, KEY_LAST_ROADS_FILENAME
         ).forEach {
             prefs.remove(it)
             prefs.remove("$it.server")
         }
+        prefs.remove(KEY_PULL_SEEN)
+    }
+
+    private fun seenPulls(): LinkedHashSet<String> {
+        val raw = prefs.getString(KEY_PULL_SEEN).orEmpty()
+        val set = LinkedHashSet<String>()
+        raw.split(',').forEach { if (it.isNotBlank()) set.add(it) }
+        return set
+    }
+
+    private fun rememberPull(hash: String) {
+        val set = seenPulls()
+        set.add(hash)
+        while (set.size > MAX_SEEN_PULLS) {
+            val it = set.iterator()
+            if (!it.hasNext()) break
+            it.next()
+            it.remove()
+        }
+        prefs.putString(KEY_PULL_SEEN, set.joinToString(","))
     }
 
     /**
@@ -755,13 +787,15 @@ class MissionCoverageSync(
             val points = ArrayList<com.atakmap.android.plowtak.model.TrackPoint>()
             val startMs = (props["startMs"] as? Number)?.toLong() ?: 0L
             val endMs = (props["endMs"] as? Number)?.toLong() ?: startMs
+            val headingParts = MiniJson.string(props["headings"])?.split(',')
             coords.forEachIndexed { idx, c ->
                 val pair = MiniJson.array(c) ?: return@forEachIndexed
                 val lon = MiniJson.double(pair.getOrNull(0)) ?: return@forEachIndexed
                 val lat = MiniJson.double(pair.getOrNull(1)) ?: return@forEachIndexed
                 val t = if (coords.size <= 1) startMs
                 else startMs + ((endMs - startMs) * idx / (coords.size - 1))
-                points.add(com.atakmap.android.plowtak.model.TrackPoint(lat, lon, t, Double.NaN))
+                val heading = headingParts?.getOrNull(idx)?.toDoubleOrNull() ?: Double.NaN
+                points.add(com.atakmap.android.plowtak.model.TrackPoint(lat, lon, t, heading))
             }
             if (points.size < 2) continue
             val id = MiniJson.string(props["id"]) ?: continue
@@ -775,7 +809,10 @@ class MissionCoverageSync(
                     vehicleUid = vehicle,
                     callsign = MiniJson.string(props["callsign"]) ?: vehicle,
                     stormId = MiniJson.string(props["storm"]) ?: "",
-                    operatorId = "",
+                    operatorId = MiniJson.string(props["operator"]) ?: "",
+                    spreadMaterial = com.atakmap.android.plowtak.model.Material.fromWireName(
+                        MiniJson.string(props["spread"])
+                    ),
                     material = material,
                     widthM = MiniJson.double(props["widthM"]) ?: 3.0,
                     points = points,
@@ -797,8 +834,12 @@ class MissionCoverageSync(
         const val KEY_LAST_CONDITION_HASH = "plowtak.mission_cov.last_condition_hash"
         const val KEY_LAST_STATUS_HASH = "plowtak.mission_cov.last_status_hash"
         const val KEY_LAST_OPS_HASH = "plowtak.mission_cov.last_ops_hash"
+        const val KEY_LAST_ROADS_HASH = "plowtak.mission_cov.last_roads_hash"
+        const val KEY_LAST_ROADS_FILENAME = "plowtak.mission_cov.last_roads_filename"
+        const val ROADS_FILENAME = "roads.geojson"
         const val KEY_DATASYNC_SERVER = "plowtak.datasync.server"
-        private const val KEY_PULL_PREFIX = "plowtak.mission_pull."
+        private const val KEY_PULL_SEEN = "plowtak.mission_pull.seen"
+        private const val MAX_SEEN_PULLS = 400
         private const val KEY_COV_HASH_PREFIX = "plowtak.mission_cov.hour."
         private const val KEY_COV_INDEX = "plowtak.mission_cov.hour_index"
         /** Cap offline catch-up to 3 days of hourly chunks. */
@@ -816,6 +857,7 @@ interface MissionPullSink {
     fun onConditionsPruned(fresh: List<RoadConditionReport>) {}
     fun onOpsPulled(snapshot: OpsMissionCodec.Snapshot) {}
     fun onCoveragePulled(segments: List<TreatSegment>) {}
+    fun onRoadsPulled(bytes: ByteArray) {}
 
     companion object {
         val NOOP = object : MissionPullSink {}

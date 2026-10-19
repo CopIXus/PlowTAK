@@ -265,6 +265,31 @@
             android:textSize="14sp"
             android:textStyle="bold" />
 
+        <TextView
+            android:id="@+id/sup_legend"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="@string/coverage_legend"
+            android:textColor="@color/plowtak_grey"
+            android:textSize="12sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/overdue_title"
+            android:textColor="@color/plowtak_red"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/sup_overdue_line"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/plowtak_text"
+            android:textSize="13sp" />
+
         <!-- Fleet -->
         <TextView
             android:layout_width="match_parent"

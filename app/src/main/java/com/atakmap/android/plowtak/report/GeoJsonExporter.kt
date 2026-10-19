@@ -104,10 +104,8 @@ object GeoJsonExporter {
             ",\"headingDeg\":" + num(heading, 1) +
                     ",\"side\":" + jsonString(DirectionModel.sideOfRoad(heading).wireName)
         } else ""
-        // Phase 3: contractor tag + hardware telemetry, present only when set
-        // so pre-Phase-3 exports stay byte-identical.
+        // Hardware telemetry, present only when set.
         val phase3Props = buildString {
-            if (seg.contractor) append(",\"contractor\":true")
             seg.applicationRateLbsPerMi?.let { append(",\"rateLbsPerMi\":" + num(it, 1)) }
             seg.roadTempF?.let { append(",\"roadTempF\":" + num(it, 1)) }
         }

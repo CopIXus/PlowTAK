@@ -25,14 +25,18 @@ class AlertManager {
 
     /** Alerts worth showing (active + acknowledged). */
     /** Every alert this session, terminal states included (export). */
+    @Synchronized
     fun all(): List<AlertEvent> = alerts.values.toList()
 
+    @Synchronized
     fun activeAlerts(): List<AlertEvent> =
         alerts.values.filter { it.state != AlertState.CLEARED }
 
+    @Synchronized
     fun get(uid: String): AlertEvent? = alerts[uid]
 
     /** Local one-tap distress. */
+    @Synchronized
     fun raiseLocal(alert: AlertEvent) {
         alerts[alert.uid] = alert.copy(state = AlertState.ACTIVE)
         notifyChanged()
@@ -40,14 +44,17 @@ class AlertManager {
     }
 
     /** Supervisor acknowledges — responders en route. */
+    @Synchronized
     fun acknowledge(uid: String, byCallsign: String): AlertEvent? =
         transition(uid, AlertState.ACKNOWLEDGED, byCallsign)
 
     /** Clear — resolved; also used by the sender to cancel their own SOS. */
+    @Synchronized
     fun clear(uid: String, byCallsign: String): AlertEvent? =
         transition(uid, AlertState.CLEARED, byCallsign)
 
     /** Apply an alert received over CoT (no re-broadcast). */
+    @Synchronized
     fun onRemote(alert: AlertEvent) {
         val existing = alerts[alert.uid]
         // Never resurrect a locally-cleared alert with an older ACTIVE update.

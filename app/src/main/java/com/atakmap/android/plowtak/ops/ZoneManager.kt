@@ -28,17 +28,21 @@ class ZoneManager(
     fun addListener(l: Listener) { listeners.add(l) }
     fun removeListener(l: Listener) { listeners.remove(l) }
 
+    @Synchronized
     fun all(): List<SpecialZone> = zones.values.toList()
 
+    @Synchronized
     fun get(id: String): SpecialZone? = zones[id]
 
     /** Add or replace a zone (local supervisor edit). */
+    @Synchronized
     fun put(zone: SpecialZone) {
         zones[zone.id] = zone
         save()
         notifyChanged()
     }
 
+    @Synchronized
     fun remove(zoneId: String): Boolean {
         if (zones.remove(zoneId) == null) return false
         save()
@@ -47,6 +51,7 @@ class ZoneManager(
     }
 
     /** Apply a zone received over CoT. Returns true if state changed. */
+    @Synchronized
     fun onRemote(zone: SpecialZone, removed: Boolean): Boolean {
         val changed = if (removed) zones.remove(zone.id) != null
         else zones.put(zone.id, zone) != zone
@@ -57,6 +62,7 @@ class ZoneManager(
         return changed
     }
 
+    @Synchronized
     fun zonesContaining(lat: Double, lon: Double): List<SpecialZone> =
         zones.values.filter { it.contains(lat, lon) }
 

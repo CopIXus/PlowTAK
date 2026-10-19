@@ -53,10 +53,6 @@ object CoverageCotCodec {
                     seg.spreadMaterial?.let { put("mat", it.wireName) }
                     put("widthM", String.format(Locale.US, "%.1f", seg.widthM))
                     put("start", seg.startTimeMs.toString())
-                    // Phase 3: hardware telemetry + contractor tagging,
-                    // omitted entirely when absent so v2 payloads are
-                    // byte-identical (older receivers ignore extras).
-                    if (seg.contractor) put("contractor", "true")
                     seg.applicationRateLbsPerMi?.let {
                         put("rate", String.format(Locale.US, "%.1f", it))
                     }
@@ -106,7 +102,6 @@ object CoverageCotCodec {
                 startTimeMs = start,
                 endTimeMs = points.last().timeMs,
                 spreadMaterial = Material.fromWireName(seg.attr("mat")),
-                contractor = seg.attr("contractor") == "true",
                 applicationRateLbsPerMi = seg.attr("rate")?.toDoubleOrNull(),
                 roadTempF = seg.attr("temp")?.toDoubleOrNull()
             )

@@ -17,16 +17,21 @@ import com.atakmap.android.plowtak.coverage.SwathBuilder
 import com.atakmap.android.maps.MapGroup
 import com.atakmap.android.maps.MapItem
 import com.atakmap.android.maps.Polyline
-import com.atakmap.android.plowtak.equipment.BluetoothEquipmentProvider
 import com.atakmap.android.plowtak.equipment.ManualEquipmentProvider
+import com.atakmap.android.plowtak.gis.GeoJsonRoadSource
+import com.atakmap.android.plowtak.gis.GraphHopperRoadSource
 import com.atakmap.android.plowtak.gis.LaneModel
+import com.atakmap.android.plowtak.gis.OverlayRoadSource
 import com.atakmap.android.plowtak.gis.RoadNetwork
 import com.atakmap.android.plowtak.gis.RoadNetworkImporter
 import com.atakmap.android.plowtak.gis.RoadPoint
+import com.atakmap.android.plowtak.gis.RoadSource
+import com.atakmap.android.plowtak.gis.VnsPacks
 import com.atakmap.android.plowtak.map.AlertOverlay
 import com.atakmap.android.plowtak.map.CoverageOverlay
 import com.atakmap.android.plowtak.map.FleetMarkerManager
 import com.atakmap.android.plowtak.map.PlowStatusHud
+import com.atakmap.android.plowtak.map.UntreatedRoadsOverlay
 import com.atakmap.android.plowtak.model.AlertEvent
 import com.atakmap.android.plowtak.model.AlertState
 import com.atakmap.android.plowtak.model.CapabilityRules
@@ -49,8 +54,6 @@ import com.atakmap.android.plowtak.model.PlowVehicle
 import com.atakmap.android.plowtak.ops.AlertManager
 import com.atakmap.android.plowtak.ops.FacilityGeofences
 import com.atakmap.android.plowtak.ops.FleetManager
-import com.atakmap.android.plowtak.ops.ProvisioningCodec
-import com.atakmap.android.plowtak.ops.ProvisioningProfile
 import com.atakmap.android.plowtak.ops.RouteAssignment
 import com.atakmap.android.plowtak.ops.RouteAssignmentManager
 import com.atakmap.android.plowtak.ops.RouteCoverage
@@ -72,7 +75,6 @@ import com.atakmap.android.plowtak.report.HazardReporter
 import com.atakmap.android.plowtak.report.QuickPicHazardCapture
 import com.atakmap.android.plowtak.report.MetricsCalculator
 import com.atakmap.android.plowtak.report.StormExportData
-import com.atakmap.android.plowtak.report.StormReplay
 import com.atakmap.android.plowtak.service.PlowTakShiftService
 import com.atakmap.android.plowtak.sync.MissionCoverageSync
 import com.atakmap.android.plowtak.sync.MissionPullSink
@@ -135,12 +137,24 @@ class PlowTakController(
         redAfterMinutes = prefs.cycleTimeMinutes,
         retentionHours = prefs.retentionHours
     )
+
+    /** Set while this device is the one ending the storm, so the listener clears coverage. */
+    @Volatile
+    private var localStormEnd = false
+
+    /** Banner when a peer ended the joined storm. Empty when the storm is active. */
+    @Volatile
+    var stormEndedNotice: String = ""
     val coverageStore = CoverageStore(File(pluginContext.filesDir, "plowtak"))
     private val swathBuilder = SwathBuilder { segment -> coverageStore.addLocal(segment) }
 
     /** Optional GraphHopper road snapper; loaded async, fail-open to raw GPS. */
     @Volatile
     private var roadSnapper: RoadSnapper? = null
+
+    /** VNS pack and optional agency file. Empty source until [reloadRoadNetwork]. */
+    @Volatile
+    var roadSource: RoadSource = OverlayRoadSource(null, null)
 
     // ---------------------------------------------------------------- cot
     private val cotQueue = OutboundCotQueue(
@@ -166,11 +180,16 @@ class PlowTakController(
         onCondition = { report -> synchronized(conditionLog) { conditionLog[report.uid] = report } }
     )
 
-    /** Active publish UID (contractor storms use a temporary CTR-* identity). */
+    /** Active publish UID. */
     fun selfUid(): String = capabilityStore.effectiveUid(stormManager.activeStormId)
 
     // ------------------------------------------------------------ display
     val coverageOverlay = CoverageOverlay(mapView, coverageStore, freshnessModel)
+    val untreatedOverlay = UntreatedRoadsOverlay(
+        mapView, coverageStore, freshnessModel
+    ) {
+        roadSource as? OverlayRoadSource ?: OverlayRoadSource(null, null)
+    }
     val fleetMarkers = FleetMarkerManager(mapView, fleetManager)
     val alertOverlay = AlertOverlay(mapView, alertManager)
     val plowStatusHud = PlowStatusHud(
@@ -218,7 +237,6 @@ class PlowTakController(
     val hazardReporter = HazardReporter(cotQueue)
     val exportManager = ExportManager(pluginContext)
     val voiceAlerts = VoiceAlerts(mapView.context) { prefs.ttsEnabled }
-    private var btProvider: BluetoothEquipmentProvider? = null
     val quickPicHazards = QuickPicHazardCapture { type, photoName ->
         reportHazard(type, photoName, attachQuickPic = true)
     }
@@ -237,6 +255,10 @@ class PlowTakController(
         tasks = { taskManager.all() },
         snoozes = { snoozeStore.all() },
         cycleMinutesFor = { seg -> cycleMinutesForSegment(seg) },
+        agencyRoads = {
+            val path = prefs.roadNetworkFile
+            if (path.isBlank()) null else File(path).takeIf { it.isFile }?.readBytes()
+        },
         sink = object : MissionPullSink {
             override fun onStormConfigPulled(cfg: StormConfigCodec.StormConfig) {
                 applyStormConfig(cfg)
@@ -285,7 +307,8 @@ class PlowTakController(
                         !known
                     }
                     if (!shouldPaint || mapHasUid(c.uid)) continue
-                    cotPublisher.publishRoadCondition(c, ttl)
+                    // Local paint only — originator already broadcast CoT.
+                    cotPublisher.showLocalRoadCondition(c, ttl)
                 }
             }
 
@@ -308,6 +331,20 @@ class PlowTakController(
                 for (t in snapshot.tasks) taskManager.onRemote(t)
                 if (snapshot.snoozes.isNotEmpty()) {
                     snoozeStore.mergeRemote(snapshot.snoozes)
+                }
+            }
+
+            override fun onRoadsPulled(bytes: ByteArray) {
+                if (prefs.roadNetworkFile.isNotBlank()) return
+                try {
+                    val dir = File(mapView.context.filesDir, "plowtak")
+                    dir.mkdirs()
+                    val out = File(dir, "roads.geojson")
+                    out.writeBytes(bytes)
+                    prefs.roadNetworkFile = out.absolutePath
+                    reloadRoadNetwork()
+                } catch (t: Throwable) {
+                    Log.w(TAG, "saving pulled roads.geojson failed", t)
                 }
             }
 
@@ -337,6 +374,7 @@ class PlowTakController(
         Log.i(TAG, "starting PlowTak engine")
         PlowTakSettingsBackup.export(pluginContext)
 
+        coverageStore.laneSlackM = prefs.laneSlackM
         coverageStore.setStorm(stormManager.activeStormId)
         syncFreshnessFromStorm()
 
@@ -348,13 +386,13 @@ class PlowTakController(
         refreshDirectionHook()
 
         coverageOverlay.start()
+        untreatedOverlay.start()
         fleetMarkers.start()
         alertOverlay.start()
         plowStatusHud.start()
         plowStatusHud.refreshVisibility()
         cotListener.start()
         equipment.start()
-        reloadBluetoothLink()
         quickPicHazards.start()
         // After restart, re-queue persisted local segments that may not have
         // been shared before process death.
@@ -395,15 +433,40 @@ class PlowTakController(
         }
 
         // Storm changes re-scope coverage; kick Data Sync mission upload.
+        // A storm ended by another unit keeps the local picture until this
+        // driver leaves or ends it locally.
         stormManager.addListener { session ->
             swathBuilder.flush()
-            coverageStore.setStorm(session?.takeIf { it.isActive }?.id ?: "")
+            when {
+                session == null -> {
+                    stormEndedNotice = ""
+                    coverageStore.setStorm("")
+                }
+                session.isActive -> {
+                    stormEndedNotice = ""
+                    coverageStore.setStorm(session.id)
+                    background.execute { missionCoverageSync.onStormStarted(session.id) }
+                }
+                localStormEnd -> {
+                    localStormEnd = false
+                    stormEndedNotice = ""
+                    coverageStore.setStorm("")
+                }
+                coverageStore.currentStormId == session.id -> {
+                    stormEndedNotice = "Storm ended by ${session.startedBy.ifBlank { "another unit" }}"
+                }
+                else -> coverageStore.setStorm("")
+            }
             syncFreshnessFromStorm()
             coverageOverlay.recolorAll(System.currentTimeMillis())
-            val activeId = session?.takeIf { it.isActive }?.id
-            if (activeId != null) {
-                background.execute { missionCoverageSync.onStormStarted(activeId) }
-            }
+        }
+
+        if (shiftLog.isOnShift) {
+            statusManager.updateShift(true)
+            PlowTakShiftService.start(
+                mapView.context,
+                "${capabilityStore.load().callsign} — ${statusManager.current.label}"
+            )
         }
 
         // Facility transitions: suggest LOADING at salt domes.
@@ -481,10 +544,12 @@ class PlowTakController(
             try {
                 val now = System.currentTimeMillis()
                 syncFreshnessFromStorm()
+                coverageStore.laneSlackM = prefs.laneSlackM
                 fleetManager.staleAfterMs = prefs.staleAfterS * 1000L
                 taskManager.escalateAfterMs = prefs.taskEscalateMinutes * 60_000L
                 refreshDirectionHook()
                 coverageOverlay.recolorAll(now)
+                untreatedOverlay.refresh(now)
                 fleetMarkers.refreshStaleness(now)
                 // Only prune when the storm (or device default) sets a clear window.
                 if (freshnessModel.retentionHours > 0) {
@@ -535,10 +600,9 @@ class PlowTakController(
         background.shutdownNow()
         cotListener.stop()
         quickPicHazards.stop()
-        btProvider?.stop()
-        btProvider = null
         equipment.stop()
         coverageOverlay.dispose()
+        untreatedOverlay.dispose()
         fleetMarkers.dispose()
         alertOverlay.dispose()
         plowStatusHud.dispose()
@@ -621,22 +685,6 @@ class PlowTakController(
         quickPicHazards.request(type)
     }
 
-    /** (Re)connect the Bluetooth plow/spreader controller from settings. */
-    fun reloadBluetoothLink() {
-        btProvider?.stop()
-        btProvider = null
-        if (!prefs.btEquipmentEnabled) return
-        val addr = prefs.btDeviceAddress.trim()
-        if (addr.isEmpty()) return
-        val link = BluetoothEquipmentProvider(
-            mapView.context, addr, prefs.btUseBle
-        )
-        link.addListener { hw -> equipment.applyHardware(hw) }
-        btProvider = link
-        link.start()
-        Log.i(TAG, "Bluetooth equipment link starting ($addr, ble=${prefs.btUseBle})")
-    }
-
     /** Quick road-condition report at the current position. */
     fun reportRoadCondition(condition: RoadCondition) {
         val pos = lastPositionSample ?: return
@@ -708,7 +756,11 @@ class PlowTakController(
      * a mission is an admin action on the server, never done from here.
      */
     fun endStormSession(): StormSession? {
-        val session = stormManager.endSession(System.currentTimeMillis()) ?: return null
+        localStormEnd = true
+        val session = stormManager.endSession(System.currentTimeMillis()) ?: run {
+            localStormEnd = false
+            return null
+        }
         broadcastStorm(session)
         background.execute { missionCoverageSync.onStormEnded() }
         return session
@@ -1001,7 +1053,9 @@ class PlowTakController(
 
     /** Effective cycle minutes for a segment (priority from GIS + zones). */
     fun cycleMinutesForSegment(segment: TreatSegment): Int {
-        val priority = loadRoadNetworkOrNull()?.priorityForSegment(segment)
+        val mid = segment.points.getOrNull(segment.points.size / 2)
+        val priority = mid?.let { roadSource.priorityAt(it.lat, it.lon) }
+            ?: loadRoadNetworkOrNull()?.priorityForSegment(segment)
             ?: RoutePriority.DEFAULT
         return CycleResolver.resolveForSegment(
             effectiveCycleTimes(), priority, zoneManager.all(), segment
@@ -1228,23 +1282,39 @@ class PlowTakController(
     /** Re-open (or drop) the road snapper after a settings change. */
     fun reloadRoadSnapper() {
         roadNetworkCache = null
-        if (!prefs.roadSnapEnabled) {
-            roadSnapper = null
-            return
-        }
-        val dir = prefs.roadSnapDir
-        if (dir.isEmpty()) {
-            roadSnapper = null
-            return
-        }
+        reloadRoadNetwork()
+    }
+
+    /** Open the VNS pack (and optional agency file) used for priority and untreated roads. */
+    fun reloadRoadNetwork() {
         background.execute {
-            val snapper = RoadSnapper.openOrNull(File(dir))
-            roadSnapper = snapper
-            Log.i(
-                TAG,
-                if (snapper != null) "road snapper ready from $dir"
-                else "road snapper unavailable from $dir — raw GPS"
-            )
+            val tools = try {
+                com.atakmap.coremap.filesystem.FileSystemUtils.getItem("tools")
+            } catch (_: Throwable) {
+                null
+            }
+            val vns = tools?.let { File(it, "VNS/GH") }
+            val active = try {
+                mapView.context.getSharedPreferences("atak", Context.MODE_PRIVATE)
+                    .getString("vns_gh_active_region", null)
+            } catch (_: Throwable) {
+                null
+            }
+            val packDir = VnsPacks.resolve(prefs.roadSnapDir, vns, active)
+            val snapper = packDir?.let { RoadSnapper.openOrNull(it) }
+            roadSnapper = if (prefs.roadSnapEnabled) snapper else null
+            val pack = if (snapper != null && packDir != null) {
+                GraphHopperRoadSource(snapper, VnsPacks.describe(packDir))
+            } else null
+            val agencyFile = File(prefs.roadNetworkFile)
+            val agency = if (prefs.roadNetworkFile.isNotBlank() && agencyFile.isFile) {
+                val text = agencyFile.readText()
+                val imported = RoadNetworkImporter.import(text)
+                if (imported.ok) GeoJsonRoadSource(imported.network, "Agency file: ${imported.imported} roads")
+                else null
+            } else null
+            roadSource = OverlayRoadSource(agency, pack)
+            Log.i(TAG, "road network: ${roadSource.label}")
         }
     }
 
@@ -1396,6 +1466,11 @@ class PlowTakController(
         val cap = capabilityStore.load()
         val shift = shiftLog.currentShift
         val paint = evaluatePaint(sample.gpsOk, sample.moving)
+        if (paint.reason != lastPaintReason) {
+            lastPaintReason = paint.reason
+            val reason = paint.reason
+            mapView.post { paintLineListener?.invoke(reason) }
+        }
         // Gate on storm + shift + equipment + GPS quality + movement.
         val treating = paint.anyPainting
 
@@ -1408,6 +1483,7 @@ class PlowTakController(
                 snapper.snap(lat, lon)?.let {
                     lat = it.lat
                     lon = it.lon
+                    swathBuilder.noteEdge("gh-${it.edgeId}")
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "road snap failed; using raw GPS", e)
@@ -1483,6 +1559,10 @@ class PlowTakController(
         val p = evaluatePaint(gpsOk = true, moving = true)
         return p.anyPainting
     }
+
+    /** Fired on the map thread when the paint-line reason changes. */
+    var paintLineListener: ((String) -> Unit)? = null
+    private var lastPaintReason: String? = null
 
     /** Operator-facing paint gate summary for the ops status line. */
     fun currentPaintStatus(): PaintStatus {

@@ -20,6 +20,9 @@ local.properties
 *.keystore
 *.jks
 
+# Decompiled ATAK host sources (local reference only)
+.tmp-atak-res/
+
 # IDE
 .idea/
 *.iml

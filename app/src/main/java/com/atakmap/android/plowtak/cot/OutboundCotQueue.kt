@@ -31,8 +31,8 @@ class OutboundCotQueue(
 
     /**
      * Local map only — never queues for the TAK server.
-     * Used for ops markers (hazards, conditions, etc.) that are shared via
-     * Data Sync while the storm mission is joined.
+     * Used when painting peer content from a Data Sync pull (hazards /
+     * conditions) so we do not rebroadcast originators' markers.
      */
     @Synchronized
     fun sendLocalOnly(event: CotEvent) {
@@ -45,7 +45,7 @@ class OutboundCotQueue(
 
     /**
      * Dispatch internally now; externally now or when connectivity returns.
-     * Reserved for real-unit location PLI (and distress / storm announce).
+     * Used for PLI, distress, storm announce, hazards, and road conditions.
      */
     @Synchronized
     fun send(event: CotEvent, alsoInternal: Boolean = true) {
@@ -58,11 +58,11 @@ class OutboundCotQueue(
         }
         if (isConnected()) {
             flushLocked()
-            dispatchExternal(event)
+            if (!dispatchExternal(event)) enqueue(event)
         } else {
             enqueue(event)
-            persistLocked()
         }
+        persistLocked()
     }
 
     /** Call periodically (shared timer) to flush after reconnect. */
@@ -92,16 +92,24 @@ class OutboundCotQueue(
     }
 
     private fun flushLocked() {
-        while (queue.isNotEmpty()) {
-            dispatchExternal(queue.removeFirst())
+        while (queue.isNotEmpty() && isConnected()) {
+            val event = queue.removeFirst()
+            if (!dispatchExternal(event)) {
+                queue.addFirst(event)
+                break
+            }
         }
     }
 
-    private fun dispatchExternal(event: CotEvent) {
-        try {
-            CotMapComponent.getExternalDispatcher()?.dispatchToBroadcast(event)
+    /** @return false when the event was not accepted and must stay queued. */
+    private fun dispatchExternal(event: CotEvent): Boolean {
+        return try {
+            val dispatcher = CotMapComponent.getExternalDispatcher() ?: return false
+            dispatcher.dispatchToBroadcast(event)
+            true
         } catch (e: Exception) {
             Log.w(TAG, "external dispatch failed for ${event.uid}", e)
+            false
         }
     }
 
@@ -136,11 +144,10 @@ class OutboundCotQueue(
 
     private fun isConnected(): Boolean {
         return try {
-            val servers = CotMapComponent.getInstance()?.servers ?: return true
-            if (servers.isEmpty()) return true
-            servers.any { it.isConnected }
+            val servers = CotMapComponent.getInstance()?.servers
+            CotLinkState.isUp(servers?.size, servers?.any { it.isConnected } == true)
         } catch (e: Throwable) {
-            true
+            false
         }
     }
 

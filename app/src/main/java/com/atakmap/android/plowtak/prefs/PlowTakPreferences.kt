@@ -29,16 +29,29 @@ class PlowTakPreferences(context: Context) : KeyValuePersistence {
         prefs.edit().remove(key).apply()
     }
 
+    /** EditTextPreference stores strings; in-app setters store ints. */
+    private fun intPref(key: String, default: Int): Int = try {
+        prefs.getInt(key, default)
+    } catch (_: ClassCastException) {
+        prefs.getString(key, null)?.toIntOrNull() ?: default
+    }
+
+    private fun floatPref(key: String, default: Float): Float = try {
+        prefs.getFloat(key, default)
+    } catch (_: ClassCastException) {
+        prefs.getString(key, null)?.toFloatOrNull() ?: default
+    }
+
     // --------------------------------------------------------- settings
 
     /** PLI report interval while moving, seconds (1–5 s typical). */
     var reportIntervalMovingS: Int
-        get() = prefs.getInt(KEY_REPORT_MOVING, 3)
+        get() = intPref(KEY_REPORT_MOVING, 3)
         set(v) = prefs.edit().putInt(KEY_REPORT_MOVING, v.coerceIn(1, 60)).apply()
 
     /** PLI report interval while stopped, seconds. */
     var reportIntervalStoppedS: Int
-        get() = prefs.getInt(KEY_REPORT_STOPPED, 15)
+        get() = intPref(KEY_REPORT_STOPPED, 15)
         set(v) = prefs.edit().putInt(KEY_REPORT_STOPPED, v.coerceIn(5, 300)).apply()
 
     /** Red-after (minutes) for new storms / no-storm fallback. */
@@ -77,12 +90,12 @@ class PlowTakPreferences(context: Context) : KeyValuePersistence {
 
     /** Fleet units grey out after this many seconds without a report. */
     var staleAfterS: Int
-        get() = prefs.getInt(KEY_STALE_AFTER, 60)
+        get() = intPref(KEY_STALE_AFTER, 60)
         set(v) = prefs.edit().putInt(KEY_STALE_AFTER, v.coerceIn(10, 600)).apply()
 
     /** Ignore GPS fixes with circular error above this many meters. */
     var gpsCeThresholdM: Double
-        get() = prefs.getFloat(KEY_GPS_CE, 25f).toDouble()
+        get() = floatPref(KEY_GPS_CE, 25f).toDouble()
         set(v) = prefs.edit().putFloat(KEY_GPS_CE, v.toFloat().coerceIn(5f, 200f)).apply()
 
     // ------------------------------------------------------ Phase 2 settings
@@ -123,6 +136,11 @@ class PlowTakPreferences(context: Context) : KeyValuePersistence {
         get() = prefs.getBoolean(KEY_NIGHT, false)
         set(v) = prefs.edit().putBoolean(KEY_NIGHT, v).apply()
 
+    /** Seven taps on the Setup title. Keeps the demo fleet reachable. */
+    var devModeEnabled: Boolean
+        get() = prefs.getBoolean(KEY_DEV_MODE, false)
+        set(v) = prefs.edit().putBoolean(KEY_DEV_MODE, v).apply()
+
     /** Mini plow HUD on the map while on shift (bottom-left). */
     var mapHudEnabled: Boolean
         get() = prefs.getBoolean(KEY_MAP_HUD, true)
@@ -138,6 +156,23 @@ class PlowTakPreferences(context: Context) : KeyValuePersistence {
         set(v) = prefs.edit()
             .putInt(KEY_COND_STALE, v.coerceIn(15, 24 * 60))
             .apply()
+
+    /**
+     * Extra meters beyond half the plow width when a later pass supersedes
+     * an earlier one. [com.atakmap.android.plowtak.coverage.SegmentSupersede.DEFAULT_LANE_SLACK_M]
+     * is road-level; [com.atakmap.android.plowtak.coverage.SegmentSupersede.STRICT_LANE_SLACK_M]
+     * keeps adjacent lanes distinct.
+     */
+    var laneSlackM: Double
+        get() = floatPref(KEY_LANE_SLACK, 6f).toDouble()
+        set(v) = prefs.edit().putFloat(KEY_LANE_SLACK, v.toFloat().coerceIn(0f, 30f)).apply()
+
+    /** True when [laneSlackM] is the strict-lanes setting. */
+    var strictLanes: Boolean
+        get() = laneSlackM <= 3.0
+        set(v) {
+            laneSlackM = if (v) 2.0 else 6.0
+        }
 
     /** Direction-aware coverage coloring (one-way passes render dashed). */
     var directionSplitEnabled: Boolean
@@ -156,17 +191,17 @@ class PlowTakPreferences(context: Context) : KeyValuePersistence {
 
     /** Max plausible plowing speed for the sanity prompt, mph. */
     var maxPlowSpeedMph: Int
-        get() = prefs.getInt(KEY_MAX_PLOW_MPH, 35)
+        get() = intPref(KEY_MAX_PLOW_MPH, 35)
         set(v) = prefs.edit().putInt(KEY_MAX_PLOW_MPH, v.coerceIn(10, 70)).apply()
 
     /** Hard cap on retained coverage segments (marathon-storm safety). */
     var maxRetainedSegments: Int
-        get() = prefs.getInt(KEY_MAX_SEGMENTS, 20_000)
+        get() = intPref(KEY_MAX_SEGMENTS, 20_000)
         set(v) = prefs.edit().putInt(KEY_MAX_SEGMENTS, v.coerceIn(1_000, 100_000)).apply()
 
     /** Task escalation timer, minutes. */
     var taskEscalateMinutes: Int
-        get() = prefs.getInt(KEY_TASK_ESCALATE, 5)
+        get() = intPref(KEY_TASK_ESCALATE, 5)
         set(v) = prefs.edit().putInt(KEY_TASK_ESCALATE, v.coerceIn(1, 60)).apply()
 
     // ------------------------------------------------------ Phase 3 settings
@@ -175,26 +210,6 @@ class PlowTakPreferences(context: Context) : KeyValuePersistence {
     var roadNetworkFile: String
         get() = prefs.getString(KEY_ROAD_NETWORK_FILE, "") ?: ""
         set(v) = prefs.edit().putString(KEY_ROAD_NETWORK_FILE, v).apply()
-
-    /** Bluetooth equipment link enabled (blade/spreader controller). */
-    var btEquipmentEnabled: Boolean
-        get() = prefs.getBoolean(KEY_BT_ENABLED, false)
-        set(v) = prefs.edit().putBoolean(KEY_BT_ENABLED, v).apply()
-
-    /** MAC address of the chosen controller; empty = none picked. */
-    var btDeviceAddress: String
-        get() = prefs.getString(KEY_BT_ADDRESS, "") ?: ""
-        set(v) = prefs.edit().putString(KEY_BT_ADDRESS, v).apply()
-
-    /** Friendly name of the picked device, for the settings UI. */
-    var btDeviceName: String
-        get() = prefs.getString(KEY_BT_NAME, "") ?: ""
-        set(v) = prefs.edit().putString(KEY_BT_NAME, v).apply()
-
-    /** Use BLE GATT instead of classic SPP for the controller link. */
-    var btUseBle: Boolean
-        get() = prefs.getBoolean(KEY_BT_BLE, false)
-        set(v) = prefs.edit().putBoolean(KEY_BT_BLE, v).apply()
 
     // ----------------------------------------------- mission coverage sync
 
@@ -249,8 +264,10 @@ class PlowTakPreferences(context: Context) : KeyValuePersistence {
         private const val KEY_TTS = "plowtak.tts_enabled"
         private const val KEY_TASKING_SNOOZE = "plowtak.tasking_snooze_min"
         private const val KEY_NIGHT = "plowtak.night_mode"
+        private const val KEY_DEV_MODE = "plowtak.dev_mode"
         private const val KEY_MAP_HUD = "plowtak.map_hud_enabled"
         private const val KEY_COND_STALE = "plowtak.road_condition_stale_min"
+        private const val KEY_LANE_SLACK = "plowtak.lane_slack_m"
         private const val KEY_DIRECTION_SPLIT = "plowtak.direction_split"
         private const val KEY_ROADSNAP = "plowtak.roadsnap_enabled"
         private const val KEY_ROADSNAP_DIR = "plowtak.roadsnap_dir"
@@ -258,10 +275,6 @@ class PlowTakPreferences(context: Context) : KeyValuePersistence {
         private const val KEY_MAX_SEGMENTS = "plowtak.max_retained_segments"
         private const val KEY_TASK_ESCALATE = "plowtak.task_escalate_min"
         private const val KEY_ROAD_NETWORK_FILE = "plowtak.road_network_file"
-        private const val KEY_BT_ENABLED = "plowtak.bt_enabled"
-        private const val KEY_BT_ADDRESS = "plowtak.bt_address"
-        private const val KEY_BT_NAME = "plowtak.bt_name"
-        private const val KEY_BT_BLE = "plowtak.bt_use_ble"
         // Keep in sync with MissionCoverageSync.KEY_LAST_* (KeyValuePersistence).
         private const val KEY_MISSION_COV_HASH = "plowtak.mission_cov.last_hash"
         private const val KEY_MISSION_COV_FILENAME = "plowtak.mission_cov.last_filename"

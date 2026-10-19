@@ -6,7 +6,7 @@ package com.atakmap.android.plowtak.ops
  * per-rule cooldowns so drivers are nudged, not nagged.
  *
  * Rules (all PROMPTS — never auto-flips; the driver stays authoritative
- * until Bluetooth sensors exist):
+ * until the driver confirms):
  *  - NUDGE_NOT_TREATING: moving for N minutes during an active storm with
  *    no treating state -> "Are you treating?"
  *  - CONFIRM_SPEED: blade down above the max plowing speed (sustained) ->

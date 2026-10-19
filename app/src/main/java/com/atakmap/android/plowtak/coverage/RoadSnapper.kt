@@ -70,6 +70,38 @@ class RoadSnapper private constructor(
     }
 
     /**
+     * Edge ids whose tower nodes fall within [radiusM] of the point, capped
+     * at [limit]. Used to draw untreated roads without scanning a whole state.
+     */
+    fun edgesAround(lat: Double, lon: Double, radiusM: Double, limit: Int): List<Int> {
+        val metersPerDegLat = 111_320.0
+        val centerLatC = ((lat - graph.minLat) / cellSizeDeg).toInt()
+        val centerLonC = ((lon - graph.minLon) / cellSizeDeg).toInt()
+        val cellM = cellSizeDeg * metersPerDegLat
+        val maxRing = (radiusM / cellM).toInt().coerceIn(0, 40)
+        val out = ArrayList<Int>()
+        val seen = HashSet<Int>()
+        for (ring in 0..maxRing) {
+            forEachRingCell(centerLatC, centerLonC, ring) { cell ->
+                var i = cellStart[cell]
+                val end = cellStart[cell + 1]
+                while (i < end && out.size < limit) {
+                    val node = cellNodes[i]
+                    val edges = ArrayList<Int>(8)
+                    graph.edgesOf(node, edges)
+                    for (e in edges) {
+                        if (seen.add(e)) out.add(e)
+                        if (out.size >= limit) break
+                    }
+                    i++
+                }
+            }
+            if (out.size >= limit) break
+        }
+        return out
+    }
+
+    /**
      * Snap a GPS point to the nearest road edge. Returns null when the
      * point is outside the pack bounds, no road is within [maxDistM], or
      * no tower node exists within [MAX_TOWER_SEARCH_M].

@@ -6,12 +6,12 @@ import android.view.View
 import com.atakmap.android.dropdown.DropDown.OnStateListener
 import com.atakmap.android.dropdown.DropDownReceiver
 import com.atakmap.android.plowtak.PlowTakController
+import com.atakmap.android.plowtak.model.VehicleType
 import com.atakmap.android.maps.MapView
 
 /**
- * Drop-down host. First run shows vehicle setup; afterward every role uses
- * the unified ops panel (DriverPanel). Storm admin and vehicle config live
- * under the header Settings gear.
+ * Drop-down host. First run shows vehicle setup; afterward the panel follows
+ * the role chosen in Setup (driver, supervisor, or observer).
  */
 class PlowTakDropDownReceiver(
     mapView: MapView,

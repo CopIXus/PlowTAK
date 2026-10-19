@@ -114,6 +114,21 @@
             android:textColor="@color/plowtak_grey"
             android:textSize="11sp" />
 
+        <TextView
+            android:id="@+id/driver_sync_line"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/plowtak_grey"
+            android:textSize="11sp" />
+
+        <TextView
+            android:id="@+id/driver_legend"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/coverage_legend"
+            android:textColor="@color/plowtak_grey"
+            android:textSize="11sp" />
+
         <LinearLayout
             android:id="@+id/driver_shift_form"
             android:layout_width="match_parent"

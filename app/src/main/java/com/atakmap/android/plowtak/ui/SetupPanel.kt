@@ -56,6 +56,19 @@ class SetupPanel(
             "PlowTAK ${pluginVersionLabel()}"
 
         typeGroup.setOnCheckedChangeListener { _, _ -> applyVisibility() }
+        var headerTaps = 0
+        view.findViewById<TextView>(R.id.setup_title).setOnClickListener {
+            headerTaps++
+            if (headerTaps >= 7) {
+                controller.prefs.devModeEnabled = true
+                showDemoControls()
+            }
+        }
+        if (controller.prefs.devModeEnabled || controller.demoFleet.isRunning) showDemoControls()
+        if (controller.prefs.nightMode) NightPalette.apply(view, true)
+        val roadLine = view.findViewById<TextView>(R.id.setup_road_network)
+        roadLine.text = controller.roadSource.label
+        view.postDelayed({ roadLine.text = controller.roadSource.label }, 1500)
         roadSnap.setOnCheckedChangeListener { _, checked ->
             roadSnapDir.visibility = if (checked) View.VISIBLE else View.GONE
         }
@@ -64,10 +77,10 @@ class SetupPanel(
         val cap = controller.capabilityStore.load()
         if (controller.capabilityStore.isConfigured) {
             when (cap.type) {
-                VehicleType.PLOW,
-                VehicleType.SUPERVISOR,
-                VehicleType.OBSERVER -> typeGroup.check(R.id.setup_type_plow)
+                VehicleType.PLOW -> typeGroup.check(R.id.setup_type_plow)
                 VehicleType.SALT_ONLY -> typeGroup.check(R.id.setup_type_salt)
+                VehicleType.SUPERVISOR -> typeGroup.check(R.id.setup_type_supervisor)
+                VehicleType.OBSERVER -> typeGroup.check(R.id.setup_type_observer)
             }
             callsign.setText(cap.callsign)
             vehicleId.setText(cap.vehicleId)
@@ -92,9 +105,6 @@ class SetupPanel(
         roadSnap.isChecked = controller.prefs.roadSnapEnabled
         roadSnapDir.setText(controller.prefs.roadSnapDir)
         roadSnapDir.visibility = if (roadSnap.isChecked) View.VISIBLE else View.GONE
-        btEnabled.isChecked = controller.prefs.btEquipmentEnabled
-        btAddress.setText(controller.prefs.btDeviceAddress)
-        btBle.isChecked = controller.prefs.btUseBle
         applyVisibility()
 
         view.findViewById<Button>(R.id.setup_save).setOnClickListener { save() }
@@ -102,13 +112,15 @@ class SetupPanel(
 
     private fun selectedType(): VehicleType = when (typeGroup.checkedRadioButtonId) {
         R.id.setup_type_salt -> VehicleType.SALT_ONLY
+        R.id.setup_type_supervisor -> VehicleType.SUPERVISOR
+        R.id.setup_type_observer -> VehicleType.OBSERVER
         else -> VehicleType.PLOW
     }
 
     private fun applyVisibility() {
         val type = selectedType()
-        treatOptions.visibility = View.VISIBLE
-        // A salt-only truck always has a spreader; the checkbox is for plows.
+        val treats = type == VehicleType.PLOW || type == VehicleType.SALT_ONLY
+        treatOptions.visibility = if (treats) View.VISIBLE else View.GONE
         hasSalt.visibility = if (type == VehicleType.PLOW) View.VISIBLE else View.GONE
         observerOptions.visibility = View.GONE
     }
@@ -173,12 +185,8 @@ class SetupPanel(
         }
         controller.prefs.roadSnapEnabled = roadSnap.isChecked
         controller.prefs.roadSnapDir = roadSnapDir.text.toString().trim()
-        controller.prefs.btEquipmentEnabled = btEnabled.isChecked
-        controller.prefs.btDeviceAddress = btAddress.text.toString().trim()
-        controller.prefs.btUseBle = btBle.isChecked
         com.atakmap.android.plowtak.prefs.PlowTakSettingsBackup.export(controller.pluginContext)
         controller.reloadRoadSnapper()
-        controller.reloadBluetoothLink()
         onSaved()
     }
 
