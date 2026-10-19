@@ -169,11 +169,16 @@ foreach ($row in $rows) {
 }
 
 $existing = $false
-gh release view $Tag --repo $OwnerRepo --json tagName 2>$null | Out-Null
-if ($LASTEXITCODE -eq 0) { $existing = $true }
+try {
+    gh release view $Tag --repo $OwnerRepo --json tagName 2>$null | Out-Null
+    if ($LASTEXITCODE -eq 0) { $existing = $true }
+} catch {
+    $existing = $false
+}
 
-$notesFile = Join-Path $Repo "dist" "tpp" "release-notes.md"
-New-Item -ItemType Directory -Force -Path (Split-Path $notesFile) | Out-Null
+$notesDir = Join-Path (Join-Path $Repo "dist") "tpp"
+$notesFile = Join-Path $notesDir "release-notes.md"
+New-Item -ItemType Directory -Force -Path $notesDir | Out-Null
 Set-Content -LiteralPath $notesFile -Value $body -Encoding utf8
 
 if ($existing) {
